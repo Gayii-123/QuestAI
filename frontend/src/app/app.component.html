@@ -1,21 +1,13 @@
 <div class="chat-app-layout">
-  <!-- Mobile Sidebar Backdrop -->
-  <div
-    class="sidebar-backdrop"
-    *ngIf="mobileSidebarOpen()"
-    (click)="closeMobileSidebar()"
-    aria-hidden="true"
-  ></div>
+  <!-- Mobile Sidebar Backdrop Overlay -->
+  <div class="sidebar-backdrop" *ngIf="mobileSidebarOpen()" (click)="closeMobileSidebar()" aria-hidden="true"></div>
 
   <!-- Top Navigation Header -->
   <header class="app-topbar">
     <div class="topbar-left">
-      <!-- Mobile Hamburger Button -->
-      <button
-        class="btn-icon mobile-menu-toggle"
-        (click)="toggleMobileSidebar()"
-        aria-label="Toggle Navigation Menu"
-      >
+      <!-- Hamburger Toggle Button (Works on both desktop & mobile) -->
+      <button class="btn-icon sidebar-toggle-btn" (click)="toggleSidebar()" aria-label="Toggle Navigation Sidebar"
+        title="Toggle Sidebar">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="3" y1="12" x2="21" y2="12"></line>
           <line x1="3" y1="6" x2="21" y2="6"></line>
@@ -35,36 +27,42 @@
       </div>
     </div>
 
-    <!-- Topbar Right Controls -->
-    <div class="topbar-right">
-      <!-- System Diagnostics Link (Preserves Backend Health Status) -->
-      <button
-        class="btn-diagnostics"
-        (click)="openDiagnostics()"
-        title="View Backend Health & Service Readiness"
-      >
-        <span
-          class="status-indicator-dot"
-          [class.online]="healthData()?.status === 'healthy'"
-        ></span>
-        <span class="diagnostics-label">Diagnostics</span>
+    <!-- Workspace Navigation Tabs (Center) -->
+    <nav class="topbar-nav" aria-label="Workspace Navigation">
+      <button class="topbar-nav-tab" [class.active]="currentView() === 'chat'" (click)="navigateToChat()" type="button">
+        <span>Quest AI</span>
       </button>
 
-      <!-- User Profile Placeholder -->
-      <div class="user-profile-badge" title="Field Inspection Lead">
+      <button class="topbar-nav-tab" [class.active]="currentView() === 'inspection'" (click)="navigateToInspection()" type="button">
+        <span>Site Inspection</span>
+        <span class="nav-tab-badge">12 Banks</span>
+      </button>
+    </nav>
+
+    <!-- Topbar Right Controls -->
+    <div class="topbar-right">
+      <!-- User Profile Avatar -->
+      <div class="user-profile-badge" title="Subhash Kumar • Site Inspector">
         <div class="avatar-circle">
-          <span>IN</span>
+          <span>SK</span>
         </div>
-        <span class="user-role-label">Site Inspector</span>
+        <div class="user-profile-info">
+          <span class="user-name-label">{{ userName() }} Kumar</span>
+          <span class="user-role-label">Site Inspector</span>
+        </div>
       </div>
     </div>
   </header>
 
   <div class="workspace-body">
-    <!-- Left Chat Sidebar -->
-    <aside class="chat-sidebar" [class.mobile-open]="mobileSidebarOpen()">
-      <div class="sidebar-header">
-        <button class="btn-new-chat" (click)="startNewChat()">
+    <!-- Left Sidebar -->
+    <aside class="chat-sidebar" [class.mobile-open]="mobileSidebarOpen()"
+      [class.desktop-collapsed]="desktopSidebarCollapsed()">
+      
+      <!-- Top Action Section -->
+      <div class="sidebar-top-actions">
+        <!-- New Chat Button -->
+        <button class="btn-new-chat" (click)="startNewChat()" type="button">
           <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <line x1="12" y1="5" x2="12" y2="19"></line>
             <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -78,43 +76,64 @@
             <circle cx="11" cy="11" r="8"></circle>
             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
           </svg>
-          <input
-            type="text"
-            [ngModel]="searchQuery()"
-            (ngModelChange)="searchQuery.set($event)"
-            placeholder="Search conversations..."
-            class="search-input"
-          />
+          <input type="text" [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)"
+            placeholder="Search chat..." class="search-input" />
         </div>
       </div>
 
-      <!-- Recent Conversations List -->
+      <!-- Quick View Mode Switcher -->
+      <div class="sidebar-nav-switcher">
+        <button class="sidebar-nav-btn" [class.active]="currentView() === 'chat'" (click)="navigateToChat()" type="button">
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+          <span>Chat</span>
+        </button>
+
+        <button class="sidebar-nav-btn" [class.active]="currentView() === 'inspection'" (click)="navigateToInspection()" type="button">
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 11l3 3L22 4"></path>
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+          </svg>
+          <span>Site Inspection</span>
+        </button>
+      </div>
+
+      <!-- Sidebar Conversations List (Recent Chats) -->
       <div class="conversations-section">
         <div class="section-title-row">
           <span class="section-title">Recent Chats</span>
-          <span class="count-badge">{{ filteredConversations().length }}</span>
+          <span class="count-badge" *ngIf="filteredConversations().length > 0">{{ filteredConversations().length }}</span>
         </div>
 
         <div class="conversations-list">
-          <div
-            *ngFor="let conv of filteredConversations()"
-            class="conversation-item"
-            [class.active]="conv.id === activeConversationId()"
-            (click)="selectConversation(conv.id)"
-          >
+          <div *ngFor="let conv of filteredConversations()" class="conversation-item"
+            [class.active]="conv.id === activeConversationId() && currentView() === 'chat'" (click)="selectConversation(conv.id)">
             <div class="conv-icon">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
               </svg>
             </div>
             <div class="conv-content">
-              <div class="conv-title">{{ conv.title }}</div>
+              <div class="conv-title-row">
+                <span class="conv-title">{{ conv.title }}</span>
+                <span class="conv-time">{{ conv.updatedAt | date:'shortTime' }}</span>
+              </div>
               <div class="conv-snippet">{{ conv.previewSnippet }}</div>
             </div>
           </div>
 
-          <!-- Empty search results state -->
-          <div *ngIf="filteredConversations().length === 0" class="no-conversations">
+          <!-- Empty state when no conversations have been started -->
+          <div *ngIf="conversations().length === 0" class="empty-recent-chats">
+            <svg class="empty-chats-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+            <p class="empty-chats-title">No conversations yet</p>
+            <span class="empty-chats-sub">Start a chat or select Site Inspection</span>
+          </div>
+
+          <!-- Empty state when search query yields no matches -->
+          <div *ngIf="conversations().length > 0 && filteredConversations().length === 0" class="no-conversations">
             No matching conversations
           </div>
         </div>
@@ -125,15 +144,24 @@
         <div class="session-scope-tag">
           <span class="scope-icon">📋</span>
           <div class="scope-info">
-            <span class="scope-title">Session Workspace</span>
-            <span class="scope-desc">Inspection Assistant v1.0</span>
+            <span class="scope-title">QuestAI Enterprise</span>
+            <span class="scope-desc">Version 2.0 • Inspection Assistant</span>
           </div>
         </div>
       </div>
     </aside>
 
     <!-- Main Chat Workspace -->
-    <main class="chat-main">
+    <main class="chat-main" *ngIf="currentView() === 'chat'">
+      <!-- Chat Header Bar -->
+      <div class="chat-workspace-header">
+        <div class="chat-header-title-wrap">
+          <div class="active-status-dot"></div>
+          <h2 class="chat-header-title">Quest AI</h2>
+          <span class="chat-header-sub">Site Inspection & Document Assistant</span>
+        </div>
+      </div>
+
       <!-- Chat Scrollable Messages Area -->
       <div class="chat-scroll-area" #chatScrollContainer>
         <!-- Empty State (No messages in active conversation) -->
@@ -142,49 +170,94 @@
             <div class="welcome-badge">
               <span class="welcome-brand-q">Q</span>
             </div>
-            <h1 class="welcome-heading">Welcome to QuestAI</h1>
+            <h1 class="welcome-heading">What do you want today, {{ userName() }}?</h1>
             <p class="welcome-subtext">
-              Your AI assistant for site inspection documents, safety requirements, and inspection reviews.
+              Select a question bank to start an inspection or upload site photographs for AI analysis.
             </p>
 
-            <!-- 3 Standard Suggestion Cards -->
-            <div class="suggestions-grid">
-              <div
-                *ngFor="let card of suggestionCards"
-                class="suggestion-card"
-                (click)="onSelectSuggestion(card)"
-                role="button"
-                tabindex="0"
-              >
-                <div class="card-icon-wrap" [ngClass]="card.category">
-                  <!-- Document Icon -->
-                  <svg *ngIf="card.category === 'document'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                    <polyline points="14 2 14 8 20 8"></polyline>
-                    <line x1="16" y1="13" x2="8" y2="13"></line>
-                    <line x1="16" y1="17" x2="8" y2="17"></line>
-                    <polyline points="10 9 9 9 8 9"></polyline>
-                  </svg>
+            <!-- Site Inspection Question Bank Badge & Dropdown Trigger -->
+            <div class="inspection-badge-container">
+              <button class="btn-inspection-badge" (click)="toggleHomeInspectionDropdown($event)" type="button"
+                [class.active]="showHomeInspectionDropdown()">
+                <span class="badge-icon-pill">📋</span>
+                <span class="badge-main-label">Site Inspection Checklist</span>
+                <span class="badge-count-tag">12 Question Banks</span>
+                <svg class="badge-chevron" [class.rotated]="showHomeInspectionDropdown()" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </button>
 
-                  <!-- Evidence Review Icon -->
-                  <svg *ngIf="card.category === 'evidence'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+              <!-- Searchable Question Banks Dropdown -->
+              <div *ngIf="showHomeInspectionDropdown()" class="inspection-banks-dropdown" (click)="$event.stopPropagation()">
+                <div class="dropdown-search-wrap">
+                  <svg class="dropdown-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                   </svg>
-
-                  <!-- Response Preparation Icon -->
-                  <svg *ngIf="card.category === 'response'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                  </svg>
+                  <input type="text" [ngModel]="inspectionBankSearchQuery()" (ngModelChange)="inspectionBankSearchQuery.set($event)"
+                    placeholder="Search question banks (e.g. Street Lighting, Traffic Management, Harness)..."
+                    class="dropdown-search-input" autofocus />
+                  <button *ngIf="inspectionBankSearchQuery()" class="btn-clear-search" (click)="inspectionBankSearchQuery.set('')">✕</button>
                 </div>
 
-                <div class="suggestion-card-content">
-                  <h3 class="card-title">{{ card.title }}</h3>
-                  <p class="card-description">{{ card.description }}</p>
-                </div>
+                <div class="dropdown-banks-list">
+                  <div *ngFor="let bank of filteredInspectionBanks()" class="dropdown-bank-row" (click)="onSelectBankForPhotoUpload(bank)">
+                    <div class="bank-row-left">
+                      <span class="bank-row-icon">{{ bank.icon }}</span>
+                      <div class="bank-row-details">
+                        <span class="bank-row-title">{{ bank.name }}</span>
+                        <span class="bank-row-desc">{{ bank.description }}</span>
+                      </div>
+                    </div>
+                    <div class="bank-row-right">
+                      <span class="bank-row-badge">{{ bank.badge }}</span>
+                      <span class="btn-bank-select-action">Upload Photos →</span>
+                    </div>
+                  </div>
 
-                <div class="card-arrow">
+                  <div *ngIf="filteredInspectionBanks().length === 0" class="no-banks-found">
+                    <p>No question bank matches "{{ inspectionBankSearchQuery() }}"</p>
+                    <button class="btn-text-reset" (click)="inspectionBankSearchQuery.set('')">Show all 12 banks</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Two Dedicated Real Action Cards (Only Site Inspection, No Dummy Data) -->
+            <div class="home-inspection-actions">
+              <!-- Action 1: Open Full Form -->
+              <div class="home-action-card" (click)="navigateToInspection()" role="button" tabindex="0">
+                <div class="action-card-icon-wrap form-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 11l3 3L22 4"></path>
+                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                  </svg>
+                </div>
+                <div class="action-card-content">
+                  <h3 class="action-card-title">Start Site Inspection</h3>
+                  <p class="action-card-desc">374 verified questions across all 12 Quest departments with rating & CAR controls</p>
+                </div>
+                <div class="action-card-arrow">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                    <polyline points="12 5 19 12 12 19"></polyline>
+                  </svg>
+                </div>
+              </div>
+
+              <!-- Action 2: Upload Photos & Auto-Fill Form -->
+              <div class="home-action-card" (click)="openPhotoUploadForComposer()" role="button" tabindex="0">
+                <div class="action-card-icon-wrap photo-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                    <circle cx="12" cy="13" r="4"></circle>
+                  </svg>
+                </div>
+                <div class="action-card-content">
+                  <h3 class="action-card-title">Upload Site Photos & Auto-Fill</h3>
+                  <p class="action-card-desc">AI vision evaluates site photos, validates safety compliance, and pre-fills answers</p>
+                </div>
+                <div class="action-card-arrow">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="5" y1="12" x2="19" y2="12"></line>
                     <polyline points="12 5 19 12 12 19"></polyline>
@@ -197,12 +270,9 @@
 
         <!-- Populated Messages Stream -->
         <div *ngIf="activeMessages().length > 0" class="messages-stream">
-          <div
-            *ngFor="let msg of activeMessages()"
-            class="message-row"
-            [class.user-row]="msg.sender === 'user'"
-            [class.assistant-row]="msg.sender === 'assistant'"
-          >
+          <div *ngFor="let msg of activeMessages()" class="message-row" [class.user-row]="msg.sender === 'user'"
+            [class.assistant-row]="msg.sender === 'assistant'">
+            
             <!-- Assistant Avatar -->
             <div *ngIf="msg.sender === 'assistant'" class="avatar-assistant">
               <span>Q</span>
@@ -222,16 +292,24 @@
               <div class="bubble-body">
                 <p class="bubble-text">{{ msg.content }}</p>
 
+                <!-- Document Citation / Source Pill -->
+                <div *ngIf="msg.attachmentName" class="document-source-pill">
+                  <svg class="source-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path
+                      d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48">
+                    </path>
+                  </svg>
+                  <span class="source-filename">{{ msg.attachmentName }}</span>
+                  <span class="source-time">{{ msg.timestamp | date:'shortTime' }}</span>
+                </div>
+
                 <!-- Structured Inspection Card (When backend returns findings) -->
                 <div *ngIf="msg.structuredInspection" class="structured-report-card">
                   <div class="report-header">
                     <div class="report-meta">
                       <span class="inspection-tag">Site Inspection Analysis</span>
-                      <span
-                        *ngIf="msg.structuredInspection.overallRiskLevel"
-                        class="risk-pill"
-                        [class]="'risk-' + msg.structuredInspection.overallRiskLevel"
-                      >
+                      <span *ngIf="msg.structuredInspection.overallRiskLevel" class="risk-pill"
+                        [class]="'risk-' + msg.structuredInspection.overallRiskLevel">
                         Risk: {{ msg.structuredInspection.overallRiskLevel | uppercase }}
                       </span>
                     </div>
@@ -239,7 +317,8 @@
 
                   <p class="report-summary">{{ msg.structuredInspection.summary }}</p>
 
-                  <div *ngIf="msg.structuredInspection.findings && msg.structuredInspection.findings.length > 0" class="findings-list">
+                  <div *ngIf="msg.structuredInspection.findings && msg.structuredInspection.findings.length > 0"
+                    class="findings-list">
                     <div *ngFor="let finding of msg.structuredInspection.findings" class="finding-item">
                       <div class="finding-title-row">
                         <span class="finding-cat">{{ finding.category | uppercase }}</span>
@@ -293,40 +372,40 @@
         <button class="toast-close" (click)="dismissAttachmentNotice()" aria-label="Dismiss">✕</button>
       </div>
 
-      <!-- Message Composer -->
+      <!-- Message Composer (Modern Pinned Bottom Bar) -->
       <div class="composer-container">
+        <!-- Attached Document Preview Staging Bar -->
+        <div *ngIf="attachedDocument()" class="staged-attachment-bar">
+          <div class="staged-doc-pill">
+            <svg class="staged-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path
+                d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48">
+              </path>
+            </svg>
+            <span class="staged-name">{{ attachedDocument() }}</span>
+            <button class="btn-remove-staged" (click)="removeAttachedDocument()" title="Remove attached document">✕</button>
+          </div>
+        </div>
+
         <div class="composer-box">
-          <!-- Attachment Button -->
-          <button
-            class="btn-composer-icon"
-            (click)="handleAttachmentClick()"
-            type="button"
-            title="Attach inspection document or photo (Future Feature)"
-          >
+          <!-- Attachment Button (Opens Photo Upload / Inspection Evidence Picker) -->
+          <button class="btn-composer-icon" (click)="openPhotoUploadForComposer()" type="button"
+            title="Upload site photographs for AI analysis">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+              <circle cx="12" cy="13" r="4"></circle>
             </svg>
           </button>
 
-          <!-- Input Field -->
-          <textarea
-            class="composer-input"
-            rows="1"
-            placeholder="Ask QuestAI about your inspection..."
-            [ngModel]="composerText()"
-            (ngModelChange)="composerText.set($event)"
-            (keydown.enter)="$event.preventDefault(); sendMessage()"
-          ></textarea>
+          <!-- Input Textarea (Multiline supported, Enter sends) -->
+          <textarea class="composer-input" rows="1" placeholder="Type a message"
+            [ngModel]="composerText()" (ngModelChange)="composerText.set($event)"
+            (keydown.enter)="$event.preventDefault(); sendMessage()"></textarea>
 
-          <!-- Send Button -->
-          <button
-            class="btn-composer-send"
-            (click)="sendMessage()"
-            [disabled]="isGenerating() || !composerText().trim()"
-            type="button"
-            title="Send Message"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <!-- Modern Red Send Button -->
+          <button class="btn-composer-send" (click)="sendMessage()"
+            [disabled]="isGenerating() || !composerText().trim()" type="button" title="Send Message">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <line x1="22" y1="2" x2="11" y2="13"></line>
               <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
             </svg>
@@ -339,105 +418,105 @@
         </p>
       </div>
     </main>
+
+    <!-- Main Site Inspection Workspace -->
+    <main class="inspection-main" *ngIf="currentView() === 'inspection'">
+      <app-site-inspection (switchToChat)="navigateToChat()" (requestAiPhotoUpload)="onInspectionRequestAiPhotoUpload($event)"></app-site-inspection>
+    </main>
   </div>
 
-  <!-- Diagnostics Modal (Preserves Developer Health Check & AI Status) -->
-  <div *ngIf="showDiagnosticsModal()" class="modal-backdrop" (click)="closeDiagnostics()">
-    <div class="modal-window" (click)="$event.stopPropagation()">
+
+
+  <!-- AI Photo Upload & Form Fill Modal -->
+  <div *ngIf="showPhotoUploadModal()" class="modal-backdrop" (click)="closePhotoUploadModal()">
+    <div class="modal-window photo-upload-modal" (click)="$event.stopPropagation()">
+      <!-- Header -->
       <div class="modal-header">
         <div class="modal-title-group">
-          <span class="modal-badge">Developer Tools</span>
-          <h2 class="modal-title">System & API Diagnostics</h2>
+          <div class="modal-badge-row">
+            <span class="modal-badge">AI Vision Inspection</span>
+            <span class="modal-bank-tag">{{ selectedUploadBank()?.icon }} {{ selectedUploadBank()?.name }}</span>
+          </div>
+          <h2 class="modal-title">Upload Site Photos & Auto-Fill Form</h2>
         </div>
-        <button class="btn-modal-close" (click)="closeDiagnostics()" aria-label="Close modal">✕</button>
+        <button class="btn-modal-close" (click)="closePhotoUploadModal()" aria-label="Close modal">✕</button>
       </div>
 
+      <!-- Body -->
       <div class="modal-body">
         <p class="modal-description">
-          Diagnostic inspection of local backend endpoints and service status. This technical information is segregated from the main user chat interface.
+          Upload site inspection photographs. QuestAI vision analysis will examine your images against the
+          <strong>{{ selectedUploadBank()?.name }}</strong> question bank ({{ selectedUploadBank()?.badge }}), evaluate safety compliance, and automatically pre-fill ratings, comments, and evidence.
         </p>
 
-        <!-- Backend Health Section -->
-        <div class="diagnostic-card">
-          <div class="diag-header">
-            <strong>Backend Core (Express)</strong>
-            <span
-              class="diag-status-pill"
-              [class.online]="healthData()?.status === 'healthy'"
-            >
-              {{ healthData() ? (healthData()?.status | uppercase) : 'OFFLINE' }}
-            </span>
-          </div>
-
-          <div *ngIf="healthData()" class="diag-details">
-            <div class="diag-row">
-              <span class="label">Endpoint:</span>
-              <span class="val font-mono">GET /api/health</span>
+        <!-- Drag & Drop Upload Dropzone -->
+        <div class="photo-dropzone" [class.dragover]="isDragOver()"
+          (dragover)="onDragOver($event)" (dragleave)="onDragLeave($event)" (drop)="onDropPhotos($event)"
+          (click)="fileUploadInput.click()">
+          <input #fileUploadInput type="file" multiple accept="image/*" capture="environment"
+            (change)="onFilesSelected($event)" style="display: none" />
+          
+          <div class="dropzone-content">
+            <div class="dropzone-icon-circle">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                <circle cx="12" cy="13" r="4"></circle>
+              </svg>
             </div>
-            <div class="diag-row">
-              <span class="label">Service Name:</span>
-              <span class="val">{{ healthData()?.service }}</span>
-            </div>
-            <div class="diag-row">
-              <span class="label">Environment:</span>
-              <span class="val font-mono">{{ healthData()?.environment }}</span>
-            </div>
-            <div class="diag-row">
-              <span class="label">Server Uptime:</span>
-              <span class="val">{{ healthData()?.uptimeSeconds }}s</span>
-            </div>
-          </div>
-
-          <div *ngIf="healthError()" class="diag-error">
-            {{ healthError() }}
+            <span class="dropzone-title">Click to capture / browse photos, or drag & drop</span>
+            <span class="dropzone-sub">Upload JPG, PNG, or WebP site photographs (Multiple images supported)</span>
           </div>
         </div>
 
-        <!-- AI Service Section -->
-        <div class="diagnostic-card">
-          <div class="diag-header">
-            <strong>AI Engine (Google Gemini Interface)</strong>
-            <span class="diag-status-pill placeholder">
-              {{ aiStatusData()?.configured ? 'KEY CONFIGURED' : 'PLACEHOLDER MODE' }}
-            </span>
+        <!-- Uploaded Photos Tray / Grid -->
+        <div *ngIf="uploadedPhotos().length > 0" class="uploaded-photos-section">
+          <div class="uploaded-photos-header">
+            <span class="uploaded-count-title">{{ uploadedPhotos().length }} Photo{{ uploadedPhotos().length > 1 ? 's' : '' }} Selected</span>
+            <button class="btn-text-danger" (click)="clearUploadedPhotos()" type="button">Clear All</button>
           </div>
 
-          <div *ngIf="aiStatusData()" class="diag-details">
-            <div class="diag-row">
-              <span class="label">Service Interface:</span>
-              <span class="val">{{ aiStatusData()?.serviceName }}</span>
-            </div>
-            <div class="diag-row">
-              <span class="label">Planned Model:</span>
-              <span class="val font-mono">{{ aiStatusData()?.model }}</span>
-            </div>
-            <div class="diag-row">
-              <span class="label">Configuration Status:</span>
-              <span class="val">
-                {{ aiStatusData()?.configured ? 'Active in backend/.env' : 'Unconfigured (Placeholder)' }}
-              </span>
-            </div>
-            <div class="diag-note">
-              {{ aiStatusData()?.notes }}
+          <div class="uploaded-thumbs-grid">
+            <div *ngFor="let photo of uploadedPhotos(); let i = index" class="photo-thumb-card">
+              <img [src]="photo.url" [alt]="photo.name" class="thumb-img" />
+              <div class="thumb-meta">
+                <span class="thumb-name">{{ photo.name }}</span>
+              </div>
+              <button class="btn-thumb-remove" (click)="removeUploadedPhoto(i)" title="Remove photo" type="button">✕</button>
             </div>
           </div>
+        </div>
 
-          <div *ngIf="aiStatusError()" class="diag-error">
-            {{ aiStatusError() }}
+        <!-- Optional Site Context / Notes -->
+        <div class="site-context-field">
+          <label class="field-label">Site Context / Specific Asset Details (Optional):</label>
+          <input type="text" [ngModel]="uploadSiteNotes()" (ngModelChange)="uploadSiteNotes.set($event)"
+            placeholder="e.g. A1(M) Junction 4-6, lighting column #14, day shift..." class="site-notes-input" />
+        </div>
+
+        <!-- Scanning / Analyzing State Overlay / Banner -->
+        <div *ngIf="isAnalyzingPhotos()" class="ai-analyzing-progress-banner">
+          <div class="ai-radar-pulse"></div>
+          <div class="analyzing-status-content">
+            <h4 class="analyzing-heading">QuestAI Vision Analyzing Photos...</h4>
+            <p class="analyzing-sub">{{ analyzingStepMessage() }}</p>
           </div>
         </div>
       </div>
 
+      <!-- Footer -->
       <div class="modal-footer">
-        <button
-          class="btn-refresh-diag"
-          (click)="refreshDiagnostics()"
-          [disabled]="diagnosticsLoading()"
-        >
-          {{ diagnosticsLoading() ? 'Refreshing...' : 'Refresh Status' }}
+        <button class="btn-modal-cancel" (click)="closePhotoUploadModal()" [disabled]="isAnalyzingPhotos()" type="button">
+          Cancel
         </button>
-        <button class="btn-close-diag" (click)="closeDiagnostics()">
-          Close
+
+        <button class="btn-analyze-autofill" (click)="runAiPhotoAnalysisAndFill()"
+          [disabled]="uploadedPhotos().length === 0 || isAnalyzingPhotos()" type="button">
+          <svg class="btn-sparkle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
+          </svg>
+          <span>
+            {{ isAnalyzingPhotos() ? 'Analyzing & Auto-Filling Form...' : 'Analyze ' + uploadedPhotos().length + ' Photo' + (uploadedPhotos().length > 1 ? 's' : '') + ' & Auto-Fill Form' }}
+          </span>
         </button>
       </div>
     </div>

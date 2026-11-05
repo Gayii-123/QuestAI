@@ -3,6 +3,7 @@ import cors from 'cors';
 import { env } from './config/env';
 import { apiRouter } from './routes';
 import { notFoundHandler, errorHandler } from './middleware/errorHandler';
+import { getApiMetadataAction } from './action';
 
 /**
  * Creates and configures the Express application.
@@ -24,16 +25,8 @@ export function createApp(): Application {
   app.use(express.json({ limit: env.MAX_REQUEST_SIZE }));
   app.use(express.urlencoded({ extended: true, limit: env.MAX_REQUEST_SIZE }));
 
-  // Root welcome / metadata route
-  app.get('/', (req, res) => {
-    res.status(200).json({
-      name: 'QuestAI API',
-      description: 'AI-Powered Site Inspection Service',
-      version: '1.0.0',
-      healthCheck: '/api/health',
-      docs: '/api/ai/status',
-    });
-  });
+  // Root welcome / metadata route delegates to centralized action
+  app.get('/', getApiMetadataAction);
 
   // Mount API routes under /api
   app.use('/api', apiRouter);

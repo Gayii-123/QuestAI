@@ -14,6 +14,7 @@ export interface ChatMessage {
   sender: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: Date;
+  attachmentName?: string;
   structuredInspection?: {
     summary?: string;
     overallRiskLevel?: 'low' | 'medium' | 'high' | 'critical';

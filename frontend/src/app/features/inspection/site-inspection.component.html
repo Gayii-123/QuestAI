@@ -1,0 +1,725 @@
+<div class="inspection-workflow-container">
+  <!-- Toast Feedback Notification -->
+  <div *ngIf="toastMessage()" class="workflow-toast" role="status">
+    <svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"></circle>
+      <line x1="12" y1="8" x2="12" y2="12"></line>
+      <line x1="12" y1="16" x2="12.01" y2="16"></line>
+    </svg>
+    <span>{{ toastMessage() }}</span>
+    <button class="toast-close" (click)="dismissToast()" aria-label="Dismiss">✕</button>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- STEP 1: CATEGORY SELECTION                                                -->
+  <!-- ========================================================================= -->
+  <section *ngIf="activeStep() === 'category-select'" class="step-view step-category-select">
+    <div class="step-header-card">
+      <div class="step-badge-row">
+        <span class="step-pill">Step 1 of 4</span>
+        <span class="step-title-badge">Quest Form Banks</span>
+      </div>
+      <h1 class="step-main-title">Choose Inspection Category</h1>
+      <p class="step-subtitle">
+        Select the type of site inspection you want to perform. QuestAI will configure the verified checklist with 374 official questions.
+      </p>
+    </div>
+
+    <!-- Responsive Grid of 12 Categories -->
+    <div class="categories-grid">
+      <div *ngFor="let bank of questionBanks" class="category-card"
+        [class.selected]="bank.id === selectedBankId()" (click)="selectBank(bank.id)"
+        role="button" tabindex="0">
+        
+        <div class="category-card-top">
+          <div class="category-icon-circle">{{ bank.icon }}</div>
+          <span class="category-count-badge">{{ bank.badge }}</span>
+        </div>
+
+        <h3 class="category-name">{{ bank.name }}</h3>
+        <p class="category-desc">{{ bank.description }}</p>
+
+        <div class="category-card-footer">
+          <span class="selection-indicator">
+            <span *ngIf="bank.id === selectedBankId()" class="indicator-active">✓ Selected</span>
+            <span *ngIf="bank.id !== selectedBankId()" class="indicator-idle">Click to select</span>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dynamic Options Drawer for Special Categories -->
+    <!-- Traffic Management Subtype (12D vs 12AB) -->
+    <div *ngIf="currentBank().department === 'Traffic Management'" class="category-addon-panel">
+      <div class="addon-header">
+        <strong>Traffic Management Operational Scheme:</strong>
+        <span>Select standard according to road speeds and carriageway profile</span>
+      </div>
+      <div class="addon-toggle-row">
+        <button class="btn-addon-toggle" [class.active]="trafficSubtype() === '12D'" (click)="setTrafficSubtype('12D')" type="button">
+          🛑 12D - Low Speed / Urban & Rural (33 Questions)
+        </button>
+        <button class="btn-addon-toggle" [class.active]="trafficSubtype() === '12AB'" (click)="setTrafficSubtype('12AB')" type="button">
+          🚧 12AB - High Speed Motorways & Dual Carriageways (32 Questions)
+        </button>
+      </div>
+    </div>
+
+    <!-- Managers Risk Banks Selector -->
+    <div *ngIf="currentBank().isManagers" class="category-addon-panel">
+      <div class="addon-header">
+        <strong>Active Risk Activities for Walk-Through:</strong>
+        <span>Select high-risk activity banks active on site today</span>
+      </div>
+      <div class="risk-banks-chips-wrap">
+        <button *ngFor="let risk of availableRiskBanks" class="risk-chip"
+          [class.selected]="selectedRiskBanks().includes(risk.key)"
+          (click)="toggleRiskBank(risk.key)" type="button">
+          <span>{{ risk.icon }} {{ risk.label }}</span>
+          <span class="risk-count">({{ risk.count }})</span>
+        </button>
+      </div>
+      <div class="risk-quick-actions">
+        <button class="btn-text-sm" (click)="selectAllRiskBanks()">Select All (13 Banks)</button>
+        <button class="btn-text-sm" (click)="clearAllRiskBanks()">Clear Selection</button>
+      </div>
+    </div>
+
+    <!-- Step 1 Actions Footer -->
+    <div class="step-footer-bar">
+      <button class="btn-step-outline" (click)="switchToChat.emit()" type="button">
+        ← Return to Quest AI
+      </button>
+
+      <div class="footer-right-actions">
+        <button class="btn-step-secondary" (click)="skipToManualChecklist()" type="button"
+          title="Open blank checklist without uploading photos">
+          Skip Photos (Manual Checklist) →
+        </button>
+
+        <button class="btn-step-primary" (click)="continueToPhotoUpload()" type="button">
+          Continue to Photo Upload →
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================================================= -->
+  <!-- STEP 2: PHOTO UPLOAD SCREEN                                               -->
+  <!-- ========================================================================= -->
+  <section *ngIf="activeStep() === 'photo-upload'" class="step-view step-photo-upload">
+    <div class="step-header-card">
+      <div class="step-badge-row">
+        <span class="step-pill">Step 2 of 4</span>
+        <span class="step-category-badge">{{ currentBank().icon }} {{ currentBank().name }}</span>
+      </div>
+      <h1 class="step-main-title">Upload Site Photographs</h1>
+      <p class="step-subtitle">
+        Upload site photos. QuestAI vision will analyse compliance and auto-fill the <strong>{{ currentBank().name }}</strong> inspection checklist.
+      </p>
+    </div>
+
+    <!-- Modern Drag-and-Drop Dropzone -->
+    <div class="photo-dropzone-large" [class.dragover]="isDragOver()"
+      (dragover)="onDragOver($event)" (dragleave)="onDragLeave($event)" (drop)="onDropPhotos($event)"
+      (click)="fileUploadInput.click()" role="button" tabindex="0">
+      
+      <input #fileUploadInput type="file" multiple accept="image/*" capture="environment"
+        (change)="onUploadFilesSelected($event)" style="display: none" />
+      
+      <div class="dropzone-inner">
+        <div class="dropzone-camera-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+            <circle cx="12" cy="13" r="4"></circle>
+          </svg>
+        </div>
+        <h3 class="dropzone-headline">Drag and drop site photos here, or click to browse</h3>
+        <p class="dropzone-subtext">
+          Supports multiple JPG, PNG, and WebP images. Mobile camera capture supported.
+        </p>
+        <span class="dropzone-btn-pill">Select Files from Device</span>
+      </div>
+    </div>
+
+    <!-- Uploaded Photos Tray / Grid -->
+    <div *ngIf="uploadedPhotos().length > 0" class="uploaded-gallery-section">
+      <div class="gallery-header">
+        <div class="gallery-title-group">
+          <span class="gallery-count-badge">{{ uploadedPhotos().length }}</span>
+          <span class="gallery-title">Photograph{{ uploadedPhotos().length > 1 ? 's' : '' }} Attached</span>
+        </div>
+        <button class="btn-clear-all" (click)="clearUploadedPhotos()" type="button">
+          Clear All Photos
+        </button>
+      </div>
+
+      <div class="gallery-thumbs-grid">
+        <div *ngFor="let photo of uploadedPhotos(); let i = index; trackBy: trackByPhotoId" class="thumb-card">
+          <div class="thumb-image-wrap" (click)="openPhotoPreview(photo)">
+            <img [src]="photo.url" [alt]="photo.name" class="thumb-img" />
+            <div class="thumb-zoom-overlay">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+            </div>
+          </div>
+          <div class="thumb-info-bar">
+            <span class="thumb-filename" [title]="photo.name">{{ photo.name }}</span>
+            <button class="btn-thumb-delete" (click)="removeUploadedPhoto(i)" title="Remove photo" type="button">✕</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Site Context / Scheme Field -->
+    <div class="site-context-box">
+      <label class="context-label">
+        <span class="context-label-text">Site Context / Specific Asset or Scheme Reference (Optional):</span>
+        <span class="context-hint">Helps AI contextualize specific chainages, column IDs, or works orders</span>
+      </label>
+      <input type="text" [ngModel]="uploadSiteNotes()" (ngModelChange)="uploadSiteNotes.set($event)"
+        placeholder="e.g. A1(M) Junction 4-6 Widening Scheme, Column #14, day shift..." class="context-input" />
+    </div>
+
+    <!-- Step 2 Actions Footer -->
+    <div class="step-footer-bar">
+      <button class="btn-step-outline" (click)="backToCategorySelect()" type="button">
+        ← Back to Categories
+      </button>
+
+      <div class="footer-right-actions">
+        <button class="btn-step-secondary" (click)="skipToManualChecklist()" type="button">
+          Skip to Manual Checklist →
+        </button>
+
+        <button class="btn-step-primary btn-analyse-trigger" (click)="startAiPhotoScanning()"
+          [disabled]="uploadedPhotos().length === 0" type="button">
+          <svg class="btn-icon-sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
+          </svg>
+          <span>
+            {{ uploadedPhotos().length === 0 ? 'Upload Photos to Analyse' : 'Analyse ' + uploadedPhotos().length + ' Photograph' + (uploadedPhotos().length > 1 ? 's' : '') + ' & Pre-Fill' }}
+          </span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================================================= -->
+  <!-- STEP 3: AI SCANNING EXPERIENCE                                            -->
+  <!-- ========================================================================= -->
+  <section *ngIf="activeStep() === 'ai-scanning'" class="step-view step-ai-scanning">
+    <div class="scanning-modal-card">
+      <div class="scanning-header">
+        <div class="scanning-badge">
+          <span class="radar-dot"></span>
+          <span>Computer Vision Active</span>
+        </div>
+        <h2 class="scanning-title">Scanning Site Photographs</h2>
+        <p class="scanning-bank-target">
+          Evaluating compliance against <strong>{{ currentBank().name }}</strong> checklist ({{ currentQuestions().length }} questions)
+        </p>
+      </div>
+
+      <!-- Modern Viewfinder Reticle Frame -->
+      <div class="viewfinder-frame">
+        <!-- Corner Reticles -->
+        <span class="reticle corner-tl"></span>
+        <span class="reticle corner-tr"></span>
+        <span class="reticle corner-bl"></span>
+        <span class="reticle corner-br"></span>
+
+        <!-- Display Photo -->
+        <div class="viewfinder-photo-wrap">
+          <img *ngIf="uploadedPhotos()[0]" [src]="uploadedPhotos()[0].url" [alt]="uploadedPhotos()[0].name" class="viewfinder-img" />
+          
+          <!-- Animated Laser Scanline -->
+          <div class="laser-scan-line"></div>
+          
+          <!-- Pulsing Radar Glow Overlay -->
+          <div class="radar-glow-overlay"></div>
+
+          <!-- Live Scanning HUD Overlay -->
+          <div class="hud-overlay-top">
+            <span class="hud-tag">TARGET: {{ currentBank().name | uppercase }}</span>
+            <span class="hud-tag">PHOTOS: {{ uploadedPhotos().length }}</span>
+          </div>
+          <div class="hud-overlay-bottom">
+            <span class="hud-status-chip">SAFETY CRITERIA: CHAPTER 8 & QUEST SPEC</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Real-time Progress & Status Updates -->
+      <div class="scanning-progress-wrap">
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill" [style.width.%]="scanningProgress()"></div>
+        </div>
+        <div class="progress-labels-row">
+          <span class="scanning-status-text">{{ scanningStatusMessage() }}</span>
+          <span class="scanning-percent">{{ scanningProgress() }}%</span>
+        </div>
+      </div>
+
+      <!-- Engine Notice -->
+      <div class="scanning-engine-notice">
+        <span class="engine-pill">{{ aiModelIdentifier() }}</span>
+        <span *ngIf="isMockEngine()" class="mock-clarification">Pre-Gemini Multimodal Evaluation Engine</span>
+      </div>
+
+      <!-- Abort / Cancel Action -->
+      <div class="scanning-actions">
+        <button class="btn-step-outline" (click)="cancelScanning()" type="button">
+          Cancel Analysis
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================================================= -->
+  <!-- STEP 4: AI-FILLED INSPECTION FORM – REVIEW SCREEN                         -->
+  <!-- ========================================================================= -->
+  <section *ngIf="activeStep() === 'review-form'" class="step-view step-review-form">
+    <!-- Header Summary Bar -->
+    <div class="review-header-bar">
+      <div class="review-header-left">
+        <div class="review-title-row">
+          <h1 class="review-title">AI Inspection Results</h1>
+          <span class="review-bank-chip">{{ currentBank().icon }} {{ currentBank().name }}</span>
+          <span *ngIf="aiPreFillApplied()" class="review-ai-badge">✨ AI Evaluated</span>
+        </div>
+        <p class="review-meta">
+          <span>{{ uploadedPhotos().length }} photo(s) analyzed</span>
+          <span class="meta-separator">•</span>
+          <span>{{ aiModelIdentifier() }}</span>
+          <span class="meta-separator">•</span>
+          <span>{{ lastAnalyzedTimestamp() | date:'shortTime' }}</span>
+        </p>
+      </div>
+
+      <!-- Review Action Buttons -->
+      <div class="review-header-actions">
+        <button class="btn-hdr-action" (click)="activeStep.set('category-select')" title="Change category" type="button">
+          Categories
+        </button>
+        <button class="btn-hdr-action" (click)="activeStep.set('photo-upload')" title="Upload or manage photos" type="button">
+          📷 Photos ({{ uploadedPhotos().length }})
+        </button>
+        <button class="btn-hdr-action" (click)="saveDraft()" title="Save current draft locally" type="button">
+          💾 Save Draft
+        </button>
+        <button class="btn-hdr-primary" (click)="openFinalizeModal()" type="button">
+          ✓ Finalize & Submit
+        </button>
+      </div>
+    </div>
+
+    <!-- Summary Metrics Cards Grid -->
+    <div class="review-metrics-grid">
+      <div class="metric-card card-total">
+        <span class="metric-num">{{ stats().total }}</span>
+        <span class="metric-label">Total Questions</span>
+      </div>
+
+      <div class="metric-card card-pass" [class.active-filter]="reviewFilter() === 'all'">
+        <span class="metric-num">{{ stats().passCount }}</span>
+        <span class="metric-label">Pass</span>
+      </div>
+
+      <div class="metric-card card-car" [class.active-filter]="reviewFilter() === 'car'"
+        (click)="setReviewFilter('car')" role="button" tabindex="0">
+        <span class="metric-num">{{ stats().carCount }}</span>
+        <span class="metric-label">CAR (Action Required)</span>
+      </div>
+
+      <div class="metric-card card-needs-review" [class.active-filter]="reviewFilter() === 'needs-review'"
+        (click)="setReviewFilter('needs-review')" role="button" tabindex="0">
+        <span class="metric-num">{{ stats().needsReviewCount }}</span>
+        <span class="metric-label">Needs Review (Human Check)</span>
+      </div>
+
+      <div class="metric-card card-na">
+        <span class="metric-num">{{ stats().naCount }}</span>
+        <span class="metric-label">N/A</span>
+      </div>
+    </div>
+
+    <!-- Filter Tabs Bar -->
+    <div class="filter-tabs-bar">
+      <div class="filter-tabs-left">
+        <button class="filter-tab" [class.active]="reviewFilter() === 'all'" (click)="setReviewFilter('all')" type="button">
+          All Questions ({{ stats().total }})
+        </button>
+        <button class="filter-tab tab-needs-review" [class.active]="reviewFilter() === 'needs-review'" (click)="setReviewFilter('needs-review')" type="button">
+          ⚠️ Needs Review ({{ stats().needsReviewCount }})
+        </button>
+        <button class="filter-tab tab-car" [class.active]="reviewFilter() === 'car'" (click)="setReviewFilter('car')" type="button">
+          ⊘ CAR / Actions ({{ stats().carCount }})
+        </button>
+        <button class="filter-tab" [class.active]="reviewFilter() === 'unanswered'" (click)="setReviewFilter('unanswered')" type="button">
+          Unanswered ({{ stats().unanswered }})
+        </button>
+      </div>
+
+      <!-- Quick Search & Section Controls -->
+      <div class="filter-controls-right">
+        <div class="search-input-wrap">
+          <svg class="search-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)"
+            placeholder="Search questions..." class="filter-search-input" />
+        </div>
+
+        <button class="btn-text-ctrl" (click)="expandAllSections()" type="button">Expand All</button>
+        <button class="btn-text-ctrl" (click)="collapseAllSections()" type="button">Collapse All</button>
+      </div>
+    </div>
+
+    <!-- Sections & Questions Accordion -->
+    <div class="form-sections-container">
+      <div *ngFor="let section of sections(); trackBy: trackBySection" class="section-card">
+        <!-- Section Header Toggle -->
+        <div class="section-header-row" (click)="toggleSection(section.headername)" role="button" tabindex="0">
+          <div class="section-header-title-wrap">
+            <svg class="section-chevron" [class.rotated]="isSectionExpanded(section.headername)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+            <span class="section-title-text">{{ section.headername }}</span>
+            <span *ngIf="section.hasCar" class="section-car-badge">⚠️ CAR in Section</span>
+          </div>
+
+          <div class="section-header-meta">
+            <span class="section-count-tag">{{ section.answeredCount }} of {{ section.totalCount }} answered</span>
+          </div>
+        </div>
+
+        <!-- Section Questions Body -->
+        <div *ngIf="isSectionExpanded(section.headername)" class="section-body">
+          <div *ngFor="let q of section.questions; trackBy: trackByQuestion; let qIdx = index" class="question-card"
+            [class.card-has-car]="getAnswer(q.id).rating === '-1'"
+            [class.card-needs-review]="getAnswer(q.id).requiresHumanVerification && !getAnswer(q.id).isHumanVerified">
+            
+            <!-- Question Top Header -->
+            <div class="q-header-row">
+              <div class="q-number-tags">
+                <span class="q-num-badge">#{{ qIdx + 1 }}</span>
+                <span class="q-composite-id">{{ q.id }}</span>
+              </div>
+
+              <!-- AI Status Badges -->
+              <div class="q-status-badges">
+                <span *ngIf="getAnswer(q.id).requiresHumanVerification && !getAnswer(q.id).isHumanVerified" class="badge-needs-review">
+                  ⚠️ Needs Review (Human Check)
+                </span>
+                <span *ngIf="getAnswer(q.id).isHumanVerified" class="badge-verified">
+                  ✓ Verified by Inspector
+                </span>
+                <span *ngIf="getAnswer(q.id).aiConfidence" class="badge-confidence">
+                  {{ getAnswer(q.id).aiConfidence }}% AI Confidence
+                </span>
+              </div>
+            </div>
+
+            <!-- Question Text -->
+            <div class="q-text-content">{{ q.qtext }}</div>
+
+            <!-- AI Observation & Evidence Callout -->
+            <div *ngIf="getAnswer(q.id).aiEvidence || getAnswer(q.id).aiReasoning" class="ai-observation-box">
+              <div class="obs-header">
+                <span class="obs-sparkle">✨</span>
+                <strong>AI Vision Observation & Evidence:</strong>
+                <span class="obs-suggested-tag" [class]="'tag-' + getAnswer(q.id).aiSuggestedRating">
+                  Suggested: {{ getAnswer(q.id).aiSuggestedRating === '1' ? 'Pass' : getAnswer(q.id).aiSuggestedRating === '-1' ? 'CAR' : 'N/A' }}
+                </span>
+              </div>
+              <p class="obs-evidence" *ngIf="getAnswer(q.id).aiEvidence">{{ getAnswer(q.id).aiEvidence }}</p>
+              <p class="obs-reasoning" *ngIf="getAnswer(q.id).aiReasoning">
+                <strong>Reasoning:</strong> {{ getAnswer(q.id).aiReasoning }}
+              </p>
+              <div class="obs-confirm-row" *ngIf="!getAnswer(q.id).isHumanVerified && getAnswer(q.id).aiSuggestedRating">
+                <button class="btn-confirm-suggestion" (click)="confirmAiSuggestion(q.id)" type="button">
+                  Confirm AI Suggestion ({{ getAnswer(q.id).aiSuggestedRating === '1' ? 'Pass' : getAnswer(q.id).aiSuggestedRating === '-1' ? 'CAR' : 'N/A' }})
+                </button>
+              </div>
+            </div>
+
+            <!-- Rating Button Controls (Pass, CAR, N/A, Clear) -->
+            <div class="q-rating-control-group">
+              <button class="btn-rating-opt btn-rate-pass" [class.selected]="getAnswer(q.id).rating === '1'"
+                (click)="setRating(q.id, '1')" type="button">
+                ✓ Pass
+              </button>
+
+              <button class="btn-rating-opt btn-rate-car" [class.selected]="getAnswer(q.id).rating === '-1'"
+                (click)="setRating(q.id, '-1')" type="button">
+                ⊘ CAR
+              </button>
+
+              <button class="btn-rating-opt btn-rate-na" [class.selected]="getAnswer(q.id).rating === '0'"
+                (click)="setRating(q.id, '0')" type="button">
+                ⊘ N/A
+              </button>
+
+              <button *ngIf="getAnswer(q.id).rating" class="btn-rate-clear" (click)="setRating(q.id, '')"
+                title="Clear rating" type="button">
+                ✕
+              </button>
+            </div>
+
+            <!-- CAR Action Plan Box (Visible when CAR is selected) -->
+            <div *ngIf="getAnswer(q.id).rating === '-1'" class="car-action-box">
+              <div class="car-box-header">
+                <span class="car-alert-icon">⚠️</span>
+                <strong>Corrective Action Plan (Mandatory for Non-Compliance):</strong>
+              </div>
+              <textarea class="car-plan-textarea" rows="2"
+                [ngModel]="getAnswer(q.id).carActionPlan || ''"
+                (ngModelChange)="setCarActionPlan(q.id, $event)"
+                placeholder="Specify immediate corrective action, assigned person, and resolution deadline..."></textarea>
+            </div>
+
+            <!-- Question Comments Field -->
+            <div class="q-comment-field">
+              <label class="comment-label">Inspector Comment / Observation Details:</label>
+              <textarea class="comment-textarea" rows="2"
+                [ngModel]="getAnswer(q.id).comment || ''"
+                (ngModelChange)="setComment(q.id, $event)"
+                placeholder="Add inspector notes, verification findings, or asset context..."></textarea>
+            </div>
+
+            <!-- Attached Question Photos Tray -->
+            <div class="q-photos-section">
+              <div class="q-photos-header">
+                <span class="photos-count-label">
+                  Photo Evidence ({{ getPhotos(q.id).length }})
+                </span>
+
+                <label class="btn-add-q-photo">
+                  <span>+ Attach Photo</span>
+                  <input type="file" multiple accept="image/*" capture="environment"
+                    (change)="onAddPhotoToQuestion(q.id, $event)" style="display: none" />
+                </label>
+              </div>
+
+              <!-- Thumbnails -->
+              <div *ngIf="getPhotos(q.id).length > 0" class="q-photos-grid">
+                <div *ngFor="let photo of getPhotos(q.id)" class="q-photo-thumb">
+                  <img [src]="photo.url" [alt]="photo.name" (click)="openPhotoPreview(photo)" />
+                  <button class="btn-remove-q-photo" (click)="removePhotoFromQuestion(q.id, photo.id)" title="Remove photo">✕</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Select Option Controls (If question has options) -->
+            <div *ngIf="getQuestionOptions(q).length > 0" class="q-options-section">
+              <label class="options-label">Select Response:</label>
+              <select class="q-select-dropdown" [ngModel]="getAnswer(q.id).selectans || ''"
+                (ngModelChange)="setSelect(q.id, $event)">
+                <option value="">-- Choose Option --</option>
+                <option *ngFor="let opt of getQuestionOptions(q)" [value]="getOptionText(opt)">
+                  {{ getOptionText(opt) }}
+                </option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- No Questions Matched Filter Empty State -->
+      <div *ngIf="visibleQuestions().length === 0" class="no-questions-state">
+        <p class="no-q-title">No questions match your current filter</p>
+        <button class="btn-step-outline" (click)="setReviewFilter('all'); searchQuery.set('')">Show All Questions</button>
+      </div>
+    </div>
+
+    <!-- Step 4 Review Footer -->
+    <div class="step-footer-bar">
+      <button class="btn-step-outline" (click)="activeStep.set('category-select')" type="button">
+        ← Change Category
+      </button>
+
+      <div class="footer-right-actions">
+        <button class="btn-step-secondary" (click)="saveDraft()" type="button">
+          💾 Save Draft
+        </button>
+
+        <button class="btn-step-primary" (click)="openFinalizeModal()" type="button">
+          ✓ Finalize Inspection
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================================================= -->
+  <!-- STEP 5: FINALIZED CELEBRATION & REFERENCE SCREEN                          -->
+  <!-- ========================================================================= -->
+  <section *ngIf="activeStep() === 'finalized'" class="step-view step-finalized">
+    <div class="finalized-card">
+      <div class="celebration-circle">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+      </div>
+
+      <span class="finalized-badge">Inspection Record Archived</span>
+      <h1 class="finalized-title">Site Inspection Completed</h1>
+      <p class="finalized-sub">
+        The inspection report has been verified, finalized, and saved standalone in QuestAI.
+      </p>
+
+      <!-- Reference Number Pill -->
+      <div class="reference-pill-box">
+        <span class="ref-label">Official Reference:</span>
+        <strong class="ref-code">{{ finalizedReport()?.referenceNumber }}</strong>
+      </div>
+
+      <!-- Summary Metrics Grid -->
+      <div class="finalized-summary-grid">
+        <div class="summary-col">
+          <span class="col-label">Category</span>
+          <strong class="col-val">{{ finalizedReport()?.bankName }}</strong>
+        </div>
+
+        <div class="summary-col">
+          <span class="col-label">Site Location</span>
+          <strong class="col-val">{{ finalizedReport()?.siteLocation }}</strong>
+        </div>
+
+        <div class="summary-col">
+          <span class="col-label">Inspector</span>
+          <strong class="col-val">{{ finalizedReport()?.inspectorName }}</strong>
+        </div>
+
+        <div class="summary-col">
+          <span class="col-label">Date</span>
+          <strong class="col-val">{{ finalizedReport()?.finalizedAt | date:'mediumDate' }}</strong>
+        </div>
+
+        <div class="summary-col">
+          <span class="col-label">Pass</span>
+          <strong class="col-val pass-text">{{ finalizedReport()?.stats?.passCount }}</strong>
+        </div>
+
+        <div class="summary-col">
+          <span class="col-label">CAR (Non-Compliant)</span>
+          <strong class="col-val car-text">{{ finalizedReport()?.stats?.carCount }}</strong>
+        </div>
+
+        <div class="summary-col">
+          <span class="col-label">N/A</span>
+          <strong class="col-val na-text">{{ finalizedReport()?.stats?.naCount }}</strong>
+        </div>
+
+        <div class="summary-col">
+          <span class="col-label">Photographs</span>
+          <strong class="col-val">{{ finalizedReport()?.photoCount }}</strong>
+        </div>
+      </div>
+
+      <!-- Standalone Safe Notice -->
+      <div class="standalone-notice">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="16" x2="12" y2="12"></line>
+          <line x1="12" y1="8" x2="12.01" y2="8"></line>
+        </svg>
+        <span>
+          Saved standalone to local storage (<code>questai_finalized_inspections</code>). No modification made to the original Quest production Firestore database.
+        </span>
+      </div>
+
+      <!-- Final Actions -->
+      <div class="finalized-actions-row">
+        <button class="btn-step-outline" (click)="switchToChat.emit()" type="button">
+          Return to Quest AI Chat
+        </button>
+
+        <button class="btn-step-primary" (click)="startNewInspection()" type="button">
+          Start New Inspection →
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: FINALIZE CONFIRMATION                                              -->
+  <!-- ========================================================================= -->
+  <div *ngIf="showFinalizeModal()" class="modal-backdrop" (click)="closeFinalizeModal()">
+    <div class="modal-window confirm-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3 class="modal-title">Finalize Site Inspection</h3>
+        <button class="btn-modal-close" (click)="closeFinalizeModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <p class="confirm-intro">
+          Are you ready to submit and finalize this inspection for <strong>{{ currentBank().name }}</strong>?
+        </p>
+
+        <!-- Warning if questions need review or are unanswered -->
+        <div *ngIf="stats().needsReviewCount > 0 || stats().unanswered > 0" class="confirm-warning-box">
+          <div class="warn-icon">⚠️</div>
+          <div class="warn-text">
+            <strong>Attention:</strong>
+            <span *ngIf="stats().needsReviewCount > 0">{{ stats().needsReviewCount }} question(s) flagged as "Needs Review" have not been manually verified. </span>
+            <span *ngIf="stats().unanswered > 0">{{ stats().unanswered }} question(s) remain unanswered. </span>
+            You may still finalize, but unverified items will be recorded as pending review.
+          </div>
+        </div>
+
+        <!-- Summary Tally -->
+        <div class="confirm-stats-box">
+          <div class="confirm-stat-row">
+            <span>Pass Ratings:</span>
+            <strong class="pass-val">{{ stats().passCount }}</strong>
+          </div>
+          <div class="confirm-stat-row">
+            <span>CAR / Action Required:</span>
+            <strong class="car-val">{{ stats().carCount }}</strong>
+          </div>
+          <div class="confirm-stat-row">
+            <span>N/A:</span>
+            <strong>{{ stats().naCount }}</strong>
+          </div>
+          <div class="confirm-stat-row">
+            <span>Inspector:</span>
+            <strong>{{ inspectionMetadata().inspectorName }}</strong>
+          </div>
+          <div class="confirm-stat-row">
+            <span>Location:</span>
+            <strong>{{ inspectionMetadata().siteLocation }}</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-modal-cancel" (click)="closeFinalizeModal()" type="button">
+          Review Remaining Questions
+        </button>
+
+        <button class="btn-step-primary" (click)="confirmFinalizeInspection()" type="button">
+          Confirm & Finalize Inspection
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: PHOTO FULLSCREEN PREVIEW                                           -->
+  <!-- ========================================================================= -->
+  <div *ngIf="previewModalPhoto() as photo" class="modal-backdrop photo-preview-backdrop" (click)="closePhotoPreview()">
+    <div class="photo-preview-dialog" (click)="$event.stopPropagation()">
+      <div class="preview-header">
+        <span class="preview-filename">{{ photo.name }}</span>
+        <button class="btn-preview-close" (click)="closePhotoPreview()">✕</button>
+      </div>
+      <div class="preview-img-wrap">
+        <img [src]="photo.url" [alt]="photo.name" class="full-preview-image" />
+      </div>
+    </div>
+  </div>
+</div>

@@ -48,6 +48,59 @@ export interface InspectionResponse {
   timestamp: string;
 }
 
+export interface InspectionPhotoPayload {
+  id: string;
+  name: string;
+  url: string;
+  size?: number;
+  timestamp?: string;
+}
+
+export interface PhotoInspectionRequest {
+  bankId: string;
+  bankName?: string;
+  department: string;
+  trafficSubtype?: '12D' | '12AB';
+  selectedRiskBanks?: string[];
+  photos: InspectionPhotoPayload[];
+  siteNotes?: string;
+  inspectorName?: string;
+  jobReference?: string;
+}
+
+export interface QuestionAiEvaluation {
+  questionId: string;
+  suggestedRating: '1' | '-1' | '0' | '';
+  evidence: string;
+  reasoning: string;
+  confidenceScore: number;
+  requiresHumanVerification: boolean;
+  carActionPlan?: string;
+  photoIds?: string[];
+}
+
+export interface PhotoInspectionResult {
+  bankId: string;
+  department: string;
+  totalEvaluated: number;
+  passCount: number;
+  carCount: number;
+  naCount: number;
+  needsReviewCount: number;
+  photoCount: number;
+  evaluations: Record<string, QuestionAiEvaluation>;
+  analyzedAt: string;
+  modelIdentifier: string;
+  isMock: boolean;
+  notes: string;
+}
+
+export interface PhotoInspectionResponseWrapper {
+  success: boolean;
+  data: PhotoInspectionResult;
+  timestamp: string;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -79,6 +132,13 @@ export class ApiService {
       notes: notes || 'Baseline site inspection',
     };
     return this.http.post<InspectionResponse>(`${this.apiUrl}/ai/inspect`, payload);
+  }
+
+  /**
+   * Multimodal inspection evaluation of site photographs (POST /api/ai/inspect-photos)
+   */
+  analyzeInspectionPhotos(payload: PhotoInspectionRequest): Observable<PhotoInspectionResponseWrapper> {
+    return this.http.post<PhotoInspectionResponseWrapper>(`${this.apiUrl}/ai/inspect-photos`, payload);
   }
 }
 

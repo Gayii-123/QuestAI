@@ -1,6 +1,9 @@
 import { app } from './app';
 import { env } from './config/env';
 
+// Expose centralized actions through the root entry point
+export * from './action';
+
 const server = app.listen(env.PORT, () => {
   console.log(`=========================================`);
   console.log(` QuestAI Backend Service Running`);
