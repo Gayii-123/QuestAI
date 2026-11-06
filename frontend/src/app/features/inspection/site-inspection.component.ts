@@ -1,6 +1,7 @@
 import {
   Component,
   OnInit,
+  OnDestroy,
   signal,
   computed,
   Output,
@@ -9,6 +10,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subscription } from 'rxjs';
 import {
   SiteInspectionQuestion,
   QuestRatingValue,
@@ -16,7 +18,8 @@ import {
   groupQuestionsByHeader,
   evaluateConditionalRule,
   MANAGERS_RISK_BANKS,
-  MANAGERS_BASE_QUESTIONS,
+  SelectOption,
+  MultiSelectOption,
 } from '../../core/models/site-inspection.schema';
 import {
   InspectionStep,
@@ -27,8 +30,36 @@ import {
   InspectionPhoto,
   FinalizedInspectionReport,
 } from './site-inspection.models';
-import { ApiService, PhotoInspectionRequest } from '../../core/services/api.service';
-import { AiInspectionFillService } from '../../core/services/ai-inspection-fill.service';
+import {
+  ApiService,
+  PhotoInspectionRequest,
+  PhotoInspectionResult,
+  QuestionAiEvaluation,
+} from '../../core/services/api.service';
+import {
+  isLegacyMockAnswerEntry,
+  isLegacyMockString,
+} from '../../core/services/ai-inspection-fill.service';
+
+export const MAX_INSPECTION_PHOTOS = 10;
+export const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB per image
+export const MAX_TOTAL_IMAGES_BYTES = 25 * 1024 * 1024; // 25 MB total
+const ALLOWED_IMAGE_MIMES = new Set([
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+]);
+const DRAFT_SCHEMA_VERSION = 3;
+
+export interface DraftMigrationReport {
+  bankId: string;
+  removedMockAnswersCount: number;
+  removedMockCommentsCount: number;
+  removedMockPhotosCount: number;
+  preservedHumanAnswersCount: number;
+  migratedAt: string;
+}
 
 @Component({
   selector: 'app-site-inspection',
@@ -37,9 +68,8 @@ import { AiInspectionFillService } from '../../core/services/ai-inspection-fill.
   templateUrl: './site-inspection.component.html',
   styleUrls: ['./site-inspection.component.css'],
 })
-export class SiteInspectionComponent implements OnInit {
+export class SiteInspectionComponent implements OnInit, OnDestroy {
   private readonly apiService = inject(ApiService);
-  private readonly aiInspectionFillService = inject(AiInspectionFillService);
 
   @Output() switchToChat = new EventEmitter<void>();
   @Output() requestAiPhotoUpload = new EventEmitter<string>();
@@ -213,6 +243,15 @@ export class SiteInspectionComponent implements OnInit {
   // Form answers state
   formAnswers = signal<Record<string, QuestionAnswer>>({});
 
+  // Question ID awaiting explicit confirmation before overwriting an existing manual answer
+  pendingOverwriteQuestionId = signal<string | null>(null);
+
+  // Question ID currently in manual edit focus mode
+  editingQuestionId = signal<string | null>(null);
+
+  // Latest localStorage migration report (for transparency and testing)
+  lastDraftMigrationReport = signal<DraftMigrationReport | null>(null);
+
   // Review Form Filter tab: 'all' | 'needs-review' | 'car' | 'unanswered'
   reviewFilter = signal<'all' | 'needs-review' | 'car' | 'unanswered'>('all');
 
@@ -251,14 +290,14 @@ export class SiteInspectionComponent implements OnInit {
 
   // === STEP 3: AI SCANNING STATE ===
   isScanning = signal(false);
-  scanningStatusMessage = signal<string>('Uploading site photographs...');
-  scanningProgress = signal<number>(10);
+  scanningStatusMessage = signal<string>('Preparing uploaded photographs');
   scanError = signal<string | null>(null);
-  private scanningTimer?: ReturnType<typeof setTimeout>;
+  private scanSubscription?: Subscription;
+  private scanStageTimers: ReturnType<typeof setTimeout>[] = [];
 
   // AI model identifier and mock flag
-  aiModelIdentifier = signal<string>('QuestAI Vision Engine (Pre-Gemini Evaluation)');
-  isMockEngine = signal(true);
+  aiModelIdentifier = signal<string>('gemini-3.8-flash');
+  isMockEngine = signal(false);
   lastAnalyzedTimestamp = signal<string>('');
 
   // AI Pre-fill summary banner state
@@ -271,21 +310,24 @@ export class SiteInspectionComponent implements OnInit {
     needsReviewCount: number;
     bankName: string;
     timestamp: string;
+    summary?: string;
+    overallSiteRisk?: 'low' | 'medium' | 'high' | 'critical';
+    recommendations?: string[];
     evidenceNotes?: string;
   } | null>(null);
 
   aiPreFillApplied = computed(() => this.aiPreFillSummary() !== null);
 
   // TrackBy functions to prevent DOM recreation
-  trackBySection(index: number, sec: SectionGroup): string {
+  trackBySection(_index: number, sec: SectionGroup): string {
     return sec.headername;
   }
 
-  trackByQuestion(index: number, q: SiteInspectionQuestion): string {
+  trackByQuestion(_index: number, q: SiteInspectionQuestion): string {
     return q.id;
   }
 
-  trackByPhotoId(index: number, photo: InspectionPhoto): string {
+  trackByPhotoId(_index: number, photo: InspectionPhoto): string {
     return photo.id;
   }
 
@@ -325,17 +367,26 @@ export class SiteInspectionComponent implements OnInit {
     return getQuestionsForDepartment(bank.department);
   });
 
+  // Questions belonging to the selected bank that currently satisfy conditional rules
+  applicableQuestions = computed<SiteInspectionQuestion[]>(() => {
+    const questions = this.currentQuestions();
+    const answers = this.formAnswers();
+    const effectiveContext = this.buildConditionalEvaluationContext(answers);
+
+    return questions.filter((q) => {
+      if (q.conditionalRule && !evaluateConditionalRule(q, effectiveContext)) {
+        return false;
+      }
+      return true;
+    });
+  });
+
   // Visible questions after evaluating conditional rules, search, and review filter
   visibleQuestions = computed<SiteInspectionQuestion[]>(() => {
-    const questions = this.currentQuestions();
+    const questions = this.applicableQuestions();
     const answers = this.formAnswers();
 
     return questions.filter((q) => {
-      // Check conditional rule
-      if (q.conditionalRule && !evaluateConditionalRule(q, answers)) {
-        return false;
-      }
-
       // Check search query
       const query = this.searchQuery().trim().toLowerCase();
       if (query) {
@@ -352,11 +403,21 @@ export class SiteInspectionComponent implements OnInit {
       const ans = answers[q.id];
 
       if (filter === 'needs-review') {
-        return ans?.requiresHumanVerification === true && !ans?.isHumanVerified;
+        return (
+          (ans?.requiresHumanVerification === true ||
+            (ans?.hasAiEvaluation === true && ans?.aiSuggestionStatus === 'pending')) &&
+          !ans?.isHumanVerified
+        );
       }
 
       if (filter === 'car') {
-        return ans?.rating === '-1' || (ans?.multiselectans || []).some((m) => m.ncr === 'Yes');
+        const isConfirmedCar =
+          ans?.rating === '-1' || (ans?.multiselectans || []).some((m) => m.ncr === 'Yes');
+        const isPendingAiCar =
+          !ans?.rating &&
+          ans?.aiSuggestionStatus !== 'rejected' &&
+          ans?.aiSuggestedRating === '-1';
+        return isConfirmedCar || isPendingAiCar;
       }
 
       if (filter === 'unanswered') {
@@ -383,7 +444,13 @@ export class SiteInspectionComponent implements OnInit {
           answeredCount++;
         }
         const ans = answers[q.id];
-        if (ans?.rating === '-1' || (ans?.multiselectans || []).some((m) => m.ncr === 'Yes')) {
+        const isCar =
+          ans?.rating === '-1' ||
+          (!ans?.rating &&
+            ans?.aiSuggestionStatus !== 'rejected' &&
+            ans?.aiSuggestedRating === '-1') ||
+          (ans?.multiselectans || []).some((m) => m.ncr === 'Yes');
+        if (isCar) {
           hasCar = true;
         }
       }
@@ -400,7 +467,7 @@ export class SiteInspectionComponent implements OnInit {
 
   // Comprehensive Statistics
   stats = computed(() => {
-    const questions = this.currentQuestions();
+    const questions = this.applicableQuestions();
     const answers = this.formAnswers();
 
     let answered = 0;
@@ -409,21 +476,37 @@ export class SiteInspectionComponent implements OnInit {
     let naCount = 0;
     let needsReviewCount = 0;
     let verifiedCount = 0;
+    let confirmedPassCount = 0;
+    let confirmedCarCount = 0;
+    let confirmedNaCount = 0;
 
     for (const q of questions) {
-      const isVisible = !q.conditionalRule || evaluateConditionalRule(q, answers);
-      if (!isVisible) continue;
-
       const ans = answers[q.id];
       if (this.isQuestionAnswered(q.id)) {
         answered++;
       }
       if (ans) {
-        if (ans.rating === '1') passCount++;
-        else if (ans.rating === '-1') carCount++;
-        else if (ans.rating === '0') naCount++;
+        if (ans.rating === '1') {
+          passCount++;
+          confirmedPassCount++;
+        } else if (ans.rating === '-1') {
+          carCount++;
+          confirmedCarCount++;
+        } else if (ans.rating === '0') {
+          naCount++;
+          confirmedNaCount++;
+        } else if (ans.aiSuggestionStatus !== 'rejected') {
+          // Include unconfirmed AI suggestion in overview tally while keeping ans.rating separate
+          if (ans.aiSuggestedRating === '1') passCount++;
+          else if (ans.aiSuggestedRating === '-1') carCount++;
+          else if (ans.aiSuggestedRating === '0') naCount++;
+        }
 
-        if (ans.requiresHumanVerification && !ans.isHumanVerified) {
+        if (
+          (ans.requiresHumanVerification ||
+            (ans.hasAiEvaluation && ans.aiSuggestionStatus === 'pending')) &&
+          !ans.isHumanVerified
+        ) {
           needsReviewCount++;
         }
         if (ans.isHumanVerified) {
@@ -432,7 +515,7 @@ export class SiteInspectionComponent implements OnInit {
       }
     }
 
-    const total = this.visibleQuestions().length;
+    const total = questions.length;
     const percent = total > 0 ? Math.round((answered / total) * 100) : 0;
 
     return {
@@ -442,6 +525,9 @@ export class SiteInspectionComponent implements OnInit {
       passCount,
       carCount,
       naCount,
+      confirmedPassCount,
+      confirmedCarCount,
+      confirmedNaCount,
       needsReviewCount,
       verifiedCount,
       percent,
@@ -449,10 +535,40 @@ export class SiteInspectionComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    // Check if there is a pending AI pre-fill
-    this.checkForPendingAiPreFill();
-    // Initialize draft from localStorage if present
+    // Clean up any legacy mock pending pre-fill in localStorage
+    this.cleanupLegacyPendingAiFill();
+    // Initialize draft from localStorage if present (with safe legacy mock cleanup)
     this.loadDraft();
+  }
+
+  ngOnDestroy(): void {
+    this.clearScanTimers();
+    if (this.scanSubscription) {
+      this.scanSubscription.unsubscribe();
+      this.scanSubscription = undefined;
+    }
+    if (this.toastTimer) {
+      clearTimeout(this.toastTimer);
+    }
+    if (this.autoSaveTimer) {
+      clearTimeout(this.autoSaveTimer);
+    }
+  }
+
+  private buildConditionalEvaluationContext(
+    answers: Record<string, QuestionAnswer>
+  ): Record<string, any> {
+    const context: Record<string, any> = {};
+    for (const [qId, ans] of Object.entries(answers)) {
+      if (!ans) continue;
+      // Only confirmed inspector answers or explicitly accepted suggestions drive conditional visibility
+      context[qId] = {
+        ...ans,
+        selectans: ans.selectans,
+        multiselectans: ans.multiselectans,
+      };
+    }
+    return context;
   }
 
   // === STEP 1: CATEGORY SELECTION METHODS ===
@@ -463,16 +579,31 @@ export class SiteInspectionComponent implements OnInit {
     if (bank.trafficSubtype) {
       this.trafficSubtype.set(bank.trafficSubtype);
     }
+    this.pendingOverwriteQuestionId.set(null);
+    this.editingQuestionId.set(null);
     this.loadDraft();
   }
 
+  onCategoryCardClick(bankId: string): void {
+    this.selectBank(bankId);
+    this.requestAiPhotoUpload.emit(bankId);
+  }
+
+  openManualChecklistForBank(bankId: string, selectedRiskBanks?: string[]): void {
+    this.selectBank(bankId);
+    if (selectedRiskBanks && this.currentBank().isManagers) {
+      this.selectedRiskBanks.set([...selectedRiskBanks]);
+    }
+    this.skipToManualChecklist();
+  }
+
   continueToPhotoUpload(): void {
-    this.activeStep.set('photo-upload');
+    this.requestAiPhotoUpload.emit(this.selectedBankId());
   }
 
   skipToManualChecklist(): void {
     this.loadDraft();
-    const groups = groupQuestionsByHeader(this.currentQuestions());
+    const groups = groupQuestionsByHeader(this.applicableQuestions());
     if (groups.length > 0) {
       this.activeSectionName.set(groups[0].headername);
       this.expandedSections.set({ [groups[0].headername]: true });
@@ -482,6 +613,9 @@ export class SiteInspectionComponent implements OnInit {
   }
 
   backToCategorySelect(): void {
+    if (this.isScanning()) {
+      this.cancelScanning();
+    }
     this.activeStep.set('category-select');
   }
 
@@ -518,30 +652,61 @@ export class SiteInspectionComponent implements OnInit {
   }
 
   private async processFileList(files: File[]): Promise<void> {
-    const imageFiles = files.filter((f) => f.type.startsWith('image/'));
-    if (imageFiles.length === 0) {
-      this.showToast('Please select valid image files (JPG, PNG, WebP).');
+    const validFiles = files.filter((f) =>
+      ALLOWED_IMAGE_MIMES.has((f.type || '').toLowerCase())
+    );
+    if (validFiles.length === 0) {
+      this.showToast('Please select valid JPG, PNG, or WebP photographs.');
       return;
     }
 
     const currentPhotos = [...this.uploadedPhotos()];
-    for (const file of imageFiles) {
+    if (currentPhotos.length + validFiles.length > MAX_INSPECTION_PHOTOS) {
+      this.showToast(`Maximum ${MAX_INSPECTION_PHOTOS} photographs allowed per analysis.`);
+      return;
+    }
+
+    let runningTotalBytes = currentPhotos.reduce(
+      (sum, p) => sum + (p.size || this.estimateDataUrlBytes(p.url)),
+      0
+    );
+    let addedCount = 0;
+
+    for (const file of validFiles) {
+      if (file.size > MAX_IMAGE_SIZE_BYTES) {
+        this.showToast(`"${file.name}" exceeds the 10 MB per-photo limit.`);
+        continue;
+      }
       try {
-        const dataUrl = await this.readFileAsOptimizedDataUrl(file);
+        const { dataUrl, mimeType, byteLength, normalizedName } =
+          await this.readFileAsOptimizedDataUrl(file);
+        if (byteLength > MAX_IMAGE_SIZE_BYTES) {
+          this.showToast(`"${file.name}" exceeds the 10 MB per-photo limit.`);
+          continue;
+        }
+        if (runningTotalBytes + byteLength > MAX_TOTAL_IMAGES_BYTES) {
+          this.showToast('Total photo size exceeds the 25 MB limit.');
+          break;
+        }
+        runningTotalBytes += byteLength;
         currentPhotos.push({
           id: `photo_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-          name: file.name,
+          name: normalizedName,
           url: dataUrl,
-          size: file.size,
+          mimeType,
+          size: byteLength,
           timestamp: new Date().toISOString(),
         });
+        addedCount++;
       } catch (err) {
         console.error('Failed reading photo', err);
       }
     }
 
-    this.uploadedPhotos.set(currentPhotos);
-    this.showToast(`${imageFiles.length} photo(s) uploaded successfully.`);
+    if (addedCount > 0) {
+      this.uploadedPhotos.set(currentPhotos);
+      this.showToast(`${addedCount} photo(s) uploaded successfully.`);
+    }
   }
 
   removeUploadedPhoto(index: number): void {
@@ -556,186 +721,422 @@ export class SiteInspectionComponent implements OnInit {
     this.showToast('All uploaded photos cleared.');
   }
 
-  // === STEP 3: AI SCANNING METHODS ===
+  public estimateDataUrlBytes(dataUrl: string): number {
+    if (!dataUrl || typeof dataUrl !== 'string') return 0;
+    const commaIdx = dataUrl.indexOf(',');
+    const base64 = commaIdx >= 0 ? dataUrl.slice(commaIdx + 1) : dataUrl;
+    const cleaned = base64.replace(/\s+/g, '');
+    if (!cleaned) return 0;
+    const padding = cleaned.endsWith('==') ? 2 : cleaned.endsWith('=') ? 1 : 0;
+    return Math.max(0, Math.floor((cleaned.length * 3) / 4) - padding);
+  }
+
+  public validatePhotosForAnalysis(photos: InspectionPhoto[]): {
+    valid: boolean;
+    error?: string;
+  } {
+    if (!Array.isArray(photos) || photos.length === 0) {
+      return { valid: false, error: 'Please upload at least one photograph to analyse.' };
+    }
+    if (photos.length > MAX_INSPECTION_PHOTOS) {
+      return {
+        valid: false,
+        error: `Too many photographs selected (${photos.length}). Maximum allowed is ${MAX_INSPECTION_PHOTOS}.`,
+      };
+    }
+
+    let totalBytes = 0;
+    for (const p of photos) {
+      if (!p || !p.url || !p.url.startsWith('data:image/')) {
+        return {
+          valid: false,
+          error: `Photograph "${p?.name || 'unnamed'}" is missing a valid image data URI.`,
+        };
+      }
+      const mimeMatch = /^data:(image\/[a-zA-Z0-9.+-]+);base64,/i.exec(p.url);
+      const mime = mimeMatch ? mimeMatch[1].toLowerCase() : '';
+      if (!ALLOWED_IMAGE_MIMES.has(mime)) {
+        return {
+          valid: false,
+          error: `Photograph "${p.name}" has unsupported format "${mime || 'unknown'}". Use JPG, PNG, or WebP.`,
+        };
+      }
+      const bytes = this.estimateDataUrlBytes(p.url);
+      if (bytes <= 0) {
+        return {
+          valid: false,
+          error: `Photograph "${p.name}" contains empty image data.`,
+        };
+      }
+      if (bytes > MAX_IMAGE_SIZE_BYTES) {
+        return {
+          valid: false,
+          error: `Photograph "${p.name}" exceeds the maximum 10 MB per-image limit.`,
+        };
+      }
+      totalBytes += bytes;
+    }
+
+    if (totalBytes > MAX_TOTAL_IMAGES_BYTES) {
+      return {
+        valid: false,
+        error: 'Total uploaded photographs exceed the 25 MB limit.',
+      };
+    }
+
+    return { valid: true };
+  }
+
+  // === STEP 3: AI SCANNING METHODS (REAL GEMINI MULTIMODAL WORKFLOW) ===
+
+  /**
+   * Entry point used when the Home modal hands off selected bank + photos for real Gemini analysis.
+   */
+  public startExternalPhotoAnalysis(params: {
+    bankId: string;
+    trafficSubtype?: '12D' | '12AB';
+    selectedRiskBanks?: string[];
+    photos: InspectionPhoto[];
+    siteNotes?: string;
+  }): void {
+    this.selectBank(params.bankId);
+    if (params.trafficSubtype) {
+      this.trafficSubtype.set(params.trafficSubtype);
+    }
+    if (params.selectedRiskBanks && this.currentBank().isManagers) {
+      this.selectedRiskBanks.set([...params.selectedRiskBanks]);
+    }
+    this.uploadedPhotos.set([...params.photos]);
+    if (params.siteNotes !== undefined) {
+      this.uploadSiteNotes.set(params.siteNotes);
+    }
+    this.startAiPhotoScanning();
+  }
+
+  public buildPhotoInspectionRequest(): PhotoInspectionRequest {
+    const bank = this.currentBank();
+    const applicable = this.applicableQuestions();
+    const photosPayload = this.uploadedPhotos().map((p) => ({
+      id: p.id,
+      name: p.name,
+      url: p.url,
+      size: p.size || this.estimateDataUrlBytes(p.url),
+      timestamp: p.timestamp,
+    }));
+
+    return {
+      bankId: this.selectedBankId(),
+      bankName: bank.name,
+      department: bank.department,
+      trafficSubtype:
+        bank.department === 'Traffic Management'
+          ? bank.trafficSubtype || this.trafficSubtype()
+          : undefined,
+      selectedRiskBanks: bank.isManagers ? this.selectedRiskBanks() : undefined,
+      siteName: this.inspectionMetadata().siteLocation,
+      inspectionDate: this.inspectionMetadata().inspectionDate,
+      siteNotes: this.uploadSiteNotes() || this.inspectionMetadata().notes,
+      inspectorName: this.inspectionMetadata().inspectorName,
+      jobReference: this.inspectionMetadata().jobReference,
+      questions: applicable.map((q) => ({
+        id: q.id,
+        qnum: q.qnum,
+        headername: q.headername,
+        qtext: q.qtext,
+        typeofans: q.typeofans as string[] | undefined,
+        select: q.select,
+        multiselect: q.multiselect,
+        conditionalRule: q.conditionalRule,
+      })),
+      photos: photosPayload,
+    };
+  }
+
+  private clearScanTimers(): void {
+    for (const timer of this.scanStageTimers) {
+      clearTimeout(timer);
+    }
+    this.scanStageTimers = [];
+  }
 
   startAiPhotoScanning(): void {
-    if (this.uploadedPhotos().length === 0) {
-      this.showToast('Please upload at least one photograph to analyze.');
+    // Prevent duplicate submissions while a request is already in flight
+    if (this.isScanning()) {
       return;
+    }
+
+    const validation = this.validatePhotosForAnalysis(this.uploadedPhotos());
+    if (!validation.valid) {
+      const msg = validation.error || 'Please upload valid site photographs.';
+      this.scanError.set(msg);
+      this.showToast(msg);
+      return;
+    }
+
+    this.clearScanTimers();
+    if (this.scanSubscription) {
+      this.scanSubscription.unsubscribe();
+      this.scanSubscription = undefined;
     }
 
     this.activeStep.set('ai-scanning');
     this.isScanning.set(true);
     this.scanError.set(null);
-    this.scanningProgress.set(10);
-    this.scanningStatusMessage.set('Uploading site photographs...');
+    this.scanningStatusMessage.set('Preparing uploaded photographs');
 
-    const stages = [
-      { progress: 20, message: 'Uploading site photographs...' },
-      { progress: 40, message: 'Preparing image frames for vision analysis...' },
-      { progress: 65, message: 'Scanning visual features against Chapter 8 & safety guidelines...' },
-      { progress: 85, message: `Evaluating compliance for ${this.currentBank().name} checklist...` },
-      { progress: 95, message: 'Formulating evidence and recommendations...' },
-    ];
+    const request = this.buildPhotoInspectionRequest();
 
-    let currentStage = 0;
-    const interval = setInterval(() => {
-      if (!this.isScanning()) {
-        clearInterval(interval);
-        return;
-      }
-      if (currentStage < stages.length) {
-        this.scanningProgress.set(stages[currentStage].progress);
-        this.scanningStatusMessage.set(stages[currentStage].message);
-        currentStage++;
-      }
-    }, 600);
+    // Update status message as the HTTP request is dispatched
+    this.scanningStatusMessage.set('Sending photographs for Gemini analysis');
 
-    const photosPayload = this.uploadedPhotos().map((p) => ({
-      id: p.id,
-      name: p.name,
-      url: p.url,
-      base64Data: p.url,
-      timestamp: p.timestamp,
-    }));
+    // Truthful lifecycle status updates while awaiting Gemini's response (no fabricated percentages)
+    this.scanStageTimers.push(
+      setTimeout(() => {
+        if (this.isScanning()) {
+          this.scanningStatusMessage.set('Analysing site evidence');
+        }
+      }, 900),
+      setTimeout(() => {
+        if (this.isScanning()) {
+          this.scanningStatusMessage.set('Processing inspection question evaluations');
+        }
+      }, 2600)
+    );
 
-    const request: PhotoInspectionRequest = {
-      bankId: this.selectedBankId(),
-      bankName: this.currentBank().name,
-      department: this.currentBank().department,
-      trafficSubtype: this.trafficSubtype(),
-      selectedRiskBanks: this.selectedRiskBanks(),
-      photos: photosPayload,
-      siteNotes: this.uploadSiteNotes() || this.inspectionMetadata().notes,
-      inspectorName: this.inspectionMetadata().inspectorName,
-      jobReference: this.inspectionMetadata().jobReference,
-    };
-
-    // Call backend API
-    this.apiService.analyzeInspectionPhotos(request).subscribe({
+    this.scanSubscription = this.apiService.analyzeInspectionPhotos(request).subscribe({
       next: (res) => {
-        clearInterval(interval);
-        this.scanningProgress.set(100);
-        this.scanningStatusMessage.set('Populating inspection form...');
-
-        setTimeout(() => {
-          this.applyBackendAiResults(res.data);
-        }, 500);
+        this.clearScanTimers();
+        this.scanSubscription = undefined;
+        this.scanningStatusMessage.set('Processing inspection question evaluations');
+        this.applyBackendAiResults(res.data);
       },
       error: (err) => {
-        console.warn('Backend inspect-photos error, applying local fallback engine:', err);
-        clearInterval(interval);
-        this.scanningProgress.set(100);
-        this.scanningStatusMessage.set('Applying QuestAI Vision Engine fallback...');
-
-        // Fallback to local evaluation service
-        setTimeout(() => {
-          this.applyLocalAiResults();
-        }, 600);
+        this.clearScanTimers();
+        this.scanSubscription = undefined;
+        this.isScanning.set(false);
+        this.scanningStatusMessage.set('Photo analysis failed');
+        this.scanError.set(this.formatPhotoAnalysisError(err));
       },
     });
   }
 
+  private formatPhotoAnalysisError(err: any): string {
+    const backendMessage =
+      err?.error?.error?.message ||
+      (Array.isArray(err?.error?.error?.details) && err.error.error.details.join('; ')) ||
+      err?.error?.message;
+
+    if (err?.status === 0) {
+      return 'Cannot reach the QuestAI backend server on port 5001. Please ensure the backend is running.';
+    }
+    if (err?.status === 400) {
+      return backendMessage || 'Invalid photo analysis request payload. Check photo format and size limits.';
+    }
+    if (err?.status === 401 || err?.status === 403) {
+      return backendMessage || 'Gemini authentication failed on the backend. Verify backend API key configuration.';
+    }
+    if (err?.status === 429) {
+      return backendMessage || 'Gemini API quota or rate limit exceeded. Please wait a moment and try again.';
+    }
+    if (err?.status === 504) {
+      return backendMessage || 'Gemini photo analysis timed out. Try again or upload fewer/smaller photos.';
+    }
+    return backendMessage || 'Gemini photo analysis failed. Please try again.';
+  }
+
   cancelScanning(): void {
+    this.clearScanTimers();
+    if (this.scanSubscription) {
+      this.scanSubscription.unsubscribe();
+      this.scanSubscription = undefined;
+    }
     this.isScanning.set(false);
+    this.scanError.set(null);
     this.activeStep.set('photo-upload');
     this.showToast('Photo analysis cancelled.');
   }
 
   retryScanning(): void {
+    if (this.isScanning()) return;
+    this.scanError.set(null);
     this.startAiPhotoScanning();
   }
 
-  private applyBackendAiResults(data: any): void {
+  /**
+   * Maps the real Gemini response from POST /api/ai/inspect-photos to the selected bank's questions.
+   * - Validates all questionIds against the selected bank.
+   * - Never converts a null rating to Pass ('1'), CAR ('-1'), or N/A ('0').
+   * - Keeps AI suggestions separate from confirmed inspector answers until accepted.
+   * - Never overwrites an existing human answer without explicit confirmation.
+   * - Never automatically attaches photos to questions based on question index.
+   */
+  public applyBackendAiResults(data: PhotoInspectionResult): void {
     const questions = this.currentQuestions();
-    const bank = this.currentBank();
-
-    // Baseline domain fill
-    const localResult = this.aiInspectionFillService.generateAiInspectionAnswers(
-      bank.id,
-      bank.department,
-      questions,
-      this.uploadedPhotos(),
-      this.uploadSiteNotes()
+    const validQuestionMap = new Map<string, SiteInspectionQuestion>(
+      questions.map((q) => [q.id, q])
     );
 
-    const mergedAnswers = { ...localResult.answers };
-
-    // Overlay backend evaluations if provided
-    if (data && data.evaluations) {
-      for (const [qid, evaluation] of Object.entries<any>(data.evaluations)) {
-        if (mergedAnswers[qid]) {
-          mergedAnswers[qid] = {
-            ...mergedAnswers[qid],
-            rating: evaluation.suggestedRating || mergedAnswers[qid].rating,
-            aiSuggestedRating: evaluation.suggestedRating,
-            aiEvidence: evaluation.evidence || mergedAnswers[qid].aiEvidence,
-            aiReasoning: evaluation.reasoning || mergedAnswers[qid].aiReasoning,
-            aiConfidence: Math.round((evaluation.confidenceScore || 0.9) * 100),
-            requiresHumanVerification: evaluation.requiresHumanVerification ?? mergedAnswers[qid].requiresHumanVerification,
-            carActionPlan: evaluation.carActionPlan || mergedAnswers[qid].carActionPlan,
-            comment: evaluation.evidence || mergedAnswers[qid].comment,
-          };
+    // Build validated lookup map from either evaluations[] array or evaluationsMap record
+    const evalById = new Map<string, QuestionAiEvaluation>();
+    if (Array.isArray(data?.evaluations)) {
+      for (const ev of data.evaluations) {
+        if (ev && typeof ev.questionId === 'string' && validQuestionMap.has(ev.questionId)) {
+          evalById.set(ev.questionId, ev);
+        }
+      }
+    } else if (data?.evaluationsMap && typeof data.evaluationsMap === 'object') {
+      for (const [qId, ev] of Object.entries(data.evaluationsMap)) {
+        if (ev && validQuestionMap.has(qId)) {
+          evalById.set(qId, ev);
         }
       }
     }
 
-    this.aiModelIdentifier.set(data?.modelIdentifier || 'QuestAI Vision Engine (Pre-Gemini Evaluation)');
-    this.isMockEngine.set(data?.isMock ?? true);
-    this.lastAnalyzedTimestamp.set(data?.analyzedAt || new Date().toISOString());
+    const existingAnswers = this.formAnswers();
+    const mergedAnswers: Record<string, QuestionAnswer> = {};
+    const analyzedAt = data?.analyzedAt || new Date().toISOString();
+    const modelId = data?.modelIdentifier || 'gemini-3.8-flash';
 
-    this.finalizeAiApplication(mergedAnswers, localResult);
-  }
-
-  private applyLocalAiResults(): void {
-    const questions = this.currentQuestions();
-    const bank = this.currentBank();
-
-    const localResult = this.aiInspectionFillService.generateAiInspectionAnswers(
-      bank.id,
-      bank.department,
-      questions,
-      this.uploadedPhotos(),
-      this.uploadSiteNotes()
-    );
-
-    this.aiModelIdentifier.set('QuestAI Vision Engine (Pre-Gemini Evaluation)');
-    this.isMockEngine.set(true);
-    this.lastAnalyzedTimestamp.set(new Date().toISOString());
-
-    this.finalizeAiApplication(localResult.answers, localResult);
-  }
-
-  private finalizeAiApplication(answers: Record<string, QuestionAnswer>, metrics: any): void {
-    this.formAnswers.set(answers);
-    this.isScanning.set(false);
-
-    let passCount = 0;
-    let carCount = 0;
-    let naCount = 0;
+    let suggestedPassCount = 0;
+    let suggestedCarCount = 0;
+    let suggestedNaCount = 0;
     let needsReviewCount = 0;
 
-    for (const ans of Object.values(answers)) {
-      if (ans.rating === '1') passCount++;
-      else if (ans.rating === '-1') carCount++;
-      else if (ans.rating === '0') naCount++;
-      if (ans.requiresHumanVerification) needsReviewCount++;
+    for (const q of questions) {
+      const existing = existingAnswers[q.id];
+      const hasHumanAnswer = this.hasManualInspectorAnswer(existing);
+      const ev = evalById.get(q.id);
+
+      if (!ev) {
+        if (hasHumanAnswer) {
+          mergedAnswers[q.id] = { ...existing };
+        } else {
+          mergedAnswers[q.id] = {
+            rating: '',
+            hasAiEvaluation: false,
+            aiSuggestedRating: null,
+            requiresHumanVerification: true,
+            isHumanVerified: false,
+          };
+          needsReviewCount++;
+        }
+        continue;
+      }
+
+      // Strictly map rating: "1" = suggested Pass, "-1" = suggested CAR, "0" = suggested N/A, null = unresolved
+      const rawRating = ev.rating;
+      const aiSuggestedRating: '1' | '-1' | '0' | null =
+        rawRating === '1' || rawRating === '-1' || rawRating === '0' ? rawRating : null;
+
+      if (aiSuggestedRating === '1') suggestedPassCount++;
+      else if (aiSuggestedRating === '-1') suggestedCarCount++;
+      else if (aiSuggestedRating === '0') suggestedNaCount++;
+
+      // Validate selectAnswer against allowed question select options
+      const allowedSelects = this.getAllowedSelectOptionTexts(q);
+      let aiSuggestedSelect: string | null = null;
+      if (typeof ev.selectAnswer === 'string' && ev.selectAnswer.trim()) {
+        const candidate = ev.selectAnswer.trim();
+        if (allowedSelects.length === 0 || allowedSelects.includes(candidate)) {
+          aiSuggestedSelect = candidate;
+        }
+      }
+
+      // Validate multiselectAnswers against allowed question multiselect options
+      const allowedMultiSelects = this.getAllowedMultiSelectOptionTexts(q);
+      let aiSuggestedMultiSelect: string[] | null = null;
+      if (Array.isArray(ev.multiselectAnswers) && ev.multiselectAnswers.length > 0) {
+        const filtered = ev.multiselectAnswers
+          .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+          .map((item) => item.trim())
+          .filter((item) => allowedMultiSelects.length === 0 || allowedMultiSelects.includes(item));
+        if (filtered.length > 0) {
+          aiSuggestedMultiSelect = filtered;
+        }
+      }
+
+      // Normalize confidence to 0-100 percentage
+      const rawConf =
+        typeof ev.confidence === 'number'
+          ? ev.confidence
+          : typeof ev.confidenceScore === 'number'
+            ? ev.confidenceScore
+            : 0;
+      const clampedConf = rawConf <= 1 ? Math.max(0, Math.min(1, rawConf)) * 100 : Math.max(0, Math.min(100, rawConf));
+      const aiConfidence = Math.round(clampedConf);
+
+      const evidenceObserved = (ev.evidenceObserved ?? ev.evidence ?? '').trim();
+      const reasoning = (ev.reasoning ?? '').trim();
+      const needsHumanVerification =
+        aiSuggestedRating === null
+          ? true
+          : !!(ev.needsHumanVerification ?? ev.requiresHumanVerification);
+
+      if (needsHumanVerification) {
+        needsReviewCount++;
+      }
+
+      const aiSuggestedCarActionPlan =
+        typeof ev.carActionPlan === 'string' && ev.carActionPlan.trim()
+          ? ev.carActionPlan.trim()
+          : null;
+
+      // Preserve confirmed human answers; keep AI suggestions strictly separate until accepted
+      mergedAnswers[q.id] = {
+        rating: hasHumanAnswer ? (existing.rating ?? '') : '',
+        selectans: hasHumanAnswer ? existing.selectans : undefined,
+        multiselectans: hasHumanAnswer ? existing.multiselectans : undefined,
+        comment: hasHumanAnswer ? existing.comment : '',
+        carActionPlan: hasHumanAnswer ? existing.carActionPlan : undefined,
+        componentres: hasHumanAnswer ? existing.componentres : undefined,
+        modalres: hasHumanAnswer ? existing.modalres : undefined,
+        photos: hasHumanAnswer ? existing.photos : undefined,
+        photoAttached: hasHumanAnswer ? !!existing.photoAttached : false,
+        isHumanVerified: hasHumanAnswer,
+        answeredBy: hasHumanAnswer ? 'human' : 'ai',
+
+        // AI Suggestion Metadata
+        hasAiEvaluation: true,
+        aiSuggestedRating,
+        aiSuggestedSelect,
+        aiSuggestedMultiSelect,
+        aiSuggestedCarActionPlan,
+        aiEvidence: evidenceObserved || undefined,
+        aiReasoning: reasoning || undefined,
+        aiConfidence,
+        requiresHumanVerification: needsHumanVerification,
+        aiSuggestionStatus: 'pending',
+        aiModel: modelId,
+        aiEvaluatedAt: analyzedAt,
+      };
     }
+
+    this.aiModelIdentifier.set(modelId);
+    this.isMockEngine.set(!!data?.isMock);
+    this.lastAnalyzedTimestamp.set(analyzedAt);
+
+    this.formAnswers.set(mergedAnswers);
+    this.isScanning.set(false);
+    this.pendingOverwriteQuestionId.set(null);
+    this.editingQuestionId.set(null);
 
     this.aiPreFillSummary.set({
       photoCount: this.uploadedPhotos().length,
-      totalEvaluated: Object.keys(answers).length,
-      passedCount: passCount,
-      carCount: carCount,
-      naCount: naCount,
-      needsReviewCount: needsReviewCount,
+      totalEvaluated: evalById.size,
+      passedCount: suggestedPassCount,
+      carCount: suggestedCarCount,
+      naCount: suggestedNaCount,
+      needsReviewCount,
       bankName: this.currentBank().name,
-      timestamp: new Date().toISOString(),
+      timestamp: analyzedAt,
+      summary: data?.summary || '',
+      overallSiteRisk: data?.overallSiteRisk,
+      recommendations: data?.recommendations || [],
       evidenceNotes: this.uploadSiteNotes(),
     });
 
     // Open first section
-    const groups = groupQuestionsByHeader(this.currentQuestions());
+    const groups = groupQuestionsByHeader(this.applicableQuestions());
     if (groups.length > 0) {
       this.activeSectionName.set(groups[0].headername);
       this.expandedSections.set({ [groups[0].headername]: true });
@@ -745,11 +1146,42 @@ export class SiteInspectionComponent implements OnInit {
     this.activeStep.set('review-form');
 
     this.showToast(
-      `✨ AI Analysis Completed: ${passCount} Pass, ${carCount} CAR, ${needsReviewCount} Needs Review`
+      `✨ Gemini Analysis Complete: ${suggestedPassCount} Suggested Pass, ${suggestedCarCount} Suggested CAR, ${needsReviewCount} Needs Human Check`
     );
   }
 
-  // === STEP 4: REVIEW FORM METHODS ===
+  public hasManualInspectorAnswer(ans: QuestionAnswer | undefined): boolean {
+    if (!ans) return false;
+    if (!ans.isHumanVerified && ans.answeredBy !== 'human') return false;
+    return !!(
+      ans.rating ||
+      (ans.selectans && ans.selectans.trim() !== '') ||
+      (ans.multiselectans && ans.multiselectans.length > 0) ||
+      (ans.comment && ans.comment.trim() !== '' && !isLegacyMockString(ans.comment)) ||
+      (ans.carActionPlan && ans.carActionPlan.trim() !== '' && !isLegacyMockString(ans.carActionPlan)) ||
+      (ans.componentres && ans.componentres.trim() !== '') ||
+      (ans.modalres && ans.modalres.trim() !== '') ||
+      (ans.photos && ans.photos.some((p) => p.attachedBy === 'inspector'))
+    );
+  }
+
+  private getAllowedSelectOptionTexts(q: SiteInspectionQuestion): string[] {
+    const rawList = q.select || (q as any)['options'] || [];
+    if (!Array.isArray(rawList)) return [];
+    return rawList
+      .map((item: string | SelectOption) => (typeof item === 'string' ? item : item?.txt || ''))
+      .filter((t: string) => t.trim().length > 0);
+  }
+
+  private getAllowedMultiSelectOptionTexts(q: SiteInspectionQuestion): string[] {
+    const rawList = q.multiselect || [];
+    if (!Array.isArray(rawList)) return [];
+    return rawList
+      .map((item: MultiSelectOption) => item?.txt || '')
+      .filter((t: string) => t.trim().length > 0);
+  }
+
+  // === STEP 4: REVIEW FORM & MANDATORY HUMAN VERIFICATION METHODS ===
 
   setReviewFilter(filter: 'all' | 'needs-review' | 'car' | 'unanswered'): void {
     this.reviewFilter.set(filter);
@@ -759,11 +1191,18 @@ export class SiteInspectionComponent implements OnInit {
   setRating(questionId: string, rating: QuestRatingValue): void {
     const current = this.formAnswers();
     const existing = current[questionId] || {};
+    const nextRating: QuestRatingValue = existing.rating === rating ? '' : rating;
 
     const updated: QuestionAnswer = {
       ...existing,
-      rating: existing.rating === rating ? '' : rating,
-      isHumanVerified: true, // Inspector took active action
+      rating: nextRating,
+      isHumanVerified: nextRating !== '',
+      answeredBy: 'human',
+      aiSuggestionStatus: existing.hasAiEvaluation
+        ? nextRating === existing.aiSuggestedRating
+          ? 'accepted'
+          : 'edited'
+        : existing.aiSuggestionStatus,
     };
 
     this.formAnswers.set({
@@ -771,25 +1210,161 @@ export class SiteInspectionComponent implements OnInit {
       [questionId]: updated,
     });
 
+    if (this.pendingOverwriteQuestionId() === questionId) {
+      this.pendingOverwriteQuestionId.set(null);
+    }
+
     this.autoSaveDraft();
   }
 
-  // Confirm AI suggestion directly
-  confirmAiSuggestion(questionId: string): void {
+  /**
+   * Accept AI Suggestion for a question.
+   * Never converts a null rating to Pass/CAR/N/A.
+   * Never overwrites an existing human answer without explicit confirmation.
+   */
+  acceptAiSuggestion(questionId: string, forceOverwrite = false): void {
     const current = this.formAnswers();
-    const existing = current[questionId] || {};
-    const suggested = existing.aiSuggestedRating || '1';
+    const existing = current[questionId];
+    if (!existing || !existing.hasAiEvaluation) return;
+
+    const suggestedRating = existing.aiSuggestedRating;
+    const hasExecutableSuggestion =
+      suggestedRating === '1' ||
+      suggestedRating === '-1' ||
+      suggestedRating === '0' ||
+      !!existing.aiSuggestedSelect ||
+      (Array.isArray(existing.aiSuggestedMultiSelect) &&
+        existing.aiSuggestedMultiSelect.length > 0);
+
+    if (!hasExecutableSuggestion) {
+      this.showToast(
+        'AI rating is unresolved for this question. Please inspect and select an answer manually.'
+      );
+      return;
+    }
+
+    // Do not overwrite an existing human answer without explicit confirmation
+    if (this.hasManualInspectorAnswer(existing) && !forceOverwrite) {
+      this.pendingOverwriteQuestionId.set(questionId);
+      return;
+    }
+
+    const question = this.currentQuestions().find((q) => q.id === questionId);
+    let nextMultiSelect = existing.multiselectans;
+    if (
+      question &&
+      Array.isArray(existing.aiSuggestedMultiSelect) &&
+      existing.aiSuggestedMultiSelect.length > 0
+    ) {
+      const schemaMulti = question.multiselect || [];
+      nextMultiSelect = existing.aiSuggestedMultiSelect.map((txt) => {
+        const match = schemaMulti.find((m) => m.txt === txt);
+        return { txt, id: match?.id, ncr: match?.ncr };
+      });
+    }
+
+    const acceptedRating: QuestRatingValue =
+      suggestedRating === '1' || suggestedRating === '-1' || suggestedRating === '0'
+        ? suggestedRating
+        : (existing.rating ?? '');
 
     this.formAnswers.set({
       ...current,
       [questionId]: {
         ...existing,
-        rating: suggested,
+        rating: acceptedRating,
+        selectans: existing.aiSuggestedSelect ?? existing.selectans,
+        multiselectans: nextMultiSelect,
+        comment:
+          !existing.comment || forceOverwrite
+            ? existing.aiEvidence || existing.comment || ''
+            : existing.comment,
+        carActionPlan:
+          acceptedRating === '-1'
+            ? existing.aiSuggestedCarActionPlan || existing.carActionPlan || ''
+            : existing.carActionPlan,
         isHumanVerified: true,
+        requiresHumanVerification: false,
+        answeredBy: 'human',
+        aiSuggestionStatus: 'accepted',
       },
     });
 
-    this.showToast('Rating verified by inspector.');
+    this.pendingOverwriteQuestionId.set(null);
+    this.editingQuestionId.set(null);
+    this.showToast('AI suggestion accepted and verified by inspector.');
+    this.autoSaveDraft();
+  }
+
+  /**
+   * Backward-compatible alias for acceptAiSuggestion.
+   */
+  confirmAiSuggestion(questionId: string, forceOverwrite = false): void {
+    this.acceptAiSuggestion(questionId, forceOverwrite);
+  }
+
+  cancelOverwriteConfirmation(): void {
+    this.pendingOverwriteQuestionId.set(null);
+  }
+
+  /**
+   * Edit answer: opens manual editing mode for the question and pre-stages AI observation notes
+   * only if the inspector has not already entered a comment or CAR plan.
+   */
+  editAiSuggestion(questionId: string): void {
+    const current = this.formAnswers();
+    const existing = current[questionId] || {};
+
+    this.formAnswers.set({
+      ...current,
+      [questionId]: {
+        ...existing,
+        comment: existing.comment || existing.aiEvidence || '',
+        carActionPlan:
+          existing.carActionPlan ||
+          (existing.aiSuggestedRating === '-1' ? existing.aiSuggestedCarActionPlan || '' : undefined),
+        aiSuggestionStatus: 'edited',
+      },
+    });
+
+    this.editingQuestionId.set(questionId);
+    this.pendingOverwriteQuestionId.set(null);
+    this.showToast('Editing answer manually. Select a rating or update inspector notes below.');
+    this.autoSaveDraft();
+  }
+
+  /**
+   * Reject AI Suggestion: dismisses the AI suggestion while preserving any existing human answer
+   * or leaving the question unanswered for manual input.
+   */
+  rejectAiSuggestion(questionId: string): void {
+    const current = this.formAnswers();
+    const existing = current[questionId];
+    if (!existing) return;
+
+    const hasHuman = this.hasManualInspectorAnswer(existing);
+
+    this.formAnswers.set({
+      ...current,
+      [questionId]: {
+        ...existing,
+        rating: hasHuman ? existing.rating : '',
+        comment: hasHuman ? existing.comment : '',
+        carActionPlan: hasHuman ? existing.carActionPlan : undefined,
+        selectans: hasHuman ? existing.selectans : undefined,
+        multiselectans: hasHuman ? existing.multiselectans : undefined,
+        aiSuggestionStatus: 'rejected',
+        requiresHumanVerification: !hasHuman,
+      },
+    });
+
+    if (this.pendingOverwriteQuestionId() === questionId) {
+      this.pendingOverwriteQuestionId.set(null);
+    }
+    if (this.editingQuestionId() === questionId) {
+      this.editingQuestionId.set(null);
+    }
+    this.showToast('AI suggestion rejected. Please enter your manual assessment.');
     this.autoSaveDraft();
   }
 
@@ -804,6 +1379,8 @@ export class SiteInspectionComponent implements OnInit {
         ...existing,
         selectans: value,
         isHumanVerified: true,
+        answeredBy: 'human',
+        aiSuggestionStatus: existing.hasAiEvaluation ? 'edited' : existing.aiSuggestionStatus,
       },
     });
 
@@ -834,13 +1411,15 @@ export class SiteInspectionComponent implements OnInit {
         ...existing,
         multiselectans: selectedList,
         isHumanVerified: true,
+        answeredBy: 'human',
+        aiSuggestionStatus: existing.hasAiEvaluation ? 'edited' : existing.aiSuggestionStatus,
       },
     });
 
     this.autoSaveDraft();
   }
 
-  isMultiOptionSelected(questionId: string, optionTxt: string) {
+  isMultiOptionSelected(questionId: string, optionTxt: string): boolean {
     const ans = this.formAnswers()[questionId];
     if (!ans || !ans.multiselectans) return false;
     return ans.multiselectans.some((item) => item.txt === optionTxt);
@@ -856,6 +1435,8 @@ export class SiteInspectionComponent implements OnInit {
       [questionId]: {
         ...existing,
         comment,
+        isHumanVerified: existing.isHumanVerified || comment.trim().length > 0,
+        answeredBy: 'human',
       },
     });
 
@@ -872,6 +1453,7 @@ export class SiteInspectionComponent implements OnInit {
       [questionId]: {
         ...existing,
         carActionPlan,
+        answeredBy: 'human',
       },
     });
 
@@ -889,6 +1471,7 @@ export class SiteInspectionComponent implements OnInit {
         ...existing,
         componentres: value,
         isHumanVerified: true,
+        answeredBy: 'human',
       },
     });
 
@@ -906,13 +1489,14 @@ export class SiteInspectionComponent implements OnInit {
         ...existing,
         modalres: value,
         isHumanVerified: true,
+        answeredBy: 'human',
       },
     });
 
     this.autoSaveDraft();
   }
 
-  // Question photo handling
+  // Question photo handling (manual inspector evidence only)
   getPhotos(questionId: string): InspectionPhoto[] {
     return this.formAnswers()[questionId]?.photos || [];
   }
@@ -928,13 +1512,16 @@ export class SiteInspectionComponent implements OnInit {
 
     for (const file of files) {
       try {
-        const dataUrl = await this.readFileAsOptimizedDataUrl(file);
+        const { dataUrl, mimeType, byteLength, normalizedName } =
+          await this.readFileAsOptimizedDataUrl(file);
         existingPhotos.push({
           id: `photo_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-          name: file.name,
+          name: normalizedName,
           url: dataUrl,
-          size: file.size,
+          mimeType,
+          size: byteLength,
           timestamp: new Date().toISOString(),
+          attachedBy: 'inspector',
         });
       } catch (err) {
         console.error('Failed to load image', err);
@@ -947,6 +1534,7 @@ export class SiteInspectionComponent implements OnInit {
         ...existing,
         photoAttached: existingPhotos.length > 0,
         photos: existingPhotos,
+        answeredBy: 'human',
       },
     });
 
@@ -973,8 +1561,8 @@ export class SiteInspectionComponent implements OnInit {
     this.autoSaveDraft();
   }
 
-  // Check if a question is answered
-  isQuestionAnswered(questionId: string) {
+  // Check if a question has a confirmed inspector answer
+  isQuestionAnswered(questionId: string): boolean {
     const ans = this.formAnswers()[questionId];
     if (!ans) return false;
     return !!(
@@ -1000,35 +1588,11 @@ export class SiteInspectionComponent implements OnInit {
   }
 
   getQuestionOptions(q: SiteInspectionQuestion): any[] {
-    return (q as any)['options'] || [];
+    return q.select || (q as any)['options'] || [];
   }
 
-  public applyAiPreFill(result: {
-    bankId: string;
-    bankName: string;
-    answers: Record<string, QuestionAnswer>;
-    photoCount: number;
-    totalEvaluated: number;
-    passedCount: number;
-    carCount: number;
-    naCount: number;
-    needsReviewCount?: number;
-    timestamp?: string;
-  }): void {
-    this.selectedBankId.set(result.bankId);
-    this.formAnswers.set(result.answers);
-    this.aiPreFillSummary.set({
-      photoCount: result.photoCount,
-      totalEvaluated: result.totalEvaluated,
-      passedCount: result.passedCount,
-      carCount: result.carCount,
-      naCount: result.naCount,
-      needsReviewCount: result.needsReviewCount || 0,
-      bankName: result.bankName,
-      timestamp: result.timestamp || new Date().toISOString(),
-    });
-    this.persistDraftToStorage();
-    this.activeStep.set('review-form');
+  getQuestionMultiOptions(q: SiteInspectionQuestion): MultiSelectOption[] {
+    return q.multiselect || [];
   }
 
   // Expand/collapse sections
@@ -1040,7 +1604,7 @@ export class SiteInspectionComponent implements OnInit {
     });
   }
 
-  isSectionExpanded(headername: string) {
+  isSectionExpanded(headername: string): boolean {
     const state = this.expandedSections();
     return state[headername] !== false;
   }
@@ -1098,9 +1662,9 @@ export class SiteInspectionComponent implements OnInit {
       stats: {
         total: st.total,
         answered: st.answered,
-        passCount: st.passCount,
-        carCount: st.carCount,
-        naCount: st.naCount,
+        passCount: st.confirmedPassCount,
+        carCount: st.confirmedCarCount,
+        naCount: st.confirmedNaCount,
         needsReviewCount: st.needsReviewCount,
         verifiedCount: st.verifiedCount,
       },
@@ -1133,12 +1697,14 @@ export class SiteInspectionComponent implements OnInit {
     this.uploadSiteNotes.set('');
     this.aiPreFillSummary.set(null);
     this.finalizedReport.set(null);
+    this.pendingOverwriteQuestionId.set(null);
+    this.editingQuestionId.set(null);
     this.reviewFilter.set('all');
     this.searchQuery.set('');
     this.activeStep.set('category-select');
   }
 
-  // === DRAFT MANAGEMENT ===
+  // === DRAFT MANAGEMENT & LEGACY MOCK CLEANUP (PART 6) ===
 
   saveDraft(): void {
     this.persistDraftToStorage();
@@ -1157,6 +1723,7 @@ export class SiteInspectionComponent implements OnInit {
   private persistDraftToStorage(): void {
     try {
       const data = {
+        schemaVersion: DRAFT_SCHEMA_VERSION,
         bankId: this.selectedBankId(),
         trafficSubtype: this.trafficSubtype(),
         selectedRiskBanks: this.selectedRiskBanks(),
@@ -1164,48 +1731,210 @@ export class SiteInspectionComponent implements OnInit {
         answers: this.formAnswers(),
         uploadedPhotos: this.uploadedPhotos(),
         aiSummary: this.aiPreFillSummary(),
+        aiModelIdentifier: this.aiModelIdentifier(),
+        isMockEngine: this.isMockEngine(),
         updatedAt: new Date().toISOString(),
       };
       localStorage.setItem(`questai_inspection_${this.selectedBankId()}`, JSON.stringify(data));
     } catch {}
   }
 
-  private loadDraft(): void {
+  /**
+   * Safely cleans up stale `questai_pending_ai_fill` entries generated by the legacy mock service.
+   */
+  public cleanupLegacyPendingAiFill(): boolean {
     try {
-      const raw = localStorage.getItem(`questai_inspection_${this.selectedBankId()}`);
+      const raw = localStorage.getItem('questai_pending_ai_fill');
+      if (!raw) return false;
+      localStorage.removeItem('questai_pending_ai_fill');
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Inspects a parsed draft from `questai_inspection_<bankId>` and removes legacy mock AI
+   * comments, mock ratings, and index-based auto-attached photos while preserving all
+   * genuine inspector-entered answers, comments, and manually attached evidence.
+   */
+  public sanitizeAndMigrateDraft(
+    bankId: string,
+    parsed: any
+  ): {
+    answers: Record<string, QuestionAnswer>;
+    aiSummary: any | null;
+    aiModelIdentifier: string;
+    isMockEngine: boolean;
+    migrated: boolean;
+    report: DraftMigrationReport;
+  } {
+    const isPreV3Draft = !parsed?.schemaVersion || parsed.schemaVersion < DRAFT_SCHEMA_VERSION;
+    const isLegacyMockRun =
+      parsed?.isMockEngine === true ||
+      (typeof parsed?.aiModelIdentifier === 'string' &&
+        parsed.aiModelIdentifier.includes('Pre-Gemini')) ||
+      (isPreV3Draft && parsed?.aiSummary && !parsed?.aiModelIdentifier);
+
+    const batchPhotoIds = new Set<string>(
+      Array.isArray(parsed?.uploadedPhotos)
+        ? parsed.uploadedPhotos.map((p: any) => p?.id).filter(Boolean)
+        : []
+    );
+    const batchPhotoUrls = new Set<string>(
+      Array.isArray(parsed?.uploadedPhotos)
+        ? parsed.uploadedPhotos.map((p: any) => p?.url).filter(Boolean)
+        : []
+    );
+
+    const cleanedAnswers: Record<string, QuestionAnswer> = {};
+    const rawAnswers =
+      parsed?.answers && typeof parsed.answers === 'object' ? parsed.answers : {};
+
+    let removedMockAnswersCount = 0;
+    let removedMockCommentsCount = 0;
+    let removedMockPhotosCount = 0;
+    let preservedHumanAnswersCount = 0;
+
+    for (const [qId, rawAns] of Object.entries(rawAnswers)) {
+      if (!rawAns || typeof rawAns !== 'object') continue;
+      const ans: QuestionAnswer = { ...(rawAns as QuestionAnswer) };
+
+      const hasMockFields =
+        isLegacyMockAnswerEntry(ans) ||
+        (isLegacyMockRun && !ans.isHumanVerified && ans.answeredBy !== 'human');
+
+      if (hasMockFields) {
+        if (ans.comment && isLegacyMockString(ans.comment)) {
+          delete ans.comment;
+          removedMockCommentsCount++;
+        }
+        if (ans.carActionPlan && isLegacyMockString(ans.carActionPlan)) {
+          delete ans.carActionPlan;
+        }
+
+        // Remove photos that were automatically attached by legacy selectPhotosForQuestion()
+        if (Array.isArray(ans.photos) && ans.photos.length > 0) {
+          const genuineManualPhotos = ans.photos.filter(
+            (p) =>
+              p?.attachedBy === 'inspector' &&
+              !batchPhotoIds.has(p.id) &&
+              !batchPhotoUrls.has(p.url)
+          );
+          removedMockPhotosCount += ans.photos.length - genuineManualPhotos.length;
+          ans.photos = genuineManualPhotos.length > 0 ? genuineManualPhotos : undefined;
+          ans.photoAttached = genuineManualPhotos.length > 0;
+        }
+
+        // Strip legacy mock AI evaluation fields
+        delete ans.hasAiEvaluation;
+        delete ans.aiSuggestedRating;
+        delete ans.aiSuggestedSelect;
+        delete ans.aiSuggestedMultiSelect;
+        delete ans.aiSuggestedCarActionPlan;
+        delete ans.aiEvidence;
+        delete ans.aiReasoning;
+        delete ans.aiConfidence;
+        delete ans.requiresHumanVerification;
+        delete ans.aiSuggestionStatus;
+
+        // If the inspector never manually verified or entered this answer, clear the mock rating too
+        if (!ans.isHumanVerified && ans.answeredBy !== 'human') {
+          removedMockAnswersCount++;
+          continue;
+        }
+      }
+
+      // Check if any genuine inspector-entered content or real Gemini evaluation remains
+      const hasGenuineHumanContent =
+        ans.isHumanVerified ||
+        ans.answeredBy === 'human' ||
+        !!(ans.comment && ans.comment.trim() && !isLegacyMockString(ans.comment)) ||
+        !!(ans.selectans && ans.selectans.trim()) ||
+        !!(ans.multiselectans && ans.multiselectans.length > 0) ||
+        !!(ans.photos && ans.photos.length > 0);
+
+      const hasRealGeminiEval =
+        ans.hasAiEvaluation === true &&
+        !!ans.aiModel &&
+        !ans.aiModel.includes('Pre-Gemini');
+
+      if (hasGenuineHumanContent) {
+        preservedHumanAnswersCount++;
+        cleanedAnswers[qId] = ans;
+      } else if (hasRealGeminiEval) {
+        cleanedAnswers[qId] = ans;
+      }
+    }
+
+    const migrated =
+      isPreV3Draft ||
+      isLegacyMockRun ||
+      removedMockAnswersCount > 0 ||
+      removedMockCommentsCount > 0 ||
+      removedMockPhotosCount > 0;
+
+    const cleanSummary = isLegacyMockRun ? null : parsed?.aiSummary || null;
+    const cleanModelId =
+      !isLegacyMockRun && typeof parsed?.aiModelIdentifier === 'string'
+        ? parsed.aiModelIdentifier
+        : 'gemini-3.8-flash';
+
+    const report: DraftMigrationReport = {
+      bankId,
+      removedMockAnswersCount,
+      removedMockCommentsCount,
+      removedMockPhotosCount,
+      preservedHumanAnswersCount,
+      migratedAt: new Date().toISOString(),
+    };
+
+    return {
+      answers: cleanedAnswers,
+      aiSummary: cleanSummary,
+      aiModelIdentifier: cleanModelId,
+      isMockEngine: false,
+      migrated,
+      report,
+    };
+  }
+
+  public loadDraft(): void {
+    const bankId = this.selectedBankId();
+    try {
+      const raw = localStorage.getItem(`questai_inspection_${bankId}`);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (parsed.answers) this.formAnswers.set(parsed.answers);
+        const sanitized = this.sanitizeAndMigrateDraft(bankId, parsed);
+
+        this.formAnswers.set(sanitized.answers);
         if (parsed.metadata) this.inspectionMetadata.set(parsed.metadata);
-        if (parsed.uploadedPhotos) this.uploadedPhotos.set(parsed.uploadedPhotos);
+        if (Array.isArray(parsed.uploadedPhotos)) {
+          this.uploadedPhotos.set(parsed.uploadedPhotos);
+        } else {
+          this.uploadedPhotos.set([]);
+        }
         if (parsed.selectedRiskBanks && this.currentBank().isManagers) {
           this.selectedRiskBanks.set(parsed.selectedRiskBanks);
         }
-        if (parsed.aiSummary) this.aiPreFillSummary.set(parsed.aiSummary);
-        else this.aiPreFillSummary.set(null);
+        this.aiPreFillSummary.set(sanitized.aiSummary);
+        this.aiModelIdentifier.set(sanitized.aiModelIdentifier);
+        this.isMockEngine.set(false);
+
+        if (sanitized.migrated) {
+          this.lastDraftMigrationReport.set(sanitized.report);
+          this.persistDraftToStorage();
+        }
       } else {
         this.formAnswers.set({});
+        this.uploadedPhotos.set([]);
         this.aiPreFillSummary.set(null);
       }
     } catch {
       this.formAnswers.set({});
+      this.uploadedPhotos.set([]);
       this.aiPreFillSummary.set(null);
     }
-  }
-
-  checkForPendingAiPreFill(): void {
-    try {
-      const raw = localStorage.getItem('questai_pending_ai_fill');
-      if (raw) {
-        localStorage.removeItem('questai_pending_ai_fill');
-        const data = JSON.parse(raw);
-        if (data && data.bankId && data.answers) {
-          this.selectedBankId.set(data.bankId);
-          this.formAnswers.set(data.answers);
-          this.activeStep.set('review-form');
-        }
-      }
-    } catch {}
   }
 
   // Reset form
@@ -1215,6 +1944,9 @@ export class SiteInspectionComponent implements OnInit {
 
   doReset(): void {
     this.formAnswers.set({});
+    this.aiPreFillSummary.set(null);
+    this.pendingOverwriteQuestionId.set(null);
+    this.editingQuestionId.set(null);
     try {
       localStorage.removeItem(`questai_inspection_${this.selectedBankId()}`);
     } catch {}
@@ -1253,14 +1985,27 @@ export class SiteInspectionComponent implements OnInit {
     }
   }
 
-  // Image optimization helper
-  private async readFileAsOptimizedDataUrl(file: File): Promise<string> {
+  // Image optimization helper that preserves valid MIME & magic byte alignment
+  private async readFileAsOptimizedDataUrl(file: File): Promise<{
+    dataUrl: string;
+    mimeType: string;
+    byteLength: number;
+    normalizedName: string;
+  }> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => {
         const result = e.target?.result as string;
+        const originalMime = (file.type || 'image/jpeg').toLowerCase();
+        const safeName = this.ensureSupportedExtension(file.name, originalMime);
+
         if (!result || !file.type.startsWith('image/')) {
-          resolve(result);
+          resolve({
+            dataUrl: result,
+            mimeType: originalMime,
+            byteLength: this.estimateDataUrlBytes(result),
+            normalizedName: safeName,
+          });
           return;
         }
 
@@ -1285,18 +2030,52 @@ export class SiteInspectionComponent implements OnInit {
             const ctx = canvas.getContext('2d');
             if (ctx) {
               ctx.drawImage(img, 0, 0, width, height);
-              resolve(canvas.toDataURL('image/jpeg', 0.8));
+              const targetMime = originalMime === 'image/png' ? 'image/png' : 'image/jpeg';
+              const optimizedUrl =
+                targetMime === 'image/png'
+                  ? canvas.toDataURL('image/png')
+                  : canvas.toDataURL('image/jpeg', 0.85);
+              resolve({
+                dataUrl: optimizedUrl,
+                mimeType: targetMime,
+                byteLength: this.estimateDataUrlBytes(optimizedUrl),
+                normalizedName: this.ensureSupportedExtension(file.name, targetMime),
+              });
               return;
             }
           }
-          resolve(result);
+          resolve({
+            dataUrl: result,
+            mimeType: originalMime === 'image/jpg' ? 'image/jpeg' : originalMime,
+            byteLength: this.estimateDataUrlBytes(result),
+            normalizedName: safeName,
+          });
         };
-        img.onerror = () => resolve(result);
+        img.onerror = () =>
+          resolve({
+            dataUrl: result,
+            mimeType: originalMime === 'image/jpg' ? 'image/jpeg' : originalMime,
+            byteLength: this.estimateDataUrlBytes(result),
+            normalizedName: safeName,
+          });
         img.src = result;
       };
       reader.onerror = reject;
       reader.readAsDataURL(file);
     });
+  }
+
+  private ensureSupportedExtension(fileName: string, mimeType: string): string {
+    const trimmed = (fileName || 'photo.jpg').trim();
+    const dotIdx = trimmed.lastIndexOf('.');
+    const ext = dotIdx !== -1 ? trimmed.slice(dotIdx).toLowerCase() : '';
+    if (ext === '.jpg' || ext === '.jpeg' || ext === '.png' || ext === '.webp') {
+      return trimmed;
+    }
+    const base = dotIdx !== -1 ? trimmed.slice(0, dotIdx) : trimmed;
+    if (mimeType === 'image/png') return `${base}.png`;
+    if (mimeType === 'image/webp') return `${base}.webp`;
+    return `${base}.jpg`;
   }
 
   showToast(msg: string): void {

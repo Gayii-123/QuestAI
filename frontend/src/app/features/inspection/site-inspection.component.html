@@ -28,7 +28,10 @@
     <!-- Responsive Grid of 12 Categories -->
     <div class="categories-grid">
       <div *ngFor="let bank of questionBanks" class="category-card"
-        [class.selected]="bank.id === selectedBankId()" (click)="selectBank(bank.id)"
+        [class.selected]="bank.id === selectedBankId()"
+        (click)="onCategoryCardClick(bank.id)"
+        (keydown.enter)="onCategoryCardClick(bank.id)"
+        (keydown.space)="onCategoryCardClick(bank.id); $event.preventDefault()"
         role="button" tabindex="0">
         
         <div class="category-card-top">
@@ -41,8 +44,8 @@
 
         <div class="category-card-footer">
           <span class="selection-indicator">
-            <span *ngIf="bank.id === selectedBankId()" class="indicator-active">✓ Selected</span>
-            <span *ngIf="bank.id !== selectedBankId()" class="indicator-idle">Click to select</span>
+            <span *ngIf="bank.id === selectedBankId()" class="indicator-active">✓ Selected — Click to Upload Photos</span>
+            <span *ngIf="bank.id !== selectedBankId()" class="indicator-idle">📷 Click to select & upload photos</span>
           </span>
         </div>
       </div>
@@ -195,7 +198,7 @@
         </button>
 
         <button class="btn-step-primary btn-analyse-trigger" (click)="startAiPhotoScanning()"
-          [disabled]="uploadedPhotos().length === 0" type="button">
+          [disabled]="uploadedPhotos().length === 0 || isScanning()" type="button">
           <svg class="btn-icon-sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
           </svg>
@@ -211,20 +214,20 @@
   <!-- STEP 3: AI SCANNING EXPERIENCE                                            -->
   <!-- ========================================================================= -->
   <section *ngIf="activeStep() === 'ai-scanning'" class="step-view step-ai-scanning">
-    <div class="scanning-modal-card">
+    <div class="scanning-modal-card" [class.is-scanning]="isScanning()" [class.has-scan-error]="!!scanError()">
       <div class="scanning-header">
         <div class="scanning-badge">
-          <span class="radar-dot"></span>
-          <span>Computer Vision Active</span>
+          <span class="radar-dot" [class.active]="isScanning()"></span>
+          <span>{{ isScanning() ? 'Gemini Multimodal Vision Active' : 'Photo Analysis Stopped' }}</span>
         </div>
-        <h2 class="scanning-title">Scanning Site Photographs</h2>
+        <h2 class="scanning-title">{{ isScanning() ? 'Scanning Site Photographs' : 'Photo Analysis Error' }}</h2>
         <p class="scanning-bank-target">
-          Evaluating compliance against <strong>{{ currentBank().name }}</strong> checklist ({{ currentQuestions().length }} questions)
+          Evaluating compliance against <strong>{{ currentBank().name }}</strong> checklist ({{ applicableQuestions().length }} questions)
         </p>
       </div>
 
       <!-- Modern Viewfinder Reticle Frame -->
-      <div class="viewfinder-frame">
+      <div class="viewfinder-frame" [class.is-scanning]="isScanning()">
         <!-- Corner Reticles -->
         <span class="reticle corner-tl"></span>
         <span class="reticle corner-tr"></span>
@@ -235,11 +238,11 @@
         <div class="viewfinder-photo-wrap">
           <img *ngIf="uploadedPhotos()[0]" [src]="uploadedPhotos()[0].url" [alt]="uploadedPhotos()[0].name" class="viewfinder-img" />
           
-          <!-- Animated Laser Scanline -->
-          <div class="laser-scan-line"></div>
+          <!-- Animated Laser Scanline (Active only while real backend request is in flight) -->
+          <div *ngIf="isScanning()" class="laser-scan-line"></div>
           
           <!-- Pulsing Radar Glow Overlay -->
-          <div class="radar-glow-overlay"></div>
+          <div *ngIf="isScanning()" class="radar-glow-overlay"></div>
 
           <!-- Live Scanning HUD Overlay -->
           <div class="hud-overlay-top">
@@ -247,32 +250,40 @@
             <span class="hud-tag">PHOTOS: {{ uploadedPhotos().length }}</span>
           </div>
           <div class="hud-overlay-bottom">
-            <span class="hud-status-chip">SAFETY CRITERIA: CHAPTER 8 & QUEST SPEC</span>
+            <span class="hud-status-chip">{{ isScanning() ? 'SAFETY CRITERIA: CHAPTER 8 & QUEST SPEC' : 'STATUS: HALTS ON ERROR' }}</span>
           </div>
         </div>
       </div>
 
-      <!-- Real-time Progress & Status Updates -->
+      <!-- Truthful Lifecycle Status Updates (No fabricated percentage numbers) -->
       <div class="scanning-progress-wrap">
-        <div class="progress-bar-track">
-          <div class="progress-bar-fill" [style.width.%]="scanningProgress()"></div>
+        <div class="progress-bar-track" [class.indeterminate]="isScanning()">
+          <div class="progress-bar-fill" [class.indeterminate-bar]="isScanning()" [class.error-bar]="!!scanError()"></div>
         </div>
         <div class="progress-labels-row">
           <span class="scanning-status-text">{{ scanningStatusMessage() }}</span>
-          <span class="scanning-percent">{{ scanningProgress() }}%</span>
+          <span class="scanning-state-pill" *ngIf="isScanning()">Live Request</span>
         </div>
       </div>
 
       <!-- Engine Notice -->
-      <div class="scanning-engine-notice">
-        <span class="engine-pill">{{ aiModelIdentifier() }}</span>
-        <span *ngIf="isMockEngine()" class="mock-clarification">Pre-Gemini Multimodal Evaluation Engine</span>
+      <div *ngIf="!scanError()" class="scanning-engine-notice">
+        <span class="engine-pill">QuestAI Vision Analysis</span>
+      </div>
+
+      <!-- AI Error -->
+      <div *ngIf="scanError()" class="scanning-error-box" role="alert">
+        <strong>AI analysis failed</strong>
+        <span>{{ scanError() }}</span>
+        <div class="scanning-error-actions">
+          <button class="btn-step-primary" (click)="retryScanning()" [disabled]="isScanning()" type="button">Try Again</button>
+        </div>
       </div>
 
       <!-- Abort / Cancel Action -->
       <div class="scanning-actions">
         <button class="btn-step-outline" (click)="cancelScanning()" type="button">
-          Cancel Analysis
+          {{ scanError() ? '← Back to Photo Upload' : 'Cancel Analysis' }}
         </button>
       </div>
     </div>
@@ -288,14 +299,18 @@
         <div class="review-title-row">
           <h1 class="review-title">AI Inspection Results</h1>
           <span class="review-bank-chip">{{ currentBank().icon }} {{ currentBank().name }}</span>
-          <span *ngIf="aiPreFillApplied()" class="review-ai-badge">✨ AI Evaluated</span>
+          <span *ngIf="aiPreFillApplied()" class="review-ai-badge">✨ Gemini Evaluated</span>
+          <span *ngIf="aiPreFillSummary()?.overallSiteRisk as risk" class="review-risk-badge" [class]="'risk-' + risk">
+            Site Risk: {{ risk | uppercase }}
+          </span>
         </div>
         <p class="review-meta">
           <span>{{ uploadedPhotos().length }} photo(s) analyzed</span>
-          <span class="meta-separator">•</span>
-          <span>{{ aiModelIdentifier() }}</span>
-          <span class="meta-separator">•</span>
-          <span>{{ lastAnalyzedTimestamp() | date:'shortTime' }}</span>
+          <span *ngIf="lastAnalyzedTimestamp()" class="meta-separator">•</span>
+          <span *ngIf="lastAnalyzedTimestamp()">{{ lastAnalyzedTimestamp() | date:'shortTime' }}</span>
+        </p>
+        <p *ngIf="aiPreFillSummary()?.summary" class="review-ai-summary-text">
+          <strong>Gemini Visual Summary:</strong> {{ aiPreFillSummary()?.summary }}
         </p>
       </div>
 
@@ -306,6 +321,9 @@
         </button>
         <button class="btn-hdr-action" (click)="activeStep.set('photo-upload')" title="Upload or manage photos" type="button">
           📷 Photos ({{ uploadedPhotos().length }})
+        </button>
+        <button class="btn-hdr-action" (click)="confirmReset()" title="Reset form answers for this bank" type="button">
+          ↺ Reset
         </button>
         <button class="btn-hdr-action" (click)="saveDraft()" title="Save current draft locally" type="button">
           💾 Save Draft
@@ -400,8 +418,8 @@
         <!-- Section Questions Body -->
         <div *ngIf="isSectionExpanded(section.headername)" class="section-body">
           <div *ngFor="let q of section.questions; trackBy: trackByQuestion; let qIdx = index" class="question-card"
-            [class.card-has-car]="getAnswer(q.id).rating === '-1'"
-            [class.card-needs-review]="getAnswer(q.id).requiresHumanVerification && !getAnswer(q.id).isHumanVerified">
+            [class.card-has-car]="getAnswer(q.id).rating === '-1' || (!getAnswer(q.id).rating && getAnswer(q.id).aiSuggestionStatus !== 'rejected' && getAnswer(q.id).aiSuggestedRating === '-1')"
+            [class.card-needs-review]="(getAnswer(q.id).requiresHumanVerification || (getAnswer(q.id).hasAiEvaluation && getAnswer(q.id).aiSuggestionStatus === 'pending')) && !getAnswer(q.id).isHumanVerified">
             
             <!-- Question Top Header -->
             <div class="q-header-row">
@@ -413,12 +431,12 @@
               <!-- AI Status Badges -->
               <div class="q-status-badges">
                 <span *ngIf="getAnswer(q.id).requiresHumanVerification && !getAnswer(q.id).isHumanVerified" class="badge-needs-review">
-                  ⚠️ Needs Review (Human Check)
+                  ⚠️ Human Verification Required
                 </span>
                 <span *ngIf="getAnswer(q.id).isHumanVerified" class="badge-verified">
                   ✓ Verified by Inspector
                 </span>
-                <span *ngIf="getAnswer(q.id).aiConfidence" class="badge-confidence">
+                <span *ngIf="getAnswer(q.id).aiConfidence !== undefined" class="badge-confidence">
                   {{ getAnswer(q.id).aiConfidence }}% AI Confidence
                 </span>
               </div>
@@ -427,39 +445,107 @@
             <!-- Question Text -->
             <div class="q-text-content">{{ q.qtext }}</div>
 
-            <!-- AI Observation & Evidence Callout -->
-            <div *ngIf="getAnswer(q.id).aiEvidence || getAnswer(q.id).aiReasoning" class="ai-observation-box">
+            <!-- AI Observation & Evidence Callout (Mandatory Human Review Panel) -->
+            <div *ngIf="getAnswer(q.id).hasAiEvaluation || getAnswer(q.id).aiEvidence || getAnswer(q.id).aiReasoning"
+              class="ai-observation-box"
+              [class.suggestion-rejected]="getAnswer(q.id).aiSuggestionStatus === 'rejected'"
+              [class.suggestion-accepted]="getAnswer(q.id).aiSuggestionStatus === 'accepted'">
               <div class="obs-header">
                 <span class="obs-sparkle">✨</span>
-                <strong>AI Vision Observation & Evidence:</strong>
-                <span class="obs-suggested-tag" [class]="'tag-' + getAnswer(q.id).aiSuggestedRating">
-                  Suggested: {{ getAnswer(q.id).aiSuggestedRating === '1' ? 'Pass' : getAnswer(q.id).aiSuggestedRating === '-1' ? 'CAR' : 'N/A' }}
+                <strong>Gemini AI Suggestion:</strong>
+
+                <span *ngIf="getAnswer(q.id).aiSuggestionStatus === 'accepted'" class="obs-status-pill pill-accepted">
+                  ✓ Accepted
+                </span>
+                <span *ngIf="getAnswer(q.id).aiSuggestionStatus === 'edited'" class="obs-status-pill pill-edited">
+                  ✎ Edited by Inspector
+                </span>
+                <span *ngIf="getAnswer(q.id).aiSuggestionStatus === 'rejected'" class="obs-status-pill pill-rejected">
+                  ✕ Rejected
+                </span>
+
+                <span class="obs-suggested-tag"
+                  [class.tag-1]="getAnswer(q.id).aiSuggestedRating === '1'"
+                  [class.tag--1]="getAnswer(q.id).aiSuggestedRating === '-1'"
+                  [class.tag-0]="getAnswer(q.id).aiSuggestedRating === '0'"
+                  [class.tag-unresolved]="!getAnswer(q.id).aiSuggestedRating">
+                  <ng-container [ngSwitch]="getAnswer(q.id).aiSuggestedRating">
+                    <span *ngSwitchCase="'1'">Suggested: Pass</span>
+                    <span *ngSwitchCase="'-1'">Suggested: CAR</span>
+                    <span *ngSwitchCase="'0'">Suggested: N/A</span>
+                    <span *ngSwitchDefault>Unresolved — Human Check Required</span>
+                  </ng-container>
                 </span>
               </div>
-              <p class="obs-evidence" *ngIf="getAnswer(q.id).aiEvidence">{{ getAnswer(q.id).aiEvidence }}</p>
-              <p class="obs-reasoning" *ngIf="getAnswer(q.id).aiReasoning">
-                <strong>Reasoning:</strong> {{ getAnswer(q.id).aiReasoning }}
+
+              <p class="obs-evidence" *ngIf="getAnswer(q.id).aiEvidence">
+                <strong>Evidence Observed:</strong> {{ getAnswer(q.id).aiEvidence }}
               </p>
-              <div class="obs-confirm-row" *ngIf="!getAnswer(q.id).isHumanVerified && getAnswer(q.id).aiSuggestedRating">
-                <button class="btn-confirm-suggestion" (click)="confirmAiSuggestion(q.id)" type="button">
-                  Confirm AI Suggestion ({{ getAnswer(q.id).aiSuggestedRating === '1' ? 'Pass' : getAnswer(q.id).aiSuggestedRating === '-1' ? 'CAR' : 'N/A' }})
+              <p class="obs-reasoning" *ngIf="getAnswer(q.id).aiReasoning">
+                <strong>Gemini Reasoning:</strong> {{ getAnswer(q.id).aiReasoning }}
+              </p>
+              <p class="obs-car-plan" *ngIf="getAnswer(q.id).aiSuggestedCarActionPlan">
+                <strong>Suggested CAR Action Plan:</strong> {{ getAnswer(q.id).aiSuggestedCarActionPlan }}
+              </p>
+              <p class="obs-select-suggestion" *ngIf="getAnswer(q.id).aiSuggestedSelect">
+                <strong>Suggested Option:</strong> {{ getAnswer(q.id).aiSuggestedSelect }}
+              </p>
+              <p class="obs-select-suggestion" *ngIf="getAnswer(q.id).aiSuggestedMultiSelect?.length">
+                <strong>Suggested Selections:</strong> {{ getAnswer(q.id).aiSuggestedMultiSelect?.join(', ') }}
+              </p>
+
+              <!-- Explicit Overwrite Confirmation Prompt if Inspector Already Answered Manually -->
+              <div *ngIf="pendingOverwriteQuestionId() === q.id" class="overwrite-confirm-banner" role="alert">
+                <span>This question already has a manual inspector answer. Replace it with Gemini's suggestion?</span>
+                <div class="overwrite-confirm-actions">
+                  <button class="btn-confirm-overwrite" (click)="acceptAiSuggestion(q.id, true)" type="button">
+                    Confirm Overwrite
+                  </button>
+                  <button class="btn-cancel-overwrite" (click)="cancelOverwriteConfirmation()" type="button">
+                    Keep Manual Answer
+                  </button>
+                </div>
+              </div>
+
+              <!-- Mandatory Human Review Actions: Accept / Edit / Reject -->
+              <div class="obs-confirm-row" *ngIf="pendingOverwriteQuestionId() !== q.id">
+                <button *ngIf="getAnswer(q.id).aiSuggestedRating === '1' || getAnswer(q.id).aiSuggestedRating === '-1' || getAnswer(q.id).aiSuggestedRating === '0' || getAnswer(q.id).aiSuggestedSelect || getAnswer(q.id).aiSuggestedMultiSelect?.length"
+                  class="btn-confirm-suggestion"
+                  (click)="acceptAiSuggestion(q.id)"
+                  type="button">
+                  ✓ Accept Suggestion
+                </button>
+                <button class="btn-edit-suggestion" (click)="editAiSuggestion(q.id)" type="button">
+                  ✎ Edit Answer
+                </button>
+                <button *ngIf="getAnswer(q.id).aiSuggestionStatus !== 'rejected'"
+                  class="btn-reject-suggestion"
+                  (click)="rejectAiSuggestion(q.id)"
+                  type="button">
+                  ✕ Reject Suggestion
                 </button>
               </div>
             </div>
 
             <!-- Rating Button Controls (Pass, CAR, N/A, Clear) -->
             <div class="q-rating-control-group">
-              <button class="btn-rating-opt btn-rate-pass" [class.selected]="getAnswer(q.id).rating === '1'"
+              <button class="btn-rating-opt btn-rate-pass"
+                [class.selected]="getAnswer(q.id).rating === '1'"
+                [class.ai-hint]="!getAnswer(q.id).rating && getAnswer(q.id).aiSuggestionStatus !== 'rejected' && getAnswer(q.id).aiSuggestedRating === '1'"
                 (click)="setRating(q.id, '1')" type="button">
                 ✓ Pass
               </button>
 
-              <button class="btn-rating-opt btn-rate-car" [class.selected]="getAnswer(q.id).rating === '-1'"
+              <button class="btn-rating-opt btn-rate-car"
+                [class.selected]="getAnswer(q.id).rating === '-1'"
+                [class.ai-hint]="!getAnswer(q.id).rating && getAnswer(q.id).aiSuggestionStatus !== 'rejected' && getAnswer(q.id).aiSuggestedRating === '-1'"
                 (click)="setRating(q.id, '-1')" type="button">
                 ⊘ CAR
               </button>
 
-              <button class="btn-rating-opt btn-rate-na" [class.selected]="getAnswer(q.id).rating === '0'"
+              <button class="btn-rating-opt btn-rate-na"
+                [class.selected]="getAnswer(q.id).rating === '0'"
+                [class.ai-hint]="!getAnswer(q.id).rating && getAnswer(q.id).aiSuggestionStatus !== 'rejected' && getAnswer(q.id).aiSuggestedRating === '0'"
                 (click)="setRating(q.id, '0')" type="button">
                 ⊘ N/A
               </button>
@@ -470,8 +556,8 @@
               </button>
             </div>
 
-            <!-- CAR Action Plan Box (Visible when CAR is selected) -->
-            <div *ngIf="getAnswer(q.id).rating === '-1'" class="car-action-box">
+            <!-- CAR Action Plan Box (Visible when CAR is selected or being edited) -->
+            <div *ngIf="getAnswer(q.id).rating === '-1' || (editingQuestionId() === q.id && getAnswer(q.id).aiSuggestedRating === '-1')" class="car-action-box">
               <div class="car-box-header">
                 <span class="car-alert-icon">⚠️</span>
                 <strong>Corrective Action Plan (Mandatory for Non-Compliance):</strong>
@@ -514,7 +600,7 @@
               </div>
             </div>
 
-            <!-- Select Option Controls (If question has options) -->
+            <!-- Select Option Controls (If question has select options) -->
             <div *ngIf="getQuestionOptions(q).length > 0" class="q-options-section">
               <label class="options-label">Select Response:</label>
               <select class="q-select-dropdown" [ngModel]="getAnswer(q.id).selectans || ''"
@@ -524,6 +610,20 @@
                   {{ getOptionText(opt) }}
                 </option>
               </select>
+            </div>
+
+            <!-- Multi-Select Option Controls (If question has multiselect options) -->
+            <div *ngIf="getQuestionMultiOptions(q).length > 0" class="q-options-section">
+              <label class="options-label">{{ q.multiselectheader || 'Select Applicable Options:' }}</label>
+              <div class="q-multiselect-chips">
+                <button *ngFor="let mOpt of getQuestionMultiOptions(q)"
+                  type="button"
+                  class="btn-multiselect-chip"
+                  [class.selected]="isMultiOptionSelected(q.id, mOpt.txt)"
+                  (click)="toggleMultiSelect(q.id, mOpt.txt, mOpt.id, mOpt.ncr)">
+                  <span>{{ isMultiOptionSelected(q.id, mOpt.txt) ? '☑' : '☐' }} {{ mOpt.txt }}</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -704,6 +804,27 @@
         <button class="btn-step-primary" (click)="confirmFinalizeInspection()" type="button">
           Confirm & Finalize Inspection
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: RESET CONFIRMATION                                                 -->
+  <!-- ========================================================================= -->
+  <div *ngIf="showResetModal()" class="modal-backdrop" (click)="cancelReset()">
+    <div class="modal-window confirm-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3 class="modal-title">Reset Inspection Checklist</h3>
+        <button class="btn-modal-close" (click)="cancelReset()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="confirm-intro">
+          Are you sure you want to clear all answers and AI suggestions for <strong>{{ currentBank().name }}</strong>?
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-modal-cancel" (click)="cancelReset()" type="button">Cancel</button>
+        <button class="btn-step-primary" (click)="doReset()" type="button">Reset Checklist</button>
       </div>
     </div>
   </div>

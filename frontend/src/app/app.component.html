@@ -27,7 +27,19 @@
       </div>
     </div>
 
-    <!-- Topbar Right Controls (Matching Image) -->
+    <!-- Workspace Navigation Tabs (Center) -->
+    <nav class="topbar-nav" aria-label="Workspace Navigation">
+      <button class="topbar-nav-tab" [class.active]="currentView() === 'chat'" (click)="navigateToChat()" type="button">
+        <span>Quest AI</span>
+      </button>
+
+      <button class="topbar-nav-tab" [class.active]="currentView() === 'inspection'" (click)="navigateToInspection()"
+        type="button">
+        <span>Site Inspection</span>
+      </button>
+    </nav>
+
+    <!-- Topbar Right Controls -->
     <div class="topbar-right">
       <!-- AI Online Status Pill -->
       <div class="ai-status-pill" title="AI Inspection Engine is Online">
@@ -72,7 +84,8 @@
       </div>
 
       <!-- User Profile Avatar Circle (Matching Image) -->
-      <div class="user-avatar-badge" (click)="openSettings()" role="button" tabindex="0" title="Subhash Kumar • Site Inspector">
+      <div class="user-avatar-badge" (click)="openSettings()" role="button" tabindex="0"
+        title="Subhash Kumar • Site Inspector">
         <div class="avatar-circle">
           <span>SK</span>
         </div>
@@ -84,11 +97,12 @@
     <!-- Left Sidebar (ChatGPT-Style with New Chat & Recents) -->
     <aside class="chat-sidebar" [class.mobile-open]="mobileSidebarOpen()"
       [class.desktop-collapsed]="desktopSidebarCollapsed()">
-      
+
       <!-- Top Action Section -->
       <div class="sidebar-top-section">
         <!-- New Chat Pill Button matching image -->
-        <button class="btn-new-chat-pill" [class.active]="sidebarActiveNav() === 'new-chat'" (click)="startNewChat()" type="button">
+        <button class="btn-new-chat-pill" [class.active]="sidebarActiveNav() === 'new-chat'" (click)="startNewChat()"
+          type="button">
           <svg class="new-chat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
             <line x1="12" y1="8" x2="12" y2="14"></line>
@@ -99,7 +113,8 @@
 
         <!-- Navigation Menu Items from Image -->
         <nav class="sidebar-quick-nav">
-          <button class="quick-nav-item" [class.active]="sidebarActiveNav() === 'inspection-history'" (click)="openInspectionHistory()" type="button">
+          <button class="quick-nav-item" [class.active]="sidebarActiveNav() === 'inspection-history'"
+            (click)="openInspectionHistory()" type="button">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="10"></circle>
               <polyline points="12 6 12 12 8 14"></polyline>
@@ -107,7 +122,8 @@
             <span>Inspection History</span>
           </button>
 
-          <button class="quick-nav-item" [class.active]="sidebarActiveNav() === 'my-reports'" (click)="openMyReports()" type="button">
+          <button class="quick-nav-item" [class.active]="sidebarActiveNav() === 'my-reports'" (click)="openMyReports()"
+            type="button">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
               <polyline points="14 2 14 8 20 8"></polyline>
@@ -118,10 +134,13 @@
             <span>My Reports</span>
           </button>
 
-          <button class="quick-nav-item" [class.active]="sidebarActiveNav() === 'settings'" (click)="openSettings()" type="button">
+          <button class="quick-nav-item" [class.active]="sidebarActiveNav() === 'settings'" (click)="openSettings()"
+            type="button">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="3"></circle>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              <path
+                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+              </path>
             </svg>
             <span>Settings</span>
           </button>
@@ -132,7 +151,8 @@
       <div class="sidebar-recents-section">
         <div class="recents-header-row">
           <span class="recents-title">Recents</span>
-          <span class="recents-count-badge" *ngIf="filteredConversations().length > 0">{{ filteredConversations().length }}</span>
+          <span class="recents-count-badge" *ngIf="filteredConversations().length > 0">{{ filteredConversations().length
+            }}</span>
         </div>
 
         <!-- Recents Search Filter -->
@@ -145,184 +165,112 @@
             placeholder="Search recents..." class="recents-search-input" />
         </div>
 
-        <div class="recents-list">
-          <div *ngFor="let conv of filteredConversations()" class="recent-chat-row"
-            [class.active]="conv.id === activeConversationId() && currentView() === 'chat'"
-            (click)="selectConversation(conv.id)">
-            <svg class="chat-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <!-- Quick View Mode Switcher -->
+        <div class="sidebar-nav-switcher">
+          <button class="sidebar-nav-btn" [class.active]="currentView() === 'chat'" (click)="navigateToChat()"
+            type="button">
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
             </svg>
-            <span class="chat-row-title">{{ conv.title }}</span>
-            <button class="btn-delete-chat" (click)="deleteConversation(conv.id, $event)" title="Delete conversation" type="button" aria-label="Delete conversation">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="3 6 5 6 21 6"></polyline>
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            <span>Chat</span>
+          </button>
+
+          <button class="sidebar-nav-btn" [class.active]="currentView() === 'inspection'"
+            (click)="navigateToInspection()" type="button">
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 11l3 3L22 4"></path>
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+            </svg>
+            <span>Site Inspection</span>
+          </button>
+        </div>
+
+        <!-- Sidebar Conversations List (Recent Chats) -->
+        <div class="conversations-section">
+          <div class="section-title-row">
+            <span class="section-title">Recent Chats</span>
+            <span class="count-badge" *ngIf="filteredConversations().length > 0">{{ filteredConversations().length
+              }}</span>
+          </div>
+
+          <div class="conversations-list">
+            <div *ngFor="let conv of filteredConversations()" class="conversation-item"
+              [class.active]="conv.id === activeConversationId() && currentView() === 'chat'"
+              (click)="selectConversation(conv.id)">
+              <div class="conv-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+                </button>
+              </div>
+
+              <!-- Empty Recents State -->
+              <div *ngIf="conversations().length === 0" class="empty-recents-box">
+                <svg class="empty-recents-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  stroke-width="1.5">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+                <span class="empty-recents-text">No recent chats</span>
+                <span class="empty-recents-sub">Start a new chat to begin</span>
+              </div>
+
+              <!-- Empty search filter state -->
+              <div *ngIf="conversations().length > 0 && filteredConversations().length === 0" class="empty-recents-box">
+                <span class="empty-recents-text">No matching chats</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom User Profile Card with Construction Skyline Watermark -->
+          <div class="sidebar-user-footer">
+            <div class="sidebar-skyline-watermark" aria-hidden="true">
+              <svg viewBox="0 0 260 90" fill="none" xmlns="http://www.w3.org/2000/svg" class="skyline-svg">
+                <path d="M15 85 L15 35 L40 35 L40 85" stroke="currentColor" stroke-width="1.5" stroke-opacity="0.18" />
+                <path d="M40 45 L60 45 L60 85" stroke="currentColor" stroke-width="1.5" stroke-opacity="0.18" />
+                <path d="M75 85 L75 18 L78 18 L78 85" stroke="currentColor" stroke-width="2" stroke-opacity="0.22" />
+                <line x1="55" y1="23" x2="135" y2="23" stroke="currentColor" stroke-width="1.8" stroke-opacity="0.22" />
+                <line x1="75" y1="18" x2="55" y2="23" stroke="currentColor" stroke-width="1.5" stroke-opacity="0.22" />
+                <line x1="78" y1="18" x2="115" y2="23" stroke="currentColor" stroke-width="1.5" stroke-opacity="0.22" />
+                <line x1="115" y1="23" x2="115" y2="48" stroke="currentColor" stroke-width="1.2" stroke-opacity="0.18"
+                  stroke-dasharray="2 2" />
+                <path d="M140 85 L140 50 L165 50 L165 85" stroke="currentColor" stroke-width="1.5"
+                  stroke-opacity="0.18" />
+                <path d="M175 85 L175 35 L195 35 L195 85" stroke="currentColor" stroke-width="1.5"
+                  stroke-opacity="0.18" />
+                <path d="M210 85 L210 12 L213 12 L213 85" stroke="currentColor" stroke-width="2"
+                  stroke-opacity="0.22" />
+                <line x1="190" y1="17" x2="255" y2="17" stroke="currentColor" stroke-width="1.8"
+                  stroke-opacity="0.22" />
               </svg>
-            </button>
-          </div>
+            </div>
 
-          <!-- Empty Recents State -->
-          <div *ngIf="conversations().length === 0" class="empty-recents-box">
-            <svg class="empty-recents-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-            </svg>
-            <span class="empty-recents-text">No recent chats</span>
-            <span class="empty-recents-sub">Start a new chat to begin</span>
+            <div class="user-card-pill" (click)="openSettings()" role="button" tabindex="0">
+              <div class="user-card-avatar">
+                <span>SK</span>
+              </div>
+              <div class="user-card-info">
+                <span class="user-card-name">{{ userName() }} Kumar</span>
+                <span class="user-card-role">Site Inspector</span>
+              </div>
+              <svg class="user-card-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </div>
           </div>
-
-          <!-- Empty search filter state -->
-          <div *ngIf="conversations().length > 0 && filteredConversations().length === 0" class="empty-recents-box">
-            <span class="empty-recents-text">No matching chats</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Bottom User Profile Card with Construction Skyline Watermark -->
-      <div class="sidebar-user-footer">
-        <div class="sidebar-skyline-watermark" aria-hidden="true">
-          <svg viewBox="0 0 260 90" fill="none" xmlns="http://www.w3.org/2000/svg" class="skyline-svg">
-            <path d="M15 85 L15 35 L40 35 L40 85" stroke="currentColor" stroke-width="1.5" stroke-opacity="0.18"/>
-            <path d="M40 45 L60 45 L60 85" stroke="currentColor" stroke-width="1.5" stroke-opacity="0.18"/>
-            <path d="M75 85 L75 18 L78 18 L78 85" stroke="currentColor" stroke-width="2" stroke-opacity="0.22"/>
-            <line x1="55" y1="23" x2="135" y2="23" stroke="currentColor" stroke-width="1.8" stroke-opacity="0.22"/>
-            <line x1="75" y1="18" x2="55" y2="23" stroke="currentColor" stroke-width="1.5" stroke-opacity="0.22"/>
-            <line x1="78" y1="18" x2="115" y2="23" stroke="currentColor" stroke-width="1.5" stroke-opacity="0.22"/>
-            <line x1="115" y1="23" x2="115" y2="48" stroke="currentColor" stroke-width="1.2" stroke-opacity="0.18" stroke-dasharray="2 2"/>
-            <path d="M140 85 L140 50 L165 50 L165 85" stroke="currentColor" stroke-width="1.5" stroke-opacity="0.18"/>
-            <path d="M175 85 L175 35 L195 35 L195 85" stroke="currentColor" stroke-width="1.5" stroke-opacity="0.18"/>
-            <path d="M210 85 L210 12 L213 12 L213 85" stroke="currentColor" stroke-width="2" stroke-opacity="0.22"/>
-            <line x1="190" y1="17" x2="255" y2="17" stroke="currentColor" stroke-width="1.8" stroke-opacity="0.22"/>
-          </svg>
-        </div>
-
-        <div class="user-card-pill" (click)="openSettings()" role="button" tabindex="0">
-          <div class="user-card-avatar">
-            <span>SK</span>
-          </div>
-          <div class="user-card-info">
-            <span class="user-card-name">{{ userName() }} Kumar</span>
-            <span class="user-card-role">Site Inspector</span>
-          </div>
-          <svg class="user-card-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="6 9 12 15 18 9"></polyline>
-          </svg>
-        </div>
-      </div>
     </aside>
 
     <!-- Main Chat Workspace -->
     <main class="chat-main" *ngIf="currentView() === 'chat'">
       <!-- Chat Scrollable Messages Area -->
       <div class="chat-scroll-area" #chatScrollContainer>
-        <!-- Empty State (Matching the Uploaded Image) -->
+        <!-- Empty State (Clean, Minimal Conversational Canvas) -->
         <div *ngIf="activeMessages().length === 0" class="chat-welcome-container">
-          <div class="welcome-card">
-            
-            <!-- Center Glossy 3D Red Q Badge with Orbital Aura Rings -->
-            <div class="hero-logo-wrapper">
-              <div class="orbital-ring ring-1"></div>
-              <div class="orbital-ring ring-2"></div>
-              <div class="orbital-ring ring-3"></div>
-              <div class="hero-q-badge">
-                <span class="q-letter">Q</span>
-                <span class="q-sparkle">✦</span>
-              </div>
+          <div class="welcome-minimal">
+            <div class="welcome-badge">
+              <span class="welcome-brand-q">Q</span>
             </div>
-
-            <!-- Greeting matching user request: "hello what you want to do today ,name of the user" -->
-            <h1 class="hero-hello">Hello, {{ userName() }}!</h1>
-            <h2 class="hero-question">What do you want to do today?</h2>
-            <p class="hero-subtext">Ask me anything or choose an option below to get started.</p>
-
-            <!-- Action Chips Row (with 'Tell me about QuestAI' removed as requested!) -->
-            <div class="hero-action-chips-row">
-              <!-- Chip 1: Start Inspection -->
-              <button class="hero-action-chip" (click)="onStartInspectionAction()" type="button">
-                <span class="chip-icon">📋</span>
-                <span class="chip-label">Start Inspection</span>
-              </button>
-
-              <!-- Chip 2: AI Photo Inspection -->
-              <button class="hero-action-chip" (click)="onAiPhotoInspectionAction()" type="button">
-                <span class="chip-icon">📷</span>
-                <span class="chip-label">AI Photo Inspection</span>
-              </button>
-
-              <!-- Chip 3: Help me fill a form -->
-              <button class="hero-action-chip" (click)="onHelpMeFillFormAction()" type="button">
-                <span class="chip-icon">📄</span>
-                <span class="chip-label">Help me fill a form</span>
-              </button>
-
-              <!-- Chip 4: 12 Question Banks Dropdown -->
-              <div class="inspection-badge-container">
-                <div *ngIf="showHomeInspectionDropdown()" class="dropdown-backdrop-dismiss"
-                  (click)="closeHomeInspectionDropdown()" aria-hidden="true"></div>
-
-                <button class="hero-action-chip dropdown-chip" (click)="toggleHomeInspectionDropdown($event)" type="button"
-                  [class.active]="showHomeInspectionDropdown()">
-                  <span class="chip-icon">🗂️</span>
-                  <span class="chip-label">12 Question Banks</span>
-                  <svg class="badge-chevron" [class.rotated]="showHomeInspectionDropdown()" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="6 9 12 15 18 9"></polyline>
-                  </svg>
-                </button>
-
-                <!-- Searchable Question Banks Dropdown -->
-                <div *ngIf="showHomeInspectionDropdown()" class="inspection-banks-dropdown" (click)="$event.stopPropagation()">
-                  <div class="dropdown-header-bar">
-                    <div class="dropdown-header-title">
-                      <span class="dropdown-title-icon">📋</span>
-                      <span class="dropdown-title-text">Question Banks Checklist</span>
-                      <span class="dropdown-banks-count-pill">{{ filteredInspectionBanks().length }} Available</span>
-                    </div>
-                    <button class="btn-close-dropdown" (click)="closeHomeInspectionDropdown()" title="Close (Esc)" type="button">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                      </svg>
-                    </button>
-                  </div>
-
-                  <div class="dropdown-search-wrap">
-                    <svg class="dropdown-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <circle cx="11" cy="11" r="8"></circle>
-                      <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                    </svg>
-                    <input type="text" [ngModel]="inspectionBankSearchQuery()" (ngModelChange)="inspectionBankSearchQuery.set($event)"
-                      placeholder="Search question banks (e.g. Street Lighting, Traffic Management)..."
-                      class="dropdown-search-input" autofocus />
-                    <button *ngIf="inspectionBankSearchQuery()" class="btn-clear-search" (click)="inspectionBankSearchQuery.set('')" type="button">✕</button>
-                  </div>
-
-                  <div class="dropdown-banks-list">
-                    <div *ngFor="let bank of filteredInspectionBanks()" class="dropdown-bank-row" (click)="onBankClick(bank, $event)">
-                      <div class="bank-row-left">
-                        <div class="bank-icon-container">
-                          <span class="bank-row-icon">{{ bank.icon }}</span>
-                        </div>
-                        <div class="bank-row-details">
-                          <div class="bank-title-line">
-                            <span class="bank-row-title">{{ bank.name }}</span>
-                            <span class="bank-question-pill">{{ bank.badge }}</span>
-                          </div>
-                          <span class="bank-row-desc">{{ bank.description }}</span>
-                        </div>
-                      </div>
-                      <div class="bank-row-actions">
-                        <button class="btn-bank-action-primary" (click)="onBankClick(bank, $event)" type="button">
-                          <span>Inspect</span>
-                          <svg class="action-arrow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                            <polyline points="9 18 15 12 9 6"></polyline>
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
+            <h1 class="welcome-heading">How can I help you today?</h1>
           </div>
         </div>
 
@@ -330,25 +278,60 @@
         <div *ngIf="activeMessages().length > 0" class="messages-stream">
           <div *ngFor="let msg of activeMessages()" class="message-row" [class.user-row]="msg.sender === 'user'"
             [class.assistant-row]="msg.sender === 'assistant'">
-            
+
             <!-- Assistant Avatar -->
             <div *ngIf="msg.sender === 'assistant'" class="avatar-assistant">
               <span>Q</span>
             </div>
 
             <!-- Message Bubble -->
-            <div class="message-bubble" [class.user-bubble]="msg.sender === 'user'">
+            <div class="message-bubble" [class.user-bubble]="msg.sender === 'user'" [class.error-bubble]="msg.isError">
               <div class="bubble-header">
-                <span class="sender-name">
-                  {{ msg.sender === 'user' ? 'You' : 'QuestAI' }}
-                </span>
+                <div class="bubble-header-left">
+                  <span class="sender-name">
+                    {{ msg.sender === 'user' ? 'You' : 'QuestAI' }}
+                  </span>
+                </div>
                 <span class="message-time">
                   {{ msg.timestamp | date:'shortTime' }}
                 </span>
               </div>
 
               <div class="bubble-body">
-                <p class="bubble-text">{{ msg.content }}</p>
+                <!-- User or Error Plain Text -->
+                <p *ngIf="msg.sender === 'user' || msg.isError" class="bubble-text" [class.error-text]="msg.isError">
+                  {{ msg.content }}</p>
+
+                <!-- Assistant Structured Response (No raw ** or * markdown) -->
+                <div *ngIf="msg.sender !== 'user' && !msg.isError" class="bubble-structured-content"
+                  [innerHTML]="formatStructuredMessage(msg.content)"></div>
+
+                <!-- Compact Interactive Inspection Category Chips (Displayed only when requested) -->
+                <div *ngIf="msg.showInspectionCategories && !msg.isError" class="chat-category-chips-wrap" role="group"
+                  aria-label="Site inspection categories">
+                  <button *ngFor="let bank of siteInspectionBanks" type="button" class="chat-category-chip"
+                    [class.selected]="msg.selectedBankId === bank.id"
+                    (click)="onSelectCategoryChipFromChat(bank, msg.id)">
+                    {{ bank.name }}
+                  </button>
+                  <button type="button" class="chat-category-chip cancel-chip" (click)="cancelCategorySelection(msg.id)"
+                    title="Cancel category selection">
+                    Cancel
+                  </button>
+                </div>
+
+                <!-- Retry action if message failed -->
+                <div *ngIf="msg.isError && msg.retryPrompt" class="message-retry-row">
+                  <button class="btn-retry-message" (click)="retryMessage(msg.retryPrompt)" type="button"
+                    [disabled]="isGenerating()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="retry-icon">
+                      <polyline points="1 4 1 10 7 10"></polyline>
+                      <polyline points="23 20 23 14 17 14"></polyline>
+                      <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path>
+                    </svg>
+                    Retry Question
+                  </button>
+                </div>
 
                 <!-- Document Citation / Source Pill -->
                 <div *ngIf="msg.attachmentName" class="document-source-pill">
@@ -387,13 +370,6 @@
                         <strong>Recommended Action:</strong> {{ finding.recommendation }}
                       </div>
                     </div>
-                  </div>
-
-                  <div class="report-footer">
-                    <span>Model: {{ msg.structuredInspection.modelIdentifier }}</span>
-                    <span *ngIf="msg.structuredInspection.isMock" class="mock-notice">
-                      Placeholder Engine
-                    </span>
                   </div>
                 </div>
               </div>
@@ -441,45 +417,29 @@
               </path>
             </svg>
             <span class="staged-name">{{ attachedDocument() }}</span>
-            <button class="btn-remove-staged" (click)="removeAttachedDocument()" title="Remove attached document">✕</button>
+            <button class="btn-remove-staged" (click)="removeAttachedDocument()"
+              title="Remove attached document">✕</button>
           </div>
-        </div>
-
-        <!-- Subtle Decorative Wavy Curves in Bottom Right (Matching Image) -->
-        <div class="bg-decorative-wave" aria-hidden="true">
-          <svg viewBox="0 0 500 220" fill="none" xmlns="http://www.w3.org/2000/svg" class="wave-svg">
-            <path d="M0 130 C160 80 320 200 500 100 L500 220 L0 220 Z" fill="url(#waveGrad1)"/>
-            <path d="M0 170 C190 120 340 210 500 150 L500 220 L0 220 Z" fill="url(#waveGrad2)"/>
-            <defs>
-              <linearGradient id="waveGrad1" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stop-color="#fee2e2" stop-opacity="0.45"/>
-                <stop offset="100%" stop-color="#fca5a5" stop-opacity="0.15"/>
-              </linearGradient>
-              <linearGradient id="waveGrad2" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stop-color="#fecdd3" stop-opacity="0.6"/>
-                <stop offset="100%" stop-color="#fee2e2" stop-opacity="0.25"/>
-              </linearGradient>
-            </defs>
-          </svg>
         </div>
 
         <div class="composer-box">
           <!-- Attachment Button (Opens Photo Upload / Inspection Evidence Picker) -->
           <button class="btn-composer-icon" (click)="openPhotoUploadForComposer()" type="button"
-            title="Upload site photographs for AI analysis" aria-label="Attach file">
+            title="Upload site photographs for AI analysis">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+              <circle cx="12" cy="13" r="4"></circle>
             </svg>
           </button>
 
           <!-- Input Textarea (Multiline supported, Enter sends) -->
-          <textarea class="composer-input" rows="1" placeholder="Type your message here..."
-            [ngModel]="composerText()" (ngModelChange)="composerText.set($event)"
+          <textarea #composerTextarea class="composer-input" rows="1" placeholder="Type a message"
+            [ngModel]="composerText()" (ngModelChange)="composerText.set($event)" [disabled]="isGenerating()"
             (keydown.enter)="$event.preventDefault(); sendMessage()"></textarea>
 
-          <!-- Modern Red Circle Send Button matching image -->
+          <!-- Modern Red Send Button -->
           <button class="btn-composer-send" (click)="sendMessage()"
-            [disabled]="isGenerating() || !composerText().trim()" type="button" title="Send Message" aria-label="Send message">
+            [disabled]="isGenerating() || !composerText().trim()" type="button" title="Send Message">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <line x1="22" y1="2" x2="11" y2="13"></line>
               <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
@@ -496,7 +456,8 @@
 
     <!-- Main Site Inspection Workspace -->
     <main class="inspection-main" *ngIf="currentView() === 'inspection'">
-      <app-site-inspection (switchToChat)="navigateToChat()" (requestAiPhotoUpload)="onInspectionRequestAiPhotoUpload($event)"></app-site-inspection>
+      <app-site-inspection (switchToChat)="navigateToChat()"
+        (requestAiPhotoUpload)="onInspectionRequestAiPhotoUpload($event)"></app-site-inspection>
     </main>
   </div>
 
@@ -520,17 +481,33 @@
       <!-- Body -->
       <div class="modal-body">
         <p class="modal-description">
-          Upload site inspection photographs. QuestAI vision analysis will examine your images against the
-          <strong>{{ selectedUploadBank()?.name }}</strong> question bank ({{ selectedUploadBank()?.badge }}), evaluate safety compliance, and automatically pre-fill ratings, comments, and evidence.
+          Upload site inspection photographs for <strong>{{ selectedUploadBank()?.name }}</strong>. QuestAI vision
+          analysis will evaluate safety compliance and pre-fill suggestions for inspector review.
         </p>
 
+        <!-- Dynamic Risk Banks Selector when Managers Site Inspection is selected -->
+        <div *ngIf="selectedUploadBank()?.isManagers" class="modal-managers-risk-panel">
+          <div class="modal-risk-header">
+            <span class="modal-risk-title">Active Risk Banks ({{ selectedUploadRiskBanks().length }} selected)</span>
+            <div class="modal-risk-actions">
+              <button type="button" class="btn-modal-risk-link" (click)="selectAllUploadRiskBanks()">Select All</button>
+              <button type="button" class="btn-modal-risk-link" (click)="clearAllUploadRiskBanks()">Clear</button>
+            </div>
+          </div>
+          <div class="modal-risk-chips">
+            <button *ngFor="let risk of availableRiskBanks" type="button" class="modal-risk-chip"
+              [class.selected]="selectedUploadRiskBanks().includes(risk.key)" (click)="toggleUploadRiskBank(risk.key)">
+              {{ risk.label }}
+            </button>
+          </div>
+        </div>
+
         <!-- Drag & Drop Upload Dropzone -->
-        <div class="photo-dropzone" [class.dragover]="isDragOver()"
-          (dragover)="onDragOver($event)" (dragleave)="onDragLeave($event)" (drop)="onDropPhotos($event)"
-          (click)="fileUploadInput.click()">
+        <div class="photo-dropzone" [class.dragover]="isDragOver()" (dragover)="onDragOver($event)"
+          (dragleave)="onDragLeave($event)" (drop)="onDropPhotos($event)" (click)="fileUploadInput.click()">
           <input #fileUploadInput type="file" multiple accept="image/*" capture="environment"
             (change)="onFilesSelected($event)" style="display: none" />
-          
+
           <div class="dropzone-content">
             <div class="dropzone-icon-circle">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -546,7 +523,8 @@
         <!-- Uploaded Photos Tray / Grid -->
         <div *ngIf="uploadedPhotos().length > 0" class="uploaded-photos-section">
           <div class="uploaded-photos-header">
-            <span class="uploaded-count-title">{{ uploadedPhotos().length }} Photo{{ uploadedPhotos().length > 1 ? 's' : '' }} Selected</span>
+            <span class="uploaded-count-title">{{ uploadedPhotos().length }} Photo{{ uploadedPhotos().length > 1 ? 's' :
+              '' }} Selected</span>
             <button class="btn-text-danger" (click)="clearUploadedPhotos()" type="button">Clear All</button>
           </div>
 
@@ -556,7 +534,8 @@
               <div class="thumb-meta">
                 <span class="thumb-name">{{ photo.name }}</span>
               </div>
-              <button class="btn-thumb-remove" (click)="removeUploadedPhoto(i)" title="Remove photo" type="button">✕</button>
+              <button class="btn-thumb-remove" (click)="removeUploadedPhoto(i)" title="Remove photo"
+                type="button">✕</button>
             </div>
           </div>
         </div>
@@ -566,6 +545,12 @@
           <label class="field-label">Site Context / Specific Asset Details (Optional):</label>
           <input type="text" [ngModel]="uploadSiteNotes()" (ngModelChange)="uploadSiteNotes.set($event)"
             placeholder="e.g. A1(M) Junction 4-6, lighting column #14, day shift..." class="site-notes-input" />
+        </div>
+
+        <!-- Photo Validation Error Notice -->
+        <div *ngIf="photoUploadError()" class="ai-analyzing-progress-banner" role="alert"
+          style="border-color: #ef4444; background: #fef2f2; color: #b91c1c;">
+          <span>{{ photoUploadError() }}</span>
         </div>
 
         <!-- Scanning / Analyzing State Overlay / Banner -->
@@ -580,17 +565,25 @@
 
       <!-- Footer -->
       <div class="modal-footer">
-        <button class="btn-modal-cancel" (click)="closePhotoUploadModal()" [disabled]="isAnalyzingPhotos()" type="button">
+        <button class="btn-modal-cancel" (click)="closePhotoUploadModal()" [disabled]="isAnalyzingPhotos()"
+          type="button">
           Cancel
+        </button>
+
+        <button class="btn-modal-cancel" (click)="openManualChecklistFromModal()" [disabled]="isAnalyzingPhotos()"
+          type="button" title="Open checklist without uploading photos">
+          Skip Photos (Manual Checklist)
         </button>
 
         <button class="btn-analyze-autofill" (click)="runAiPhotoAnalysisAndFill()"
           [disabled]="uploadedPhotos().length === 0 || isAnalyzingPhotos()" type="button">
           <svg class="btn-sparkle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z">
+            </path>
           </svg>
           <span>
-            {{ isAnalyzingPhotos() ? 'Analyzing & Auto-Filling Form...' : 'Analyze ' + uploadedPhotos().length + ' Photo' + (uploadedPhotos().length > 1 ? 's' : '') + ' & Auto-Fill Form' }}
+            {{ isAnalyzingPhotos() ? 'Analyzing & Auto-Filling Form...' : 'Analyze ' + uploadedPhotos().length + '
+            Photo' + (uploadedPhotos().length > 1 ? 's' : '') + ' & Auto-Fill Form' }}
           </span>
         </button>
       </div>

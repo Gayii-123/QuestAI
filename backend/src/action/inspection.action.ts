@@ -1,6 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 import { aiService } from '../services/ai/gemini.service';
 import { SiteInspectionAnalysisRequest, PhotoInspectionRequest } from '../services/ai/ai.interface';
+import {
+  validatePhotoInspectionRequest,
+  PhotoValidationOptions,
+} from '../services/ai/photo-inspection.validator';
 
 /**
  * Validation function for site inspection requests.
@@ -47,48 +51,22 @@ export function validateInspectionPayload(data: unknown): {
 
 /**
  * Validation function for photo inspection requests.
+ * Validates bankId against official Quest banks, question IDs against the bank schema,
+ * and uploaded photographs against binary magic-byte and size constraints.
  */
-export function validatePhotoInspectionPayload(data: unknown): {
+export function validatePhotoInspectionPayload(
+  data: unknown,
+  options?: PhotoValidationOptions
+): {
   valid: boolean;
   errors?: string[];
   value?: PhotoInspectionRequest;
 } {
-  const errors: string[] = [];
-  if (!data || typeof data !== 'object') {
-    return { valid: false, errors: ['Request body must be a JSON object'] };
+  const result = validatePhotoInspectionRequest(data, options);
+  if (!result.valid) {
+    return { valid: false, errors: result.errors };
   }
-
-  const payload = data as Partial<PhotoInspectionRequest>;
-
-  if (!payload.bankId || typeof payload.bankId !== 'string' || !payload.bankId.trim()) {
-    errors.push('bankId is required and must be a non-empty string');
-  }
-
-  if (!payload.department || typeof payload.department !== 'string' || !payload.department.trim()) {
-    errors.push('department is required and must be a non-empty string');
-  }
-
-  if (!Array.isArray(payload.photos) || payload.photos.length === 0) {
-    errors.push('photos is required and must contain at least one photograph');
-  }
-
-  if (errors.length > 0) {
-    return { valid: false, errors };
-  }
-
-  return {
-    valid: true,
-    value: {
-      bankId: payload.bankId!.trim(),
-      department: payload.department!.trim(),
-      trafficSubtype: payload.trafficSubtype,
-      selectedRiskBanks: payload.selectedRiskBanks,
-      photos: payload.photos || [],
-      siteNotes: payload.siteNotes?.trim(),
-      inspectorName: payload.inspectorName?.trim(),
-      jobReference: payload.jobReference?.trim(),
-    },
-  };
+  return { valid: true, value: result.value };
 }
 
 /**
@@ -115,7 +93,7 @@ export async function runInspectionAction(
 
 /**
  * Multimodal Photo Inspection action handler.
- * Analyzes uploaded site photographs against official question banks.
+ * Analyzes uploaded site photographs against official Quest question banks using Gemini.
  * Responds to: POST /api/ai/inspect-photos
  */
 export async function runPhotoInspectionAction(
@@ -134,4 +112,3 @@ export async function runPhotoInspectionAction(
     next(error);
   }
 }
-

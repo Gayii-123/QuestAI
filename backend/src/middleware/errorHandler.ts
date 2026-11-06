@@ -55,9 +55,9 @@ export function errorHandler(
     message = 'Malformed JSON payload provided.';
   }
 
-  // Log error details on server
+  // Log error summary on server without exposing raw request bodies or secrets
   if (statusCode >= 500) {
-    console.error(`[Error 500] ${req.method} ${req.originalUrl}:`, err);
+    console.error(`[Error ${statusCode}] ${req.method} ${req.originalUrl}: ${message}`);
   } else {
     console.warn(`[Warning ${statusCode}] ${req.method} ${req.originalUrl}: ${message}`);
   }
@@ -68,7 +68,6 @@ export function errorHandler(
       code: errorCode,
       message,
       ...(isAppError && err.details ? { details: err.details } : {}),
-      ...(env.NODE_ENV !== 'production' && { stack: err.stack }),
     },
     timestamp: new Date().toISOString(),
   });
