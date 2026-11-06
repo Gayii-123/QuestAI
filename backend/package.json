@@ -7,9 +7,11 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts",
+    "test": "tsx --test src/**/*.spec.ts",
     "clean": "rimraf dist"
   },
   "dependencies": {
+    "@google/genai": "^2.32.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
@@ -29,4 +31,3 @@
   },
   "private": true
 }
-

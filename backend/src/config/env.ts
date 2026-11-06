@@ -1,7 +1,8 @@
 import dotenv from 'dotenv';
 import path from 'path';
 
-// Load .env file from backend root if present
+// Load .env file from backend root regardless of current working directory
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
 export interface AppConfig {
@@ -9,13 +10,31 @@ export interface AppConfig {
   PORT: number;
   FRONTEND_URL: string;
   MAX_REQUEST_SIZE: string;
+  MAX_PHOTOS_PER_REQUEST: number;
+  MAX_IMAGE_SIZE_BYTES: number;
+  MAX_TOTAL_IMAGES_BYTES: number;
   GEMINI_API_KEY?: string;
+  GEMINI_MODEL?: string;
+  GOOGLE_CLOUD_PROJECT?: string;
+  GOOGLE_CLOUD_LOCATION?: string;
+  /** Names (never values) of required Gemini variables that are missing or still placeholders. */
+  GEMINI_MISSING_VARS: string[];
+  /** True only when every required Gemini variable is present. Does NOT mean Gemini is reachable. */
   IS_GEMINI_CONFIGURED: boolean;
+}
+
+const PLACEHOLDER_PATTERN = /^your_|_placeholder$/i;
+
+function readVar(name: string): string | undefined {
+  const value = process.env[name]?.trim();
+  if (!value || PLACEHOLDER_PATTERN.test(value)) return undefined;
+  return value;
 }
 
 /**
  * Validates and parses environment variables.
- * Fails early and loudly if required variables are misconfigured.
+ * Core server variables fail fast. Gemini variables are validated and reported by name only,
+ * so the server (and /api/health) still starts and /api/ai/status can explain what is missing.
  */
 function validateEnv(): AppConfig {
   const errors: string[] = [];
@@ -42,15 +61,29 @@ function validateEnv(): AppConfig {
   }
 
   // MAX_REQUEST_SIZE
-  const maxRequestSize = process.env.MAX_REQUEST_SIZE || '10mb';
+  const maxRequestSize = process.env.MAX_REQUEST_SIZE || '50mb';
+  const maxPhotos = Math.max(1, parseInt(process.env.MAX_PHOTOS_PER_REQUEST || '10', 10) || 10);
+  const maxImageSizeMb = Math.max(1, parseFloat(process.env.MAX_IMAGE_SIZE_MB || '10') || 10);
+  const maxTotalImagesMb = Math.max(1, parseFloat(process.env.MAX_TOTAL_IMAGES_MB || '25') || 25);
 
-  // GEMINI_API_KEY (placeholder / optional for current phase)
-  const geminiApiKey = process.env.GEMINI_API_KEY?.trim();
-  const isGeminiConfigured = Boolean(
-    geminiApiKey &&
-    geminiApiKey !== 'your_gemini_api_key_placeholder' &&
-    geminiApiKey.length > 10
-  );
+  // Gemini / Agent Platform configuration
+  const geminiApiKey = readVar('GEMINI_API_KEY');
+  const geminiModel = readVar('GEMINI_MODEL');
+  const project = readVar('GOOGLE_CLOUD_PROJECT');
+  const location = readVar('GOOGLE_CLOUD_LOCATION');
+
+  const missing: string[] = [];
+  if (!geminiApiKey) missing.push('GEMINI_API_KEY');
+  if (!geminiModel) missing.push('GEMINI_MODEL');
+  if (!project) missing.push('GOOGLE_CLOUD_PROJECT');
+  if (!location) missing.push('GOOGLE_CLOUD_LOCATION');
+
+  if (missing.length > 0) {
+    console.warn(
+      `[QuestAI Config Warning] Gemini is not fully configured. Missing or placeholder variable(s): ${missing.join(', ')}. ` +
+        'Set them in backend/.env.'
+    );
+  }
 
   if (errors.length > 0) {
     const message = `Environment configuration error(s):\n  - ${errors.join('\n  - ')}`;
@@ -63,10 +96,16 @@ function validateEnv(): AppConfig {
     PORT: port,
     FRONTEND_URL: frontendUrl,
     MAX_REQUEST_SIZE: maxRequestSize,
+    MAX_PHOTOS_PER_REQUEST: maxPhotos,
+    MAX_IMAGE_SIZE_BYTES: Math.round(maxImageSizeMb * 1024 * 1024),
+    MAX_TOTAL_IMAGES_BYTES: Math.round(maxTotalImagesMb * 1024 * 1024),
     GEMINI_API_KEY: geminiApiKey,
-    IS_GEMINI_CONFIGURED: isGeminiConfigured,
+    GEMINI_MODEL: geminiModel,
+    GOOGLE_CLOUD_PROJECT: project,
+    GOOGLE_CLOUD_LOCATION: location,
+    GEMINI_MISSING_VARS: missing,
+    IS_GEMINI_CONFIGURED: missing.length === 0,
   };
 }
 
 export const env: AppConfig = validateEnv();
-

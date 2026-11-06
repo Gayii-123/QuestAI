@@ -1,322 +1,571 @@
+import { GoogleGenAI, Part, Type, createPartFromBase64 } from '@google/genai';
 import { env } from '../../config/env';
+import { AppError } from '../../middleware/errorHandler';
 import {
   IAIService,
   AIServiceStatus,
+  AIConnectionState,
   SiteInspectionAnalysisRequest,
   SiteInspectionAnalysisResult,
+  InspectionFinding,
   PhotoInspectionRequest,
   PhotoInspectionResult,
-  QuestionAiEvaluation,
+  TextGenerationResult,
 } from './ai.interface';
+import {
+  validatePhotoInspectionRequest,
+  validateGeminiPhotoAnalysisResponse,
+} from './photo-inspection.validator';
+import {
+  SiteInspectionQuestion,
+  getAllowedSelectOptions,
+  getAllowedMultiSelectOptions,
+} from '../../models/quest-bank-registry';
 
-/**
- * GeminiAIService
- * 
- * Implementation of Google Gemini API service for QuestAI site inspection.
- * NOTE: The Gemini API key is securely accessed only on the backend from process.env and is never
- * exposed to client/frontend code.
- */
-export class GeminiAIService implements IAIService {
-  private readonly modelName = 'gemini-1.5-pro';
-
-  constructor() {
-    // When actual Gemini integration is enabled with key configured:
-    // const { GoogleGenerativeAI } = require('@google/generative-ai');
-    // this.client = new GoogleGenerativeAI(env.GEMINI_API_KEY);
-  }
-
-  /**
-   * Returns current readiness status of the AI service.
-   */
-  public async getStatus(): Promise<AIServiceStatus> {
-    return {
-      serviceName: 'Google Gemini Site Inspection Service',
-      configured: env.IS_GEMINI_CONFIGURED,
-      model: this.modelName,
-      version: '1.0.0',
-      ready: true,
-      notes: env.IS_GEMINI_CONFIGURED
-        ? 'Gemini API key is configured. Ready for model integration.'
-        : 'Running in placeholder mode. Set GEMINI_API_KEY in backend/.env for live Gemini analysis.',
-    };
-  }
-
-  /**
-   * Placeholder analysis method. Returns structured placeholder findings without invoking live AI.
-   */
-  public async analyzeInspection(
-    request: SiteInspectionAnalysisRequest
-  ): Promise<SiteInspectionAnalysisResult> {
-    return {
-      inspectionId: request.inspectionId,
-      summary: `[QuestAI Placeholder] Preliminary structural & safety review generated for "${request.siteName}". Live Gemini analysis will be activated in the next development phase.`,
-      overallRiskLevel: 'low',
-      findings: [
-        {
-          id: 'placeholder-finding-1',
-          category: 'safety',
-          severity: 'low',
-          title: 'Foundation & Framing Alignment Verification',
-          description:
-            'Initial geometry inspection placeholder. Live vision model will detect cracks, exposed reinforcement, or hazards once Gemini API is connected.',
-          location: 'Perimeter Wall / Grid A-1',
-          recommendation: 'Perform regular scheduled visual inspection and verify compliance documentation.',
-          confidenceScore: 0.95,
-        },
-      ],
-      analyzedAt: new Date().toISOString(),
-      modelIdentifier: this.modelName,
-      isMock: true,
-    };
-  }
-
-  /**
-   * Multimodal Site Photograph Analysis & Inspection Evaluation
-   * Evaluates photographs against the selected question bank.
-   * If Gemini is configured, invokes multimodal vision model; otherwise uses QuestAI vision evaluation engine.
-   */
-  public async analyzeInspectionPhotos(
-    request: PhotoInspectionRequest
-  ): Promise<PhotoInspectionResult> {
-    const isLiveGemini = env.IS_GEMINI_CONFIGURED;
-    const photoIds = (request.photos || []).map((p) => p.id);
-    const photoCount = request.photos ? request.photos.length : 0;
-    const dept = (request.department || request.bankId || 'Civil').toLowerCase();
-
-    // Map of question evaluations
-    const evaluations: Record<string, QuestionAiEvaluation> = {};
-    let passCount = 0;
-    let carCount = 0;
-    let naCount = 0;
-    let needsReviewCount = 0;
-
-    // Generate accurate, context-aware evaluations for the question bank
-    const questionTemplates = this.getQuestionTemplatesForBank(request.bankId, request.trafficSubtype);
-
-    questionTemplates.forEach((item, index) => {
-      let rating: '1' | '-1' | '0' | '' = '1';
-      let requiresVerification = item.requiresVerification || false;
-      let evidence = item.evidence;
-      let reasoning = item.reasoning;
-      let carActionPlan: string | undefined = undefined;
-      let confidence = 0.92;
-
-      if (requiresVerification) {
-        rating = ''; // Marked for human review
-        needsReviewCount++;
-        confidence = 0.65;
-      } else if (item.isCar) {
-        rating = '-1';
-        carCount++;
-        confidence = 0.89;
-        carActionPlan = item.carActionPlan;
-      } else if (item.isNa) {
-        rating = '0';
-        naCount++;
-        confidence = 0.94;
-      } else {
-        rating = '1';
-        passCount++;
-        confidence = 0.93;
-      }
-
-      evaluations[item.id] = {
-        questionId: item.id,
-        suggestedRating: rating,
-        evidence: `${evidence} (${photoCount} site photograph(s) analysed)`,
-        reasoning,
-        confidenceScore: confidence,
-        requiresHumanVerification: requiresVerification,
-        carActionPlan,
-        photoIds: item.isCar ? photoIds : photoIds.slice(0, 1),
-      };
-    });
-
-    const totalEvaluated = passCount + carCount + naCount + needsReviewCount;
-
-    return {
-      bankId: request.bankId,
-      department: request.department,
-      totalEvaluated,
-      passCount,
-      carCount,
-      naCount,
-      needsReviewCount,
-      photoCount,
-      evaluations,
-      analyzedAt: new Date().toISOString(),
-      modelIdentifier: isLiveGemini
-        ? `${this.modelName} (Multimodal Live Vision)`
-        : 'QuestAI Vision Engine (Pre-Gemini Evaluation)',
-      isMock: !isLiveGemini,
-      notes: isLiveGemini
-        ? 'Gemini multimodal analysis complete.'
-        : 'Running in placeholder mode. Set GEMINI_API_KEY in backend/.env for live Gemini analysis.',
-    };
-  }
-
-  /**
-   * Generates question templates aligned with official Quest question banks.
-   */
-  private getQuestionTemplatesForBank(
-    bankId: string,
-    trafficSubtype?: string
-  ): Array<{
-    id: string;
-    evidence: string;
-    reasoning: string;
-    isCar?: boolean;
-    isNa?: boolean;
-    requiresVerification?: boolean;
-    carActionPlan?: string;
-  }> {
-    const idPrefix = bankId.toLowerCase();
-
-    if (idPrefix.includes('light')) {
-      return [
-        {
-          id: 'Street Lighting_01',
-          evidence: 'Lighting column verticality and foundation bolts inspected in photograph.',
-          reasoning: 'Earthing bond secure with protective PVC sleeve intact. Torquing markings visible.',
-        },
-        {
-          id: 'Street Lighting_02',
-          evidence: 'Cable termination box and cut-out isolations examined.',
-          reasoning: 'IP-rated enclosure sealed, test isolation certificate verified in accordance with BS 7671.',
-        },
-        {
-          id: 'Street Lighting_03',
-          evidence: 'Excavation perimeter adjacent to lighting column footings.',
-          reasoning: 'Red/white pedestrian barrier links missing on kerbside edge.',
-          isCar: true,
-          carActionPlan: 'Install rigid Chapter 8 barrier panels around column excavation with 0.5m setback from live carriageway before end of shift.',
-        },
-        {
-          id: 'Street Lighting_04',
-          evidence: 'MEWP outrigger positioning on footway paving.',
-          reasoning: 'Spreader pads correctly deployed under outrigger feet. No ground subsidence visible.',
-        },
-        {
-          id: 'Street Lighting_05',
-          evidence: 'Electrical test calibration labels on instrument in technician cab.',
-          reasoning: 'Calibration certificate requires manual paperwork inspection in site vehicle.',
-          requiresVerification: true,
-        },
-      ];
-    }
-
-    if (idPrefix.includes('traffic') || idPrefix.includes('tm')) {
-      const is12ab = trafficSubtype === '12AB';
-      return [
-        {
-          id: is12ab ? 'TM 12AB_01' : 'TM/ Branding_01',
-          evidence: 'Chapter 8 advance warning signs positioned on approach.',
-          reasoning: 'Signage clean, ballasted with dual sandbags, and clearly visible from minimum stopping sight distance.',
-        },
-        {
-          id: is12ab ? 'TM 12AB_02' : 'TM/ Branding_02',
-          evidence: 'Lead-in taper delineator cones spacing inspected in photo.',
-          reasoning: 'Reflective Class 2 sleeve cones aligned at standard 9m spacing in compliance with Chapter 8 Red Book.',
-        },
-        {
-          id: is12ab ? 'TM 12AB_03' : 'TM/ Branding_03',
-          evidence: 'Temporary sign base frame on grass verge.',
-          reasoning: 'Sandbag ballast displaced from rear leg; prone to wind blow-down.',
-          isCar: true,
-          carActionPlan: 'Immediately re-position 18kg sandbag ballast across rear frame leg and verify stability under gust conditions.',
-        },
-        {
-          id: is12ab ? 'TM 12AB_04' : 'TM/ Branding_04',
-          evidence: 'Temporary traffic lights / Stop-Go equipment batteries.',
-          reasoning: 'Battery voltage and radio communication sync cannot be confirmed from exterior photo alone.',
-          requiresVerification: true,
-        },
-        {
-          id: is12ab ? 'TM 12AB_05' : 'TM/ Branding_05',
-          evidence: 'Overhead electrical cable warning signs.',
-          reasoning: 'No overhead utilities present within the work zone boundary shown in photographs.',
-          isNa: true,
-        },
-      ];
-    }
-
-    if (idPrefix.includes('harness')) {
-      return [
-        {
-          id: 'Full Body Harness_01',
-          evidence: 'Full body harness dorsal D-ring and webbing straps inspected in high-resolution image.',
-          reasoning: 'Stitching integrity uniform with no abrasion, chemical staining, or heat deformation visible.',
-        },
-        {
-          id: 'Full Body Harness_02',
-          evidence: 'Carabiner screwgate connector mechanism.',
-          reasoning: 'Double-locking mechanism engages smoothly. No burrs or corrosion on gate.',
-        },
-        {
-          id: 'Full Body Harness_03',
-          evidence: 'Inspection tag on chest strap.',
-          reasoning: 'Manufacturer date and 6-monthly thorough examination date must be physically verified against harness serial number.',
-          requiresVerification: true,
-        },
-      ];
-    }
-
-    if (idPrefix.includes('surfacing')) {
-      return [
-        {
-          id: 'Road Surfacing_01',
-          evidence: 'Bitumen delivery and paver hopper interface.',
-          reasoning: 'Banksman in position with high-visibility vest guiding delivery wagon into paver hopper.',
-        },
-        {
-          id: 'Road Surfacing_02',
-          evidence: 'Tandem roller exclusion zone.',
-          reasoning: 'Flashing amber beacon operational and reversing alarm tested.',
-        },
-        {
-          id: 'Road Surfacing_03',
-          evidence: 'Bitumen delivery temperature reading.',
-          reasoning: 'Temperature probe measurement requires physical gauge reading; not visible in site photo.',
-          requiresVerification: true,
-        },
-      ];
-    }
-
-    // Default Civil / Other templates
-    return [
-      {
-        id: 'Civil_01',
-        evidence: 'Excavation edge protection and trench box installation.',
-        reasoning: 'Trench shoring properly supported. Ground water sump pump operational.',
-      },
-      {
-        id: 'Civil_02',
-        evidence: 'Pedestrian walkway plate over utility trench.',
-        reasoning: 'Walkway plate has 20mm edge trip lip and lacks non-slip ramp chamfer.',
-        isCar: true,
-        carActionPlan: 'Fit cold-lay asphalt fillet ramp to walkway plate edge immediately to eliminate pedestrian trip hazard.',
-      },
-      {
-        id: 'Civil_03',
-        evidence: 'Excavator quick-hitch safety pin and bucket retention.',
-        reasoning: 'Safety hitch lock pin engaged with visual green indicator showing.',
-      },
-      {
-        id: 'Civil_04',
-        evidence: 'Underground cable CAT scan permit to dig.',
-        reasoning: 'Permit paperwork must be physically cross-referenced with site manager file.',
-        requiresVerification: true,
-      },
-      {
-        id: 'Civil_05',
-        evidence: 'Confined space entry equipment.',
-        reasoning: 'Operation does not involve deep shaft or confined space entry in this phase.',
-        isNa: true,
-      },
-    ];
+/** Error raised for Gemini failures; carries a machine-readable state and a safe HTTP status. */
+export class AIServiceError extends AppError {
+  constructor(
+    message: string,
+    statusCode: number,
+    public readonly state: AIConnectionState,
+    details?: unknown
+  ) {
+    super(message, statusCode, details);
+    this.name = 'AIServiceError';
   }
 }
 
-// Export singleton instance for application use
-export const aiService: IAIService = new GeminiAIService();
+const PROVIDER = 'Google Cloud Agent Platform (Vertex AI, API-key Express mode)';
+const REQUEST_TIMEOUT_MS = 90_000;
+const VERIFY_TTL_MS = 10 * 60 * 1000; // re-verify a healthy connection at most every 10 minutes
+const FAILURE_TTL_MS = 60 * 1000; // re-try a failed verification at most once a minute
 
+const MULTIMODAL_SYSTEM_INSTRUCTION = `You are QuestAI, an expert UK highways and civil engineering health, safety, and compliance site-inspection assistant for Marlborough Highways.
+Your role is to examine uploaded site photographs and suggest evidence-based answers for the official Quest Site Inspection checklist.
+
+MANDATORY ANALYSIS RULES:
+1. Examine every uploaded photograph carefully and identify only genuinely visible site conditions, equipment, signage, barriers, PPE, and hazards.
+2. Compare the visible evidence against each supplied Quest inspection question using its exact composite questionId.
+3. Rating conventions (use ONLY these exact values):
+   - "1"  = Pass / Compliant: Visible photographic evidence clearly demonstrates compliance with the question requirement.
+   - "-1" = CAR Required / Non-compliant: Visible photographic evidence clearly shows a safety hazard, defect, or non-compliance. Provide a specific, actionable "carActionPlan".
+   - "0"  = Not Applicable: The photographs clearly show the activity or equipment is not applicable to the work scope. NEVER assign "0" merely because something is not visible in the frame.
+   - null = Insufficient evidence / Requires human verification: The photographs do not show enough information to confirm compliance or non-compliance (e.g., paperwork, permits to dig, daily inspection records, calibration certificates, briefings, or areas outside the camera frame).
+4. NEVER automatically assign a CAR ("-1") based on an uncertain or ambiguous observation.
+5. NEVER invent, assume, or extrapolate details that are not visible in the photographs.
+6. Whenever rating is null or evidence is partial/ambiguous, set "needsHumanVerification" to true.
+7. Confidence must be a number between 0.0 and 1.0 reflecting visual certainty.
+8. For questions with "select" options, "selectAnswer" must either be null (if unverifiable) or match one of the question's exact allowed option strings.
+9. For questions with "multiselect" options, "multiselectAnswers" must either be null (if unverifiable) or an array containing only exact allowed option strings for that question.
+10. For conditional questions (marked with CONDITIONAL RULE), if the parent question's evaluated answer does NOT satisfy the stated condition, you MUST set rating: null, selectAnswer: null, multiselectAnswers: null, and needsHumanVerification: false.`;
+
+const PHOTO_ANALYSIS_RESPONSE_SCHEMA = {
+  type: Type.OBJECT,
+  required: ['summary', 'overallSiteRisk', 'evaluations', 'recommendations'],
+  properties: {
+    summary: {
+      type: Type.STRING,
+      description: 'Concise factual summary of the visual conditions observed across the uploaded site photographs.',
+    },
+    overallSiteRisk: {
+      type: Type.STRING,
+      enum: ['low', 'medium', 'high', 'critical'],
+      description: 'Overall risk level based on visible site conditions.',
+    },
+    evaluations: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        required: [
+          'questionId',
+          'rating',
+          'confidence',
+          'evidenceObserved',
+          'reasoning',
+          'needsHumanVerification',
+          'carActionPlan',
+        ],
+        properties: {
+          questionId: {
+            type: Type.STRING,
+            description: 'Exact composite question ID from the supplied checklist.',
+          },
+          rating: {
+            type: Type.STRING,
+            nullable: true,
+            enum: ['1', '-1', '0'],
+            description: '"1" (Pass), "-1" (CAR Required), "0" (Not Applicable), or null (Insufficient evidence / Needs human verification).',
+          },
+          confidence: {
+            type: Type.NUMBER,
+            description: 'Visual confidence score between 0.0 and 1.0.',
+          },
+          evidenceObserved: {
+            type: Type.STRING,
+            description: 'Factual description of what is (or is not) visible in the photographs relevant to this question.',
+          },
+          reasoning: {
+            type: Type.STRING,
+            description: 'Explanation of how the visual evidence supports the suggested rating or why human verification is required.',
+          },
+          needsHumanVerification: {
+            type: Type.BOOLEAN,
+            description: 'True whenever rating is null or human verification on site is needed.',
+          },
+          carActionPlan: {
+            type: Type.STRING,
+            nullable: true,
+            description: 'Concrete corrective action required when rating is "-1"; otherwise null.',
+          },
+          selectAnswer: {
+            type: Type.STRING,
+            nullable: true,
+            description: 'For select questions only: exact option string from the question schema, or null if unverifiable.',
+          },
+          multiselectAnswers: {
+            type: Type.ARRAY,
+            nullable: true,
+            items: { type: Type.STRING },
+            description: 'For multiselect questions only: array of exact option strings from the question schema, or null.',
+          },
+          photoIds: {
+            type: Type.ARRAY,
+            nullable: true,
+            items: { type: Type.STRING },
+            description: 'IDs of the uploaded photographs that provide evidence for this evaluation.',
+          },
+        },
+      },
+    },
+    recommendations: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: 'Practical safety and compliance recommendations based on visible site conditions.',
+    },
+  },
+};
+
+interface VerificationCache {
+  state: AIConnectionState;
+  error: string | null;
+  at: number;
+}
+
+export class GeminiAIService implements IAIService {
+  private client: GoogleGenAI | null = null;
+  private clientError: string | null = null;
+  private verification: VerificationCache | null = null;
+  private verifying: Promise<void> | null = null;
+
+  // ---------------------------------------------------------------------------
+  // Client initialisation (Vertex AI / Agent Platform, API-key Express mode)
+  // ---------------------------------------------------------------------------
+  private getClient(): GoogleGenAI {
+    if (!env.IS_GEMINI_CONFIGURED || !env.GEMINI_API_KEY || !env.GEMINI_MODEL) {
+      throw new AIServiceError(
+        `Gemini is not configured. Missing: ${env.GEMINI_MISSING_VARS.join(', ')}.`,
+        503,
+        'not_configured'
+      );
+    }
+    if (!this.client) {
+      try {
+        this.client = new GoogleGenAI({
+          vertexai: true,
+          apiKey: env.GEMINI_API_KEY,
+          httpOptions: { timeout: REQUEST_TIMEOUT_MS },
+        });
+        this.clientError = null;
+      } catch (err) {
+        this.clientError = (err as Error).message?.slice(0, 200) || 'SDK initialisation failed';
+        throw new AIServiceError(`Gemini SDK could not be initialised: ${this.clientError}`, 500, 'configured');
+      }
+    }
+    return this.client;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Real text generation (Phase 1)
+  // ---------------------------------------------------------------------------
+  public async generateText(prompt: string): Promise<TextGenerationResult> {
+    const client = this.getClient();
+    const model = env.GEMINI_MODEL as string;
+    const started = Date.now();
+
+    const systemInstruction = [
+      'You are QuestAI, a clean, friendly, and concise conversational AI assistant.',
+      'Follow these strict conversational rules:',
+      '1. For greetings (such as "Hi", "Hello", "Hey", "Hii") or casual check-ins ("How are you?"), reply with ONE short, natural conversational sentence (for example: "Hi! How can I help you today?" or "Hello! What can I help you with?").',
+      '2. Do NOT introduce all QuestAI features, question counts, or category lists during greetings or ordinary chat.',
+      '3. For general or safety-related questions, provide clear, concise, helpful answers like ChatGPT.',
+      '4. ONLY when the user explicitly asks to fill, start, open, or complete a site inspection form or checklist, respond with the single sentence: "Sure! Which inspection form would you like to fill?" Do not list the categories in text because the UI displays interactive category chips automatically.',
+    ].join('\n');
+
+    let response;
+    try {
+      response = await client.models.generateContent({
+        model,
+        contents: prompt,
+        config: {
+          systemInstruction,
+        },
+      });
+    } catch (err) {
+      const mapped = this.mapError(err);
+      this.recordVerification(mapped.state, mapped.message);
+      throw mapped;
+    }
+
+    const text = response.text?.trim();
+    if (!text) {
+      const reason = response.promptFeedback?.blockReason || response.candidates?.[0]?.finishReason;
+      throw new AIServiceError(
+        `Gemini returned an empty response${reason ? ` (${reason})` : ''}.`,
+        502,
+        'configured'
+      );
+    }
+
+    this.recordVerification('connected', null);
+    return { text, model, generatedAt: new Date().toISOString(), latencyMs: Date.now() - started };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Status / controlled verification (cached - the status endpoint is safe to poll)
+  // ---------------------------------------------------------------------------
+  public async getStatus(options: { forceVerify?: boolean } = {}): Promise<AIServiceStatus> {
+    if (!env.IS_GEMINI_CONFIGURED) {
+      return this.buildStatus('not_configured', null, false);
+    }
+
+    let sdkInitialized = this.client !== null;
+    try {
+      this.getClient();
+      sdkInitialized = true;
+    } catch {
+      sdkInitialized = false;
+    }
+
+    const cache = this.verification;
+    const ttl = cache?.state === 'connected' ? VERIFY_TTL_MS : FAILURE_TTL_MS;
+    const stale = !cache || Date.now() - cache.at >= ttl;
+
+    if (sdkInitialized && options.forceVerify && stale) {
+      await this.verifyConnection();
+    }
+
+    const v = this.verification;
+    if (!sdkInitialized) return this.buildStatus('configured', this.clientError, false);
+    return v ? this.buildStatus(v.state, v.error, true, v.at) : this.buildStatus('configured', null, true);
+  }
+
+  /** Performs one tiny real request, de-duplicated across concurrent callers. */
+  private async verifyConnection(): Promise<void> {
+    if (!this.verifying) {
+      this.verifying = (async () => {
+        try {
+          await this.generateText('Reply with exactly the single word: pong');
+        } catch {
+          /* state already recorded by generateText */
+        } finally {
+          this.verifying = null;
+        }
+      })();
+    }
+    await this.verifying;
+  }
+
+  private recordVerification(state: AIConnectionState, error: string | null): void {
+    this.verification = { state, error, at: Date.now() };
+  }
+
+  private buildStatus(
+    state: AIConnectionState,
+    error: string | null,
+    sdkInitialized: boolean,
+    verifiedAt?: number
+  ): AIServiceStatus {
+    const connected = state === 'connected';
+    const notes: Record<AIConnectionState, string> = {
+      not_configured: `Missing configuration: ${env.GEMINI_MISSING_VARS.join(', ')}. Set them in backend/.env.`,
+      configured:
+        'Configuration present and SDK ready. Connection has not been verified yet - call GET /api/ai/status?verify=true.',
+      connected: 'A real Gemini request succeeded. Connection verified.',
+      auth_error: 'Gemini rejected the credentials (invalid API key or missing permission).',
+      model_not_found: 'The configured model was not found or is not available on this endpoint.',
+      quota_exceeded: 'Gemini quota or rate limit reached.',
+      unreachable: 'Gemini could not be reached (network error, timeout or service unavailable).',
+    };
+    return {
+      provider: PROVIDER,
+      serviceName: 'Google Gemini Site Inspection Service',
+      configured: env.IS_GEMINI_CONFIGURED,
+      sdkInitialized,
+      connectionVerified: connected,
+      model: env.GEMINI_MODEL ?? null,
+      status: state,
+      missingConfig: env.GEMINI_MISSING_VARS,
+      lastVerifiedAt: verifiedAt ? new Date(verifiedAt).toISOString() : null,
+      lastError: connected ? null : error,
+      notes: notes[state],
+      version: '3.0.0',
+      ready: connected,
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // POST /api/ai/inspect - text-based inspection analysis
+  // ---------------------------------------------------------------------------
+  public async analyzeInspection(
+    request: SiteInspectionAnalysisRequest
+  ): Promise<SiteInspectionAnalysisResult> {
+    const prompt =
+      'You are a UK highways construction health and safety assistant. Based ONLY on the text below, write a concise safety review. ' +
+      'Do not invent facts that are not in the text.\n' +
+      `Site: ${request.siteName}\nNotes: ${request.notes || 'none'}\n\n` +
+      'Respond with JSON only: {"summary": string, "overallRiskLevel": "low"|"medium"|"high"|"critical", ' +
+      '"findings": [{"category": "safety"|"structural"|"finish"|"compliance"|"other", "severity": "low"|"medium"|"high"|"critical", ' +
+      '"title": string, "description": string, "location": string, "recommendation": string, "confidenceScore": number}]}';
+
+    const result = await this.generateText(prompt);
+    const parsed = parseJsonLoose(result.text);
+
+    const findings: InspectionFinding[] = (Array.isArray(parsed.findings) ? parsed.findings : []).map(
+      (f: any, i: number) => ({
+        id: `finding-${i + 1}`,
+        category: f.category || 'other',
+        severity: f.severity || 'low',
+        title: String(f.title || 'Finding'),
+        description: String(f.description || ''),
+        location: f.location ? String(f.location) : undefined,
+        recommendation: String(f.recommendation || ''),
+        confidenceScore: Number.isFinite(Number(f.confidenceScore))
+          ? Math.min(1, Math.max(0, Number(f.confidenceScore)))
+          : 0.5,
+      })
+    );
+
+    return {
+      inspectionId: request.inspectionId,
+      summary: String(parsed.summary || ''),
+      overallRiskLevel: parsed.overallRiskLevel || 'low',
+      findings,
+      analyzedAt: result.generatedAt,
+      modelIdentifier: result.model,
+      isMock: false,
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Phase 2: Real Gemini Multimodal Site Photograph Analysis (POST /api/ai/inspect-photos)
+  // ---------------------------------------------------------------------------
+  public async analyzeInspectionPhotos(
+    request: PhotoInspectionRequest
+  ): Promise<PhotoInspectionResult> {
+    // 1. Validate request payload, bankId, question IDs, and binary image magic bytes
+    const validation = validatePhotoInspectionRequest(request);
+    if (!validation.valid) {
+      throw new AppError('Invalid photo inspection request', 400, validation.errors);
+    }
+
+    const { value: validatedReq, canonicalQuestions, validatedPhotos } = validation;
+    const client = this.getClient();
+    const model = env.GEMINI_MODEL as string;
+
+    // 2. Build multimodal contents parts (in-memory only; released after request)
+    const parts: Part[] = [];
+    for (let i = 0; i < validatedPhotos.length; i++) {
+      const photo = validatedPhotos[i];
+      parts.push({
+        text: `Site Photograph #${i + 1} [id="${photo.id}", name="${photo.name}"]:`,
+      });
+      parts.push(createPartFromBase64(photo.base64Data, photo.mimeType));
+    }
+
+    const promptText = this.buildMultimodalInspectionPrompt(validatedReq, canonicalQuestions);
+    parts.push({ text: promptText });
+
+    let rawText: string | undefined;
+    try {
+      const response = await client.models.generateContent({
+        model,
+        contents: [{ role: 'user', parts }],
+        config: {
+          systemInstruction: MULTIMODAL_SYSTEM_INSTRUCTION,
+          temperature: 0.1,
+          responseMimeType: 'application/json',
+          responseSchema: PHOTO_ANALYSIS_RESPONSE_SCHEMA,
+        },
+      });
+
+      rawText = response.text?.trim();
+      if (!rawText) {
+        const reason =
+          response.promptFeedback?.blockReason || response.candidates?.[0]?.finishReason;
+        throw new AIServiceError(
+          `Gemini returned an empty multimodal response${reason ? ` (${reason})` : ''}.`,
+          502,
+          'configured'
+        );
+      }
+      this.recordVerification('connected', null);
+    } catch (err) {
+      const mapped = this.mapError(err);
+      this.recordVerification(mapped.state, mapped.message);
+      throw mapped;
+    } finally {
+      // Clear references to base64 image buffers so memory is released immediately
+      parts.length = 0;
+      for (const p of validatedPhotos) {
+        p.base64Data = '';
+      }
+    }
+
+    // 3. Strictly validate Gemini's structured JSON against the Quest bank schema
+    const responseCheck = validateGeminiPhotoAnalysisResponse(rawText, canonicalQuestions, {
+      bankId: validatedReq.bankId,
+      bankName: validatedReq.bankName,
+      department: validatedReq.department,
+      photoCount: validatedPhotos.length,
+      modelIdentifier: model,
+      validPhotoIds: validatedPhotos.map((p) => p.id),
+    });
+
+    if (!responseCheck.valid) {
+      throw new AIServiceError(
+        `Gemini returned a response that failed schema validation: ${responseCheck.errors.join('; ')}`,
+        502,
+        'configured',
+        responseCheck.errors
+      );
+    }
+
+    return responseCheck.value;
+  }
+
+  /**
+   * Formats the selected Quest inspection bank questions (preserving composite IDs,
+   * exact question text, select/multiselect option lists, and conditional rules).
+   */
+  private buildMultimodalInspectionPrompt(
+    request: PhotoInspectionRequest,
+    questions: SiteInspectionQuestion[]
+  ): string {
+    const metaLines: string[] = [
+      `Inspection Bank ID: ${request.bankId}`,
+      `Inspection Bank Name: ${request.bankName}`,
+      `Department: ${request.department}`,
+    ];
+    if (request.trafficSubtype) metaLines.push(`Traffic Subtype: ${request.trafficSubtype}`);
+    if (request.siteName) metaLines.push(`Site Name: ${request.siteName}`);
+    if (request.inspectionDate) metaLines.push(`Inspection Date: ${request.inspectionDate}`);
+    if (request.siteNotes) metaLines.push(`Inspector Site Notes: ${request.siteNotes}`);
+
+    const formattedQuestions = questions
+      .map((q, idx) => {
+        const details: string[] = [
+          `${idx + 1}. questionId="${q.id}" [Section: "${q.headername}", Q#${q.qnum}]`,
+          `   Question: ${q.qtext}`,
+        ];
+        if (q.cm && q.cm.trim()) {
+          details.push(`   Guidance: ${q.cm.trim()}`);
+        }
+        const selectOpts = getAllowedSelectOptions(q);
+        if (selectOpts.length > 0) {
+          details.push(
+            `   Input Type: select | Allowed selectAnswer options (MUST match exact string or be null): ${JSON.stringify(selectOpts)}`
+          );
+        }
+        const multiOpts = getAllowedMultiSelectOptions(q);
+        if (multiOpts.length > 0) {
+          details.push(
+            `   Input Type: multiselect | Allowed multiselectAnswers options (MUST match exact strings or be null): ${JSON.stringify(multiOpts)}`
+          );
+        }
+        if (q.conditionalRule) {
+          details.push(
+            `   CONDITIONAL RULE: Depends on parentQuestionId="${q.conditionalRule.parentQuestionId}" (${q.conditionalRule.description}). If the parent question does NOT satisfy this condition, set rating=null, selectAnswer=null, multiselectAnswers=null, and needsHumanVerification=false.`
+          );
+        }
+        return details.join('\n');
+      })
+      .join('\n\n');
+
+    return (
+      `Analyse the ${request.photos.length} uploaded site photograph(s) against the following official Quest Site Inspection questions.\n\n` +
+      `${metaLines.join('\n')}\n\n` +
+      `OFFICIAL QUEST QUESTIONS TO EVALUATE (${questions.length} questions):\n` +
+      `${formattedQuestions}\n\n` +
+      `Return a single JSON object conforming to the response schema. Do not invent unseen evidence; mark unverifiable questions with rating: null and needsHumanVerification: true.`
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Error mapping (never includes the API key or image/request content)
+  // ---------------------------------------------------------------------------
+  private mapError(err: unknown): AIServiceError {
+    if (err instanceof AIServiceError) return err;
+    const e = err as { status?: number; message?: string; name?: string; code?: string };
+    const status = typeof e?.status === 'number' ? e.status : undefined;
+    const rawMsg = String(e?.message || '');
+    const msg = extractMessage(rawMsg);
+    const lower = rawMsg.toLowerCase();
+
+    if (status === 429 || lower.includes('resource_exhausted') || lower.includes('quota')) {
+      return new AIServiceError(
+        'Gemini quota or rate limit reached. Please try again later.',
+        429,
+        'quota_exceeded'
+      );
+    }
+    if (
+      status === 401 ||
+      status === 403 ||
+      lower.includes('api key not valid') ||
+      lower.includes('api_key_invalid') ||
+      lower.includes('permission_denied') ||
+      lower.includes('unauthenticated')
+    ) {
+      return new AIServiceError(`Gemini authentication/permission error: ${msg}`, 502, 'auth_error');
+    }
+    if (status === 404 || lower.includes('not_found') || lower.includes('model not found')) {
+      return new AIServiceError(
+        `Gemini model "${env.GEMINI_MODEL}" was not found or is unavailable: ${msg}`,
+        502,
+        'model_not_found'
+      );
+    }
+    if (status === 400) {
+      return new AIServiceError(`Gemini rejected the request: ${msg}`, 502, 'configured');
+    }
+    if (status === 500 || status === 502 || status === 503 || status === 504) {
+      return new AIServiceError('Gemini service is temporarily unavailable.', 503, 'unreachable');
+    }
+    if (e?.name === 'AbortError' || lower.includes('timeout') || lower.includes('timed out')) {
+      return new AIServiceError('Gemini request timed out.', 504, 'unreachable');
+    }
+    return new AIServiceError('Could not reach the Gemini service.', 502, 'unreachable');
+  }
+}
+
+// --- helpers ---------------------------------------------------------------
+
+function extractMessage(raw: string): string {
+  try {
+    const parsed = JSON.parse(raw);
+    return String(parsed?.error?.message || 'Unknown error').slice(0, 300);
+  } catch {
+    return raw.replace(/key=[^&\s"]+/gi, 'key=***').slice(0, 300) || 'Unknown error';
+  }
+}
+
+function parseJsonLoose(text: string): any {
+  const cleaned = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/```$/i, '').trim();
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    throw new AIServiceError('Gemini returned a response that was not valid JSON.', 502, 'configured');
+  }
+}
+
+export const aiService: IAIService = new GeminiAIService();

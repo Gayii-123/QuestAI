@@ -1133,6 +1133,70 @@
   margin-bottom: 0.15rem;
 }
 
+.bubble-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.model-tag-pill {
+  font-size: 0.65rem;
+  font-weight: 600;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: #b30e2f;
+  background-color: #fff1f2;
+  border: 1px solid #fecdd3;
+  padding: 1px 6px;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+}
+
+/* Error message styling */
+.message-bubble.error-bubble {
+  background-color: #fef2f2;
+  border-color: #fecaca;
+}
+
+.bubble-text.error-text {
+  color: #991b1b;
+}
+
+.message-retry-row {
+  margin-top: 0.5rem;
+  display: flex;
+}
+
+.btn-retry-message {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background-color: #ffffff;
+  color: #b30e2f;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-retry-message:hover:not(:disabled) {
+  background-color: #b30e2f;
+  color: #ffffff;
+  border-color: #b30e2f;
+}
+
+.btn-retry-message:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.retry-icon {
+  width: 14px;
+  height: 14px;
+}
+
 .sender-name {
   font-size: 0.76rem;
   font-weight: 700;
@@ -1150,6 +1214,237 @@
   line-height: 1.55;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+/* Structured Assistant Markdown Rendering */
+.bubble-structured-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  font-size: 0.91rem;
+  color: var(--text-primary);
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+:host ::ng-deep .bubble-structured-content .chat-md-heading {
+  font-size: 0.96rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-top: 0.35rem;
+  padding-bottom: 0.2rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+:host ::ng-deep .bubble-structured-content .chat-md-paragraph {
+  margin: 0;
+  color: #1e293b;
+  line-height: 1.6;
+}
+
+:host ::ng-deep .bubble-structured-content .chat-md-num-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.6rem 0.8rem;
+}
+
+:host ::ng-deep .bubble-structured-content .chat-md-num-badge {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background-color: #fee2e2;
+  color: #b91c1c;
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 0.05rem;
+}
+
+:host ::ng-deep .bubble-structured-content .chat-md-bullet-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  padding-left: 0.35rem;
+}
+
+:host ::ng-deep .bubble-structured-content .chat-md-bullet-item.is-nested {
+  padding-left: 1.5rem;
+}
+
+:host ::ng-deep .bubble-structured-content .chat-md-bullet-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #dc2626;
+  flex-shrink: 0;
+  margin-top: 0.52rem;
+}
+
+:host ::ng-deep .bubble-structured-content .chat-md-item-body {
+  flex: 1;
+  min-width: 0;
+  color: #1e293b;
+  line-height: 1.55;
+}
+
+:host ::ng-deep .bubble-structured-content .chat-md-strong {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+:host ::ng-deep .bubble-structured-content .chat-md-em {
+  font-style: italic;
+  color: #334155;
+}
+
+:host ::ng-deep .bubble-structured-content .chat-md-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.82rem;
+  background-color: #f1f5f9;
+  color: #b91c1c;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+}
+
+/* Minimal Conversational Empty State */
+.welcome-minimal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.9rem;
+  text-align: center;
+  padding: 2.5rem 1.5rem;
+}
+
+/* Compact Interactive Category Chips inside Assistant Chat Response */
+.chat-category-chips-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding-top: 0.25rem;
+}
+
+.chat-category-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.44rem 0.9rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #b91c1c;
+  background-color: #ffffff;
+  border: 1px solid #fecdd3;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+}
+
+.chat-category-chip:hover {
+  background-color: #fff1f2;
+  border-color: #ef4444;
+  color: #991b1b;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(220, 38, 38, 0.1);
+}
+
+.chat-category-chip.selected {
+  background-color: #dc2626;
+  border-color: #dc2626;
+  color: #ffffff;
+  box-shadow: 0 3px 10px rgba(220, 38, 38, 0.22);
+}
+
+.chat-category-chip.cancel-chip {
+  color: #64748b;
+  background-color: #f8fafc;
+  border-color: #e2e8f0;
+  font-weight: 500;
+}
+
+.chat-category-chip.cancel-chip:hover {
+  color: #0f172a;
+  background-color: #f1f5f9;
+  border-color: #cbd5e1;
+  box-shadow: none;
+}
+
+/* Dynamic Managers Risk-Bank Selector inside Photo Upload Modal */
+.modal-managers-risk-panel {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.75rem 0.85rem;
+  margin-bottom: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.modal-risk-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.modal-risk-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.modal-risk-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.btn-modal-risk-link {
+  background: none;
+  border: none;
+  color: #dc2626;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.btn-modal-risk-link:hover {
+  text-decoration: underline;
+}
+
+.modal-risk-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.modal-risk-chip {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+  background-color: #ffffff;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.14s ease;
+}
+
+.modal-risk-chip.selected {
+  background-color: #dc2626;
+  border-color: #dc2626;
+  color: #ffffff;
 }
 
 /* Document Citation / Source Pill (Inspired by Reference) */

@@ -24,9 +24,13 @@ export interface InspectionPhoto {
   id: string;
   name: string;
   url: string; // Base64 data URL
+  mimeType?: string;
   size?: number;
   timestamp: string;
+  attachedBy?: 'inspector';
 }
+
+export type AiSuggestionStatus = 'pending' | 'accepted' | 'edited' | 'rejected';
 
 export interface QuestionAnswer {
   rating?: QuestRatingValue; // '1' | '-1' | '0' | ''
@@ -39,13 +43,21 @@ export interface QuestionAnswer {
   photos?: InspectionPhoto[];
   carActionPlan?: string;
 
-  // AI Evaluation Metadata
-  aiSuggestedRating?: QuestRatingValue;
+  // AI Evaluation Metadata (kept strictly separate from confirmed inspector answers until accepted)
+  hasAiEvaluation?: boolean;
+  aiSuggestedRating?: '1' | '-1' | '0' | '' | null;
+  aiSuggestedSelect?: string | null;
+  aiSuggestedMultiSelect?: string[] | null;
+  aiSuggestedCarActionPlan?: string | null;
   aiEvidence?: string;
   aiReasoning?: string;
   aiConfidence?: number;
   requiresHumanVerification?: boolean;
   isHumanVerified?: boolean;
+  aiSuggestionStatus?: AiSuggestionStatus;
+  answeredBy?: 'human' | 'ai';
+  aiModel?: string;
+  aiEvaluatedAt?: string;
 }
 
 export interface InspectionMetadata {

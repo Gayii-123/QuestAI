@@ -872,6 +872,7 @@
 }
 
 .progress-bar-track {
+  position: relative;
   width: 100%;
   height: 8px;
   background-color: #f1f5f9;
@@ -882,9 +883,31 @@
 
 .progress-bar-fill {
   height: 100%;
+  width: 100%;
   background: linear-gradient(90deg, #b30e2f 0%, #ff4b6e 100%);
   border-radius: 999px;
-  transition: width 0.4s ease;
+}
+
+.progress-bar-fill.indeterminate-bar {
+  width: 45%;
+  animation: indeterminateScanBar 1.4s ease-in-out infinite;
+}
+
+.progress-bar-fill.error-bar {
+  width: 100%;
+  background: #ef4444;
+  animation: none;
+}
+
+@keyframes indeterminateScanBar {
+  0% { transform: translateX(-100%); }
+  50% { transform: translateX(120%); }
+  100% { transform: translateX(-100%); }
+}
+
+.radar-dot:not(.active) {
+  animation: none;
+  background-color: #ef4444;
 }
 
 .progress-labels-row {
@@ -899,10 +922,34 @@
   color: #0f172a;
 }
 
-.scanning-percent {
-  font-size: 0.88rem;
+.scanning-state-pill {
+  font-size: 0.72rem;
   font-weight: 700;
   color: #b30e2f;
+  background-color: #ffe4e8;
+  padding: 2px 8px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.scanning-error-box {
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: #991b1b;
+  font-size: 0.85rem;
+}
+
+.scanning-error-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 4px;
 }
 
 .scanning-engine-notice {
@@ -971,6 +1018,26 @@
   font-weight: 700;
   padding: 3px 8px;
   border-radius: 6px;
+}
+
+.review-risk-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.review-risk-badge.risk-low { background-color: #dcfce7; color: #166534; }
+.review-risk-badge.risk-medium { background-color: #fef3c7; color: #92400e; }
+.review-risk-badge.risk-high,
+.review-risk-badge.risk-critical { background-color: #fee2e2; color: #991b1b; }
+
+.review-ai-summary-text {
+  font-size: 0.84rem;
+  color: #334155;
+  margin: 8px 0 0 0;
+  line-height: 1.45;
+  max-width: 720px;
 }
 
 .review-meta {
@@ -1361,14 +1428,37 @@
   margin-bottom: 14px;
 }
 
+.ai-observation-box.suggestion-accepted {
+  background-color: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.ai-observation-box.suggestion-rejected {
+  background-color: #f8fafc;
+  border-color: #e2e8f0;
+  opacity: 0.78;
+}
+
 .obs-header {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
   font-size: 0.85rem;
   color: #9f1239;
   margin-bottom: 6px;
 }
+
+.obs-status-pill {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+
+.obs-status-pill.pill-accepted { background-color: #dcfce7; color: #15803d; }
+.obs-status-pill.pill-edited { background-color: #e0f2fe; color: #0369a1; }
+.obs-status-pill.pill-rejected { background-color: #e2e8f0; color: #475569; }
 
 .obs-suggested-tag {
   margin-left: auto;
@@ -1381,8 +1471,11 @@
 .obs-suggested-tag.tag-1 { background-color: #dcfce7; color: #16a34a; }
 .obs-suggested-tag.tag--1 { background-color: #fee2e2; color: #dc2626; }
 .obs-suggested-tag.tag-0 { background-color: #e2e8f0; color: #475569; }
+.obs-suggested-tag.tag-unresolved { background-color: #fef3c7; color: #b45309; }
 
-.obs-evidence {
+.obs-evidence,
+.obs-car-plan,
+.obs-select-suggestion {
   font-size: 0.84rem;
   color: #334155;
   margin: 0 0 4px 0;
@@ -1396,25 +1489,149 @@
   line-height: 1.4;
 }
 
+.overwrite-confirm-banner {
+  background-color: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: #92400e;
+  font-weight: 600;
+}
+
+.overwrite-confirm-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.btn-confirm-overwrite {
+  background-color: #b45309;
+  color: #ffffff;
+  border: none;
+  border-radius: 5px;
+  padding: 4px 10px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-cancel-overwrite {
+  background-color: #ffffff;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  padding: 4px 10px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 .obs-confirm-row {
   margin-top: 8px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .btn-confirm-suggestion {
-  background-color: #ffffff;
-  border: 1px solid #fecdd3;
-  color: #9f1239;
+  background-color: #16a34a;
+  border: 1px solid #16a34a;
+  color: #ffffff;
   font-size: 0.78rem;
-  font-weight: 600;
-  padding: 4px 10px;
+  font-weight: 700;
+  padding: 5px 12px;
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .btn-confirm-suggestion:hover {
+  background-color: #15803d;
+  border-color: #15803d;
+}
+
+.btn-edit-suggestion {
+  background-color: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-edit-suggestion:hover {
+  background-color: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+.btn-reject-suggestion {
+  background-color: #ffffff;
+  border: 1px solid #fecdd3;
+  color: #9f1239;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-reject-suggestion:hover {
   background-color: #ffe4e8;
   border-color: #fda4af;
+}
+
+.btn-rate-pass.ai-hint {
+  border-color: #86efac;
+  background-color: #f0fdf4;
+  color: #15803d;
+}
+
+.btn-rate-car.ai-hint {
+  border-color: #fca5a5;
+  background-color: #fef2f2;
+  color: #dc2626;
+}
+
+.btn-rate-na.ai-hint {
+  border-color: #94a3b8;
+  background-color: #f8fafc;
+  color: #334155;
+}
+
+.q-multiselect-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.btn-multiselect-chip {
+  background-color: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-multiselect-chip.selected {
+  background-color: #fff1f3;
+  border-color: #b30e2f;
+  color: #b30e2f;
 }
 
 /* Rating Controls Group */

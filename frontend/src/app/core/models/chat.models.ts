@@ -22,6 +22,12 @@ export interface ChatMessage {
     modelIdentifier?: string;
     isMock?: boolean;
   };
+  modelIdentifier?: string;
+  isError?: boolean;
+  retryPrompt?: string;
+  showInspectionCategories?: boolean;
+  suggestedBankId?: string;
+  selectedBankId?: string;
 }
 
 export interface Conversation {

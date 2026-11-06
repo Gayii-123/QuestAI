@@ -1,12 +1,15 @@
 import { Component, OnInit, inject, signal, computed, ViewChild, ElementRef, AfterViewChecked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ApiService } from './core/services/api.service';
 import { ChatMessage, Conversation } from './core/models/chat.models';
-import { SiteInspectionComponent } from './features/inspection/site-inspection.component';
+import {
+  SiteInspectionComponent,
+  MAX_INSPECTION_PHOTOS,
+  MAX_IMAGE_SIZE_BYTES,
+} from './features/inspection/site-inspection.component';
 import { InspectionPhoto } from './features/inspection/site-inspection.models';
-import { AiInspectionFillService } from './core/services/ai-inspection-fill.service';
-import { getQuestionsForDepartment } from './core/models/site-inspection.schema';
 
 @Component({
   selector: 'app-root',
@@ -17,7 +20,7 @@ import { getQuestionsForDepartment } from './core/models/site-inspection.schema'
 })
 export class AppComponent implements OnInit, AfterViewChecked {
   private readonly apiService = inject(ApiService);
-  private readonly aiInspectionFillService = inject(AiInspectionFillService);
+  private readonly sanitizer = inject(DomSanitizer);
 
   @ViewChild('chatScrollContainer') private chatScrollContainer?: ElementRef<HTMLDivElement>;
   @ViewChild('composerTextarea') private composerTextarea?: ElementRef<HTMLTextAreaElement>;
@@ -30,7 +33,7 @@ export class AppComponent implements OnInit, AfterViewChecked {
   readonly siteInspectionBanks = [
     {
       id: 'civil-other',
-      name: 'Civil/Other',
+      name: 'Civil / Other',
       department: 'Civil/Other',
       icon: '🏗️',
       badge: '52 Questions',
@@ -66,7 +69,7 @@ export class AppComponent implements OnInit, AfterViewChecked {
     },
     {
       id: 'tm-12d',
-      name: 'Traffic Management (12D)',
+      name: 'Traffic Management 12D',
       department: 'Traffic Management',
       trafficSubtype: '12D',
       icon: '🛑',
@@ -76,7 +79,7 @@ export class AppComponent implements OnInit, AfterViewChecked {
     },
     {
       id: 'tm-12ab',
-      name: 'Traffic Management (12AB)',
+      name: 'Traffic Management 12AB',
       department: 'Traffic Management',
       trafficSubtype: '12AB',
       icon: '🚧',
@@ -95,7 +98,7 @@ export class AppComponent implements OnInit, AfterViewChecked {
     },
     {
       id: 'ladder-stepladder',
-      name: 'Ladder/Stepladder',
+      name: 'Ladder / Stepladder',
       department: 'Ladder/Stepladder',
       icon: '🪜',
       badge: '9 Questions',
@@ -123,7 +126,7 @@ export class AppComponent implements OnInit, AfterViewChecked {
     },
     {
       id: 'managers-risk-banks',
-      name: 'Managers Risk Banks',
+      name: 'Managers Site Inspection – Risk Banks',
       department: 'Managers Risk Banks',
       icon: '⚠️',
       badge: '49 Risk Questions',
@@ -167,8 +170,29 @@ export class AppComponent implements OnInit, AfterViewChecked {
   // Photo Upload & AI Auto-Fill Modal state
   showPhotoUploadModal = signal<boolean>(false);
   selectedUploadBank = signal<any | null>(null);
+  readonly availableRiskBanks = [
+    { key: 'Buried services', label: 'Buried Services', count: 5, icon: '⚡' },
+    { key: 'Interface with the public', label: 'Public Interface', count: 4, icon: '🚶' },
+    { key: 'Manual handling', label: 'Manual Handling', count: 4, icon: '📦' },
+    { key: 'Noise dust & vibration', label: 'Noise, Dust & Vibration', count: 3, icon: '🔊' },
+    { key: 'Operating plant & machinery', label: 'Plant & Machinery', count: 4, icon: '🚜' },
+    { key: 'Overhead services', label: 'Overhead Services', count: 3, icon: '⚡' },
+    { key: 'Temporary works', label: 'Temporary Works', count: 4, icon: '🏗️' },
+    { key: 'Worker/construction plant interface', label: 'Worker / Plant Interface', count: 5, icon: '⚠️' },
+    { key: 'Working at height', label: 'Working at Height', count: 5, icon: '🪜' },
+    { key: 'Work in/beside live traffic', label: 'Work Beside Live Traffic', count: 4, icon: '🚗' },
+    { key: 'Working with/on live electrical circuits', label: 'Live Electrical Circuits', count: 3, icon: '🔌' },
+    { key: 'Working on/near water', label: 'Working Near Water', count: 3, icon: '🌊' },
+    { key: 'Hot Works', label: 'Hot Works', count: 2, icon: '🔥' },
+  ];
+  selectedUploadRiskBanks = signal<string[]>([
+    'Buried services',
+    'Worker/construction plant interface',
+    'Working at height',
+  ]);
   uploadedPhotos = signal<InspectionPhoto[]>([]);
   uploadSiteNotes = signal<string>('');
+  photoUploadError = signal<string>('');
   isAnalyzingPhotos = signal<boolean>(false);
   analyzingStepMessage = signal<string>('');
   isDragOver = signal<boolean>(false);
@@ -232,8 +256,11 @@ export class AppComponent implements OnInit, AfterViewChecked {
   private shouldScrollToBottom = false;
 
   ngOnInit(): void {
-    // Check if initial URL points to site inspection
+    // Clean up any stale legacy mock pending pre-fill
     try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem('questai_pending_ai_fill');
+      }
       if (typeof window !== 'undefined' && window.location.pathname.includes('inspection')) {
         this.currentView.set('inspection');
       }
@@ -254,13 +281,20 @@ export class AppComponent implements OnInit, AfterViewChecked {
   navigateToInspection(bankId?: string): void {
     this.currentView.set('inspection');
     this.closeMobileSidebar();
-    if (this.inspectionComponent) {
-      if (bankId) {
-        this.inspectionComponent.selectBank(bankId);
-        this.inspectionComponent.activeStep.set('photo-upload');
-      } else {
-        this.inspectionComponent.activeStep.set('category-select');
+    const applyStep = () => {
+      if (this.inspectionComponent) {
+        if (bankId) {
+          this.inspectionComponent.selectBank(bankId);
+          this.inspectionComponent.activeStep.set('photo-upload');
+        } else {
+          this.inspectionComponent.activeStep.set('category-select');
+        }
       }
+    };
+    if (this.inspectionComponent) {
+      applyStep();
+    } else {
+      setTimeout(applyStep, 0);
     }
     try {
       if (typeof window !== 'undefined') {
@@ -287,9 +321,6 @@ export class AppComponent implements OnInit, AfterViewChecked {
 
   selectInspectionBank(bankId: string): void {
     this.navigateToInspection(bankId);
-    if (this.inspectionComponent) {
-      this.inspectionComponent.selectBank(bankId);
-    }
   }
 
   toggleSidebar(): void {
@@ -309,10 +340,23 @@ export class AppComponent implements OnInit, AfterViewChecked {
   }
 
   openPhotoUploadForComposer(): void {
-    this.navigateToInspection();
+    this.currentView.set('inspection');
+    this.closeMobileSidebar();
+    const openUploadStep = () => {
+      if (this.inspectionComponent) {
+        this.inspectionComponent.activeStep.set('photo-upload');
+      }
+    };
     if (this.inspectionComponent) {
-      this.inspectionComponent.activeStep.set('photo-upload');
+      openUploadStep();
+    } else {
+      setTimeout(openUploadStep, 0);
     }
+    try {
+      if (typeof window !== 'undefined') {
+        window.history.pushState({}, '', '/inspection');
+      }
+    } catch {}
   }
 
   removeAttachedDocument(): void {
@@ -334,13 +378,63 @@ export class AppComponent implements OnInit, AfterViewChecked {
     this.selectedUploadBank.set(bank);
     this.uploadedPhotos.set([]);
     this.uploadSiteNotes.set('');
+    this.photoUploadError.set('');
     this.showHomeInspectionDropdown.set(false);
     this.showPhotoUploadModal.set(true);
+    if (this.inspectionComponent && bank?.id) {
+      this.inspectionComponent.selectBank(bank.id);
+    }
+  }
+
+  toggleUploadRiskBank(key: string): void {
+    const current = this.selectedUploadRiskBanks();
+    if (current.includes(key)) {
+      this.selectedUploadRiskBanks.set(current.filter((k) => k !== key));
+    } else {
+      this.selectedUploadRiskBanks.set([...current, key]);
+    }
+  }
+
+  selectAllUploadRiskBanks(): void {
+    this.selectedUploadRiskBanks.set(this.availableRiskBanks.map((b) => b.key));
+  }
+
+  clearAllUploadRiskBanks(): void {
+    this.selectedUploadRiskBanks.set([]);
   }
 
   closePhotoUploadModal(): void {
     if (this.isAnalyzingPhotos()) return;
+    this.photoUploadError.set('');
     this.showPhotoUploadModal.set(false);
+  }
+
+  openManualChecklistFromModal(): void {
+    const bank = this.selectedUploadBank();
+    if (!bank || this.isAnalyzingPhotos()) return;
+    const riskBanks = bank.isManagers ? [...this.selectedUploadRiskBanks()] : undefined;
+    this.photoUploadError.set('');
+    this.showPhotoUploadModal.set(false);
+    this.currentView.set('inspection');
+    this.closeMobileSidebar();
+
+    try {
+      if (typeof window !== 'undefined') {
+        window.history.pushState({}, '', '/inspection');
+      }
+    } catch {}
+
+    const triggerManual = () => {
+      if (this.inspectionComponent) {
+        this.inspectionComponent.openManualChecklistForBank(bank.id, riskBanks);
+      }
+    };
+
+    if (this.inspectionComponent) {
+      triggerManual();
+    } else {
+      setTimeout(triggerManual, 0);
+    }
   }
 
   onInspectionRequestAiPhotoUpload(bankId: string): void {
@@ -354,6 +448,7 @@ export class AppComponent implements OnInit, AfterViewChecked {
     const target = event.target as HTMLInputElement;
     if (target.files && target.files.length > 0) {
       this.processFiles(target.files);
+      target.value = '';
     }
   }
 
@@ -379,10 +474,27 @@ export class AppComponent implements OnInit, AfterViewChecked {
   }
 
   private async processFiles(fileList: FileList | File[]): Promise<void> {
-    const files = Array.from(fileList).filter((f) => f.type.startsWith('image/'));
+    this.photoUploadError.set('');
+    const allowedMimes = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
+    const files = Array.from(fileList).filter((f) => allowedMimes.has((f.type || '').toLowerCase()));
+    if (files.length === 0) {
+      this.photoUploadError.set('Please upload valid JPG, PNG, or WebP photographs.');
+      return;
+    }
+
+    const currentCount = this.uploadedPhotos().length;
+    if (currentCount + files.length > MAX_INSPECTION_PHOTOS) {
+      this.photoUploadError.set(`Maximum ${MAX_INSPECTION_PHOTOS} photographs allowed per analysis.`);
+      return;
+    }
+
     const newPhotos: InspectionPhoto[] = [];
 
     for (const file of files) {
+      if (file.size > MAX_IMAGE_SIZE_BYTES) {
+        this.photoUploadError.set(`"${file.name}" exceeds the 10 MB per-photo limit.`);
+        continue;
+      }
       try {
         const base64 = await this.compressAndReadFile(file);
         newPhotos.push({
@@ -428,7 +540,8 @@ export class AppComponent implements OnInit, AfterViewChecked {
             const ctx = canvas.getContext('2d');
             if (ctx) {
               ctx.drawImage(img, 0, 0, width, height);
-              resolve(canvas.toDataURL('image/jpeg', 0.8));
+              const isPng = (file.type || '').toLowerCase() === 'image/png';
+              resolve(isPng ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', 0.85));
               return;
             }
           }
@@ -450,84 +563,46 @@ export class AppComponent implements OnInit, AfterViewChecked {
     this.uploadedPhotos.set([]);
   }
 
+  /**
+   * Hands off the selected inspection bank, uploaded photographs, and site notes
+   * to SiteInspectionComponent, which immediately launches the Step 3 viewfinder
+   * scanning animation and calls POST /api/ai/inspect-photos (Gemini 3.8 Flash).
+   */
   runAiPhotoAnalysisAndFill(): void {
     const bank = this.selectedUploadBank();
     const photos = this.uploadedPhotos();
-    if (!bank || photos.length === 0) return;
+    if (!bank || photos.length === 0 || this.isAnalyzingPhotos()) return;
 
-    this.isAnalyzingPhotos.set(true);
-    this.analyzingStepMessage.set(
-      'QuestAI Vision: Scanning visual features & detecting site equipment...'
-    );
+    const handoffPayload = {
+      bankId: bank.id as string,
+      trafficSubtype: bank.trafficSubtype as '12D' | '12AB' | undefined,
+      selectedRiskBanks: bank.isManagers ? [...this.selectedUploadRiskBanks()] : undefined,
+      photos: [...photos],
+      siteNotes: this.uploadSiteNotes(),
+    };
 
-    setTimeout(() => {
-      this.analyzingStepMessage.set(
-        `Matching visual evidence against ${bank.name} verified checklist...`
-      );
-      setTimeout(() => {
-        this.analyzingStepMessage.set(
-          'Evaluating safety standards, isolations, barriers & Red Book rules...'
-        );
-        setTimeout(() => {
-          this.analyzingStepMessage.set(
-            'Auto-filling answers, observations, and linking photo evidence...'
-          );
-          setTimeout(() => {
-            // Get questions for this department
-            let questions: any[] = [];
-            if (bank.isManagers) {
-              questions = getQuestionsForDepartment('Managers Site Inspection');
-            } else if (bank.department === 'Traffic Management') {
-              questions = getQuestionsForDepartment(
-                'Traffic Management',
-                bank.trafficSubtype || '12D'
-              );
-            } else {
-              questions = getQuestionsForDepartment(bank.department);
-            }
+    this.isAnalyzingPhotos.set(false);
+    this.showPhotoUploadModal.set(false);
+    this.currentView.set('inspection');
+    this.closeMobileSidebar();
 
-            const fillResult =
-              this.aiInspectionFillService.generateAiInspectionAnswers(
-                bank.id,
-                bank.name,
-                questions,
-                photos,
-                this.uploadSiteNotes()
-              );
+    try {
+      if (typeof window !== 'undefined') {
+        window.history.pushState({}, '', '/inspection');
+      }
+    } catch {}
 
-            // Store in localStorage for inspection component
-            try {
-              localStorage.setItem(
-                'questai_pending_ai_fill',
-                JSON.stringify(fillResult)
-              );
-            } catch {}
+    const triggerAnalysis = () => {
+      if (this.inspectionComponent) {
+        this.inspectionComponent.startExternalPhotoAnalysis(handoffPayload);
+      }
+    };
 
-            // If inspection component is already mounted, apply immediately
-            if (this.inspectionComponent) {
-              this.inspectionComponent.applyAiPreFill(fillResult);
-            }
-
-            // Also call backend inspection action for telemetry
-            this.apiService
-              .runInspection(
-                `AI Photo Inspection: ${bank.name}`,
-                `Analyzed ${photos.length} photos. ${fillResult.totalEvaluated} questions auto-filled.`
-              )
-              .subscribe({
-                next: () => {},
-                error: () => {},
-              });
-
-            this.isAnalyzingPhotos.set(false);
-            this.showPhotoUploadModal.set(false);
-
-            // Navigate to inspection page
-            this.navigateToInspection(bank.id);
-          }, 600);
-        }, 500);
-      }, 500);
-    }, 500);
+    if (this.inspectionComponent) {
+      triggerAnalysis();
+    } else {
+      setTimeout(triggerAnalysis, 0);
+    }
   }
 
   startNewChat(): void {
@@ -571,6 +646,8 @@ export class AppComponent implements OnInit, AfterViewChecked {
       currentConv = newConv;
     }
 
+    const hadActiveSelector = this.hasActiveCategorySelector();
+
     // Append User Message
     const userMessage: ChatMessage = {
       id: 'msg-' + Date.now(),
@@ -583,51 +660,397 @@ export class AppComponent implements OnInit, AfterViewChecked {
     this.appendMessageToActive(userMessage);
     this.composerText.set('');
     this.attachedDocument.set(null);
-    this.isGenerating.set(true);
     this.shouldScrollToBottom = true;
 
-    // Contact backend inspection service
-    this.apiService.runInspection(currentConv.title, text).subscribe({
+    // Handle user cancelling an active category selector via chat
+    if (hadActiveSelector && /^\s*(cancel|never\s*mind|stop|exit|no\s*thanks)\s*[.!?]*$/i.test(text)) {
+      this.cancelCategorySelection();
+    } else {
+      // Handle user typing a category name when asked to choose (or typing an exact category name)
+      const typedBank = hadActiveSelector
+        ? this.matchTypedCategory(text)
+        : this.matchExactCategoryName(text);
+
+      if (typedBank) {
+        this.markCategorySelectedInConversation(typedBank.id);
+        const confirmMsg: ChatMessage = {
+          id: 'msg-' + (Date.now() + 1),
+          sender: 'assistant',
+          content: `Selected ${typedBank.name}. Please upload your site photographs in the dialog to continue, or skip photos to open the manual checklist.`,
+          timestamp: new Date(),
+          selectedBankId: typedBank.id,
+        };
+        this.appendMessageToActive(confirmMsg);
+        this.onSelectCategoryChipFromChat(typedBank);
+        this.shouldScrollToBottom = true;
+        return;
+      }
+    }
+
+    const isFormRequest = this.isInspectionFormRequest(text);
+    const mentionedBank = isFormRequest ? this.matchTypedCategory(text) : null;
+
+    if (isFormRequest) {
+      // Prevent duplicate category-selection panels in the same conversation
+      this.clearActiveCategorySelectors();
+    }
+
+    this.isGenerating.set(true);
+
+    // Contact real Gemini AI model via backend POST /api/ai/generate
+    this.apiService.generateText(text).subscribe({
       next: (res) => {
+        const assistantContent = isFormRequest
+          ? 'Sure! Which inspection form would you like to fill?'
+          : res.data.text;
+
         const assistantMsg: ChatMessage = {
           id: 'msg-' + (Date.now() + 1),
           sender: 'assistant',
-          content: res.data.summary,
-          timestamp: new Date(),
-          attachmentName: docAttachment || 'First Aid Policy',
-          structuredInspection: {
-            summary: res.data.summary,
-            overallRiskLevel: res.data.overallRiskLevel,
-            findings: res.data.findings,
-            modelIdentifier: res.data.modelIdentifier,
-            isMock: res.data.isMock,
-          },
+          content: assistantContent,
+          timestamp: new Date(res.data.generatedAt || Date.now()),
+          modelIdentifier: res.data.model,
+          attachmentName: docAttachment || undefined,
+          showInspectionCategories: isFormRequest,
+          suggestedBankId: mentionedBank?.id,
+          selectedBankId: mentionedBank?.id,
         };
         this.appendMessageToActive(assistantMsg);
         this.isGenerating.set(false);
         this.shouldScrollToBottom = true;
       },
       error: (err) => {
-        // Helpful fallback if backend is offline or during testing
-        const fallbackMsg: ChatMessage = {
+        let errorMessage = 'An unexpected error occurred while communicating with Gemini.';
+        if (err.status === 0) {
+          errorMessage =
+            'Unable to reach the QuestAI backend at http://localhost:5001. Please verify that the backend server is running (npm run dev in backend/).';
+        } else if (err.status === 429) {
+          errorMessage =
+            'Gemini API quota or rate limit reached. Please wait a few moments and try again.';
+        } else if (err.status === 504) {
+          errorMessage = 'The request to Gemini timed out. Please try asking again.';
+        } else if (err.error?.error?.message) {
+          errorMessage = err.error.error.message;
+        } else if (err.message) {
+          errorMessage = err.message;
+        }
+
+        const errorMsg: ChatMessage = {
           id: 'msg-' + (Date.now() + 1),
           sender: 'assistant',
-          content:
-            err.status === 0
-              ? 'I received your query: "' +
-                text +
-                '".\n\n*(Note: The QuestAI backend is currently unreachable at http://localhost:5001. Please run `npm run dev` in the `backend/` directory to connect live API responses.)*'
-              : 'Site inspection review for: "' +
-                text +
-                '"\n\nEnsure that all structural joints, photographic evidence, and safety logs are submitted for compliance review.',
+          content: errorMessage,
           timestamp: new Date(),
-          attachmentName: docAttachment || 'RA_21_Night Time Working.pdf',
+          isError: true,
+          retryPrompt: text,
         };
-        this.appendMessageToActive(fallbackMsg);
+        this.appendMessageToActive(errorMsg);
         this.isGenerating.set(false);
         this.shouldScrollToBottom = true;
       },
     });
+  }
+
+  retryMessage(prompt?: string): void {
+    if (!prompt || this.isGenerating()) return;
+    this.composerText.set(prompt);
+    this.sendMessage();
+  }
+
+  /**
+   * Called when the user clicks one of the 12 compact category chips in the assistant response
+   * (or selects a category by typing its name). Records the selected bank and opens the existing
+   * photo-upload dialog.
+   */
+  onSelectCategoryChipFromChat(bank: any, messageId?: string): void {
+    if (!bank) return;
+    this.markCategorySelectedInConversation(bank.id, messageId);
+    this.onSelectBankForPhotoUpload(bank);
+  }
+
+  /**
+   * Allows the user to cancel category selection and return to normal chat.
+   */
+  cancelCategorySelection(messageId?: string): void {
+    const convId = this.activeConversationId();
+    if (!convId) return;
+    this.conversations.update((list) =>
+      list.map((c) => {
+        if (c.id !== convId) return c;
+        return {
+          ...c,
+          messages: c.messages.map((m) => {
+            if (!messageId || m.id === messageId) {
+              return { ...m, showInspectionCategories: false };
+            }
+            return m;
+          }),
+        };
+      })
+    );
+  }
+
+  private hasActiveCategorySelector(): boolean {
+    const msgs = this.activeMessages();
+    return msgs.some((m) => m.sender === 'assistant' && Boolean(m.showInspectionCategories));
+  }
+
+  private clearActiveCategorySelectors(): void {
+    const convId = this.activeConversationId();
+    if (!convId) return;
+    this.conversations.update((list) =>
+      list.map((c) => {
+        if (c.id !== convId) return c;
+        return {
+          ...c,
+          messages: c.messages.map((m) =>
+            m.showInspectionCategories ? { ...m, showInspectionCategories: false } : m
+          ),
+        };
+      })
+    );
+  }
+
+  private markCategorySelectedInConversation(bankId: string, messageId?: string): void {
+    const convId = this.activeConversationId();
+    if (!convId) return;
+    this.conversations.update((list) =>
+      list.map((c) => {
+        if (c.id !== convId) return c;
+        return {
+          ...c,
+          messages: c.messages.map((m) => {
+            if (
+              (messageId && m.id === messageId) ||
+              (!messageId && m.showInspectionCategories)
+            ) {
+              return { ...m, selectedBankId: bankId };
+            }
+            return m;
+          }),
+        };
+      })
+    );
+  }
+
+  /**
+   * Distinguishes between:
+   * A. Normal conversations (greetings, general questions, ordinary safety questions) -> false
+   * B. Explicit requests to fill, start, open, or complete a Site Inspection form -> true
+   */
+  isInspectionFormRequest(userText: string): boolean {
+    const cleaned = (userText || '').trim().toLowerCase();
+    if (!cleaned) return false;
+
+    // 1. Exclude pure greetings & pleasantries
+    if (
+      /^(hi+|hello+|hey+|good\s*(morning|afternoon|evening)|how\s+are\s+you(\s+doing)?|what'?s\s+up|thanks|thank\s+you|ok|okay)\b[!.?\s]*$/i.test(
+        cleaned
+      )
+    ) {
+      return false;
+    }
+
+    // 2. Exclude informational / educational questions unless they explicitly ask to fill/start/open a form
+    const hasExplicitFormAction =
+      /\b(fill|fill\s+out|fill\s+in|start|open|complete|begin|conduct|perform|create|launch|new)\b/i.test(
+        cleaned
+      );
+    if (
+      /^(what|why|how\s+often|how\s+long|how\s+many|when\s+should|who|where|explain|tell\s+me\s+about|define|is\s+it|are\s+there)\b/i.test(
+        cleaned
+      ) &&
+      !hasExplicitFormAction
+    ) {
+      return false;
+    }
+
+    // 3. Require both an action/desire intent AND a form/inspection target
+    const actionOrDesire =
+      /\b(fill|start|open|complete|begin|conduct|perform|do|create|launch|take|want\s+to|would\s+like\s+to|need\s+to|let'?s)\b/i.test(
+        cleaned
+      );
+    const inspectionFormTarget =
+      /\b(site\s+inspection|site\s+inpection|site\s+insepction|inspection\s+form|inpection\s+form|insepction\s+form|inspection\s+checklist|site\s+checklist|new\s+inspection|new\s+inpection|fill\s+(a|the)\s+form|fill\s+form|check\s+sheet)\b/i.test(
+        cleaned
+      );
+
+    if (inspectionFormTarget && actionOrDesire) {
+      return true;
+    }
+
+    // Also match "Fill a <Category> inspection form" or "Start a <Category> inspection"
+    if (
+      hasExplicitFormAction &&
+      /\b(inspection|inpection|insepction|form|checklist|check\s+sheet)\b/i.test(cleaned)
+    ) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Matches when the user types ONLY a category name directly (e.g., "Civil / Other", "Street Lighting").
+   */
+  matchExactCategoryName(userText: string): any | null {
+    const cleaned = (userText || '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, ' ');
+    if (!cleaned) return null;
+
+    for (const bank of this.siteInspectionBanks) {
+      const nameNorm = bank.name.toLowerCase().replace(/\s+/g, ' ');
+      const deptNorm = bank.department.toLowerCase().replace(/\s+/g, ' ');
+      const noSlashSpace = nameNorm.replace(/\s*\/\s*/g, '/');
+      if (
+        cleaned === nameNorm ||
+        cleaned === deptNorm ||
+        cleaned === noSlashSpace ||
+        cleaned === bank.id.toLowerCase()
+      ) {
+        return bank;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Matches a category name typed by the user after being asked "Which inspection form would you like to fill?"
+   */
+  matchTypedCategory(userText: string): any | null {
+    const exact = this.matchExactCategoryName(userText);
+    if (exact) return exact;
+
+    const q = (userText || '').trim().toLowerCase();
+    if (!q) return null;
+
+    const categoryMatchers: Array<{ id: string; patterns: RegExp[] }> = [
+      {
+        id: 'road-marking-test',
+        patterns: [/\broad\s*marking\s*\(\s*test\s*\)/i, /\broad\s*marking\s*test\b/i, /\bmarking\s*test\b/i],
+      },
+      {
+        id: 'managers-risk-banks',
+        patterns: [/\brisk\s*banks?\b/i, /\bmanagers?\s*site\s*inspection\s*[-–—]\s*risk\s*banks?\b/i],
+      },
+      {
+        id: 'managers-site-inspection',
+        patterns: [/\bmanagers?\s*site\s*inspection\b/i, /\bmanagers?\s*inspection\b/i],
+      },
+      {
+        id: 'tm-12ab',
+        patterns: [/\b12\s*ab\b/i, /\btraffic\s*management\s*\(?12\s*ab\)?/i],
+      },
+      {
+        id: 'tm-12d',
+        patterns: [/\b12\s*d\b/i, /\btraffic\s*management\s*\(?12\s*d\)?/i],
+      },
+      {
+        id: 'civil-other',
+        patterns: [/\bcivil\s*\/?\s*other\b/i, /\bcivil\b/i],
+      },
+      {
+        id: 'street-lighting',
+        patterns: [/\bstreet\s*lighting\b/i],
+      },
+      {
+        id: 'road-marking',
+        patterns: [/\broad\s*marking\b/i],
+      },
+      {
+        id: 'road-surfacing',
+        patterns: [/\broad\s*surfacing\b/i, /\bsurfacing\b/i],
+      },
+      {
+        id: 'full-body-harness',
+        patterns: [/\bfull\s*body\s*harness\b/i, /\bharness\b/i],
+      },
+      {
+        id: 'ladder-stepladder',
+        patterns: [/\bladder\s*\/?\s*stepladder\b/i, /\bstepladder\b/i, /\bladder\b/i],
+      },
+      {
+        id: 'depot-check-sheet',
+        patterns: [/\bdepot\s*check\s*sheet\b/i, /\bdepot\b/i],
+      },
+    ];
+
+    for (const matcher of categoryMatchers) {
+      if (matcher.patterns.some((rx) => rx.test(q))) {
+        return this.siteInspectionBanks.find((b) => b.id === matcher.id) || null;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Formats assistant markdown into clean, structured HTML blocks (headings, numbered items,
+   * bullet lists, bold/italic text) without raw '**' or '*' characters.
+   */
+  formatStructuredMessage(content: string): SafeHtml {
+    if (!content) return this.sanitizer.bypassSecurityTrustHtml('');
+
+    const escapeHtml = (raw: string): string =>
+      raw
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+    const formatInline = (escapedLine: string): string =>
+      escapedLine
+        .replace(/\*\*([^*]+)\*\*/g, '<strong class="chat-md-strong">$1</strong>')
+        .replace(/\*([^*\n]+)\*/g, '<em class="chat-md-em">$1</em>')
+        .replace(/`([^`\n]+)`/g, '<code class="chat-md-code">$1</code>');
+
+    const lines = content.split(/\r?\n/);
+    const htmlBlocks: string[] = [];
+
+    for (const rawLine of lines) {
+      const trimmed = rawLine.trim();
+      if (!trimmed) {
+        continue;
+      }
+
+      if (/^---+$/.test(trimmed)) {
+        htmlBlocks.push('<hr class="chat-md-divider" />');
+        continue;
+      }
+
+      const headingMatch = /^(#{1,4})\s+(.+)$/.exec(trimmed);
+      if (headingMatch) {
+        const headingText = formatInline(escapeHtml(headingMatch[2].replace(/\*\*/g, '')));
+        htmlBlocks.push(`<div class="chat-md-heading">${headingText}</div>`);
+        continue;
+      }
+
+      const numberedMatch = /^(\d+)[.)]\s+(.+)$/.exec(trimmed);
+      if (numberedMatch) {
+        const num = escapeHtml(numberedMatch[1]);
+        const body = formatInline(escapeHtml(numberedMatch[2]));
+        htmlBlocks.push(
+          `<div class="chat-md-num-item"><span class="chat-md-num-badge">${num}</span><div class="chat-md-item-body">${body}</div></div>`
+        );
+        continue;
+      }
+
+      const bulletMatch = /^([*\-•])\s+(.+)$/.exec(trimmed);
+      if (bulletMatch) {
+        const isIndented = /^\s{2,}/.test(rawLine);
+        const body = formatInline(escapeHtml(bulletMatch[2]));
+        htmlBlocks.push(
+          `<div class="chat-md-bullet-item${isIndented ? ' is-nested' : ''}"><span class="chat-md-bullet-dot"></span><div class="chat-md-item-body">${body}</div></div>`
+        );
+        continue;
+      }
+
+      htmlBlocks.push(`<p class="chat-md-paragraph">${formatInline(escapeHtml(trimmed))}</p>`);
+    }
+
+    return this.sanitizer.bypassSecurityTrustHtml(htmlBlocks.join(''));
   }
 
   private appendMessageToActive(msg: ChatMessage): void {

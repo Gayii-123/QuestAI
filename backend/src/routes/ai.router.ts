@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { validateBody } from '../middleware/validation';
 import {
   getAiStatusAction,
+  generateTextAction,
+  validateGeneratePayload,
   runInspectionAction,
   validateInspectionPayload,
   runPhotoInspectionAction,
@@ -15,6 +17,12 @@ export const aiRouter = Router();
  * Delegates to centralized action handler.
  */
 aiRouter.get('/status', getAiStatusAction);
+
+/**
+ * POST /api/ai/generate
+ * Real Gemini text generation (Phase 1 connection test / text functionality).
+ */
+aiRouter.post('/generate', validateBody(validateGeneratePayload), generateTextAction);
 
 /**
  * POST /api/ai/inspect
