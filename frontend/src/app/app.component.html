@@ -5,7 +5,7 @@
   <!-- Top Navigation Header -->
   <header class="app-topbar">
     <div class="topbar-left">
-      <!-- Hamburger Toggle Button (Works on both desktop & mobile) -->
+      <!-- Hamburger Toggle Button -->
       <button class="btn-icon sidebar-toggle-btn" (click)="toggleSidebar()" aria-label="Toggle Navigation Sidebar"
         title="Toggle Sidebar">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -27,244 +27,302 @@
       </div>
     </div>
 
-    <!-- Workspace Navigation Tabs (Center) -->
-    <nav class="topbar-nav" aria-label="Workspace Navigation">
-      <button class="topbar-nav-tab" [class.active]="currentView() === 'chat'" (click)="navigateToChat()" type="button">
-        <span>Quest AI</span>
-      </button>
-
-      <button class="topbar-nav-tab" [class.active]="currentView() === 'inspection'" (click)="navigateToInspection()" type="button">
-        <span>Site Inspection</span>
-        <span class="nav-tab-badge">12 Banks</span>
-      </button>
-    </nav>
-
-    <!-- Topbar Right Controls -->
+    <!-- Topbar Right Controls (Matching Image) -->
     <div class="topbar-right">
-      <!-- User Profile Avatar -->
-      <div class="user-profile-badge" title="Subhash Kumar • Site Inspector">
+      <!-- AI Online Status Pill -->
+      <div class="ai-status-pill" title="AI Inspection Engine is Online">
+        <span class="online-indicator-dot"></span>
+        <span class="online-status-text">AI Online</span>
+      </div>
+
+      <!-- Notification Bell with Red Badge Dot -->
+      <div class="notification-wrap">
+        <button class="btn-icon notification-bell-btn" (click)="toggleNotifications($event)" type="button"
+          aria-label="View notifications" title="Notifications">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="bell-icon">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+          </svg>
+          <span class="bell-badge-dot"></span>
+        </button>
+
+        <!-- Notification Dropdown Popover -->
+        <div *ngIf="showNotifications()" class="notification-dropdown" (click)="$event.stopPropagation()">
+          <div class="notif-header">
+            <span class="notif-title">Notifications</span>
+            <span class="notif-count">2 New</span>
+          </div>
+          <div class="notif-list">
+            <div class="notif-item">
+              <span class="notif-icon">📋</span>
+              <div class="notif-content">
+                <span class="notif-msg">12 Quest Question Banks verified & ready for inspection.</span>
+                <span class="notif-time">Just now</span>
+              </div>
+            </div>
+            <div class="notif-item">
+              <span class="notif-icon">✨</span>
+              <div class="notif-content">
+                <span class="notif-msg">AI Photo Vision analysis proxy connected at port 5001.</span>
+                <span class="notif-time">5m ago</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- User Profile Avatar Circle (Matching Image) -->
+      <div class="user-avatar-badge" (click)="openSettings()" role="button" tabindex="0" title="Subhash Kumar • Site Inspector">
         <div class="avatar-circle">
           <span>SK</span>
-        </div>
-        <div class="user-profile-info">
-          <span class="user-name-label">{{ userName() }} Kumar</span>
-          <span class="user-role-label">Site Inspector</span>
         </div>
       </div>
     </div>
   </header>
 
   <div class="workspace-body">
-    <!-- Left Sidebar -->
+    <!-- Left Sidebar (ChatGPT-Style with New Chat & Recents) -->
     <aside class="chat-sidebar" [class.mobile-open]="mobileSidebarOpen()"
       [class.desktop-collapsed]="desktopSidebarCollapsed()">
       
       <!-- Top Action Section -->
-      <div class="sidebar-top-actions">
-        <!-- New Chat Button -->
-        <button class="btn-new-chat" (click)="startNewChat()" type="button">
-          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <line x1="12" y1="5" x2="12" y2="19"></line>
-            <line x1="5" y1="12" x2="19" y2="12"></line>
+      <div class="sidebar-top-section">
+        <!-- New Chat Pill Button matching image -->
+        <button class="btn-new-chat-pill" [class.active]="sidebarActiveNav() === 'new-chat'" (click)="startNewChat()" type="button">
+          <svg class="new-chat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            <line x1="12" y1="8" x2="12" y2="14"></line>
+            <line x1="9" y1="11" x2="15" y2="11"></line>
           </svg>
           <span>New Chat</span>
         </button>
 
-        <!-- Search Input -->
-        <div class="search-box">
-          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <!-- Navigation Menu Items from Image -->
+        <nav class="sidebar-quick-nav">
+          <button class="quick-nav-item" [class.active]="sidebarActiveNav() === 'inspection-history'" (click)="openInspectionHistory()" type="button">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 8 14"></polyline>
+            </svg>
+            <span>Inspection History</span>
+          </button>
+
+          <button class="quick-nav-item" [class.active]="sidebarActiveNav() === 'my-reports'" (click)="openMyReports()" type="button">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+            <span>My Reports</span>
+          </button>
+
+          <button class="quick-nav-item" [class.active]="sidebarActiveNav() === 'settings'" (click)="openSettings()" type="button">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+            <span>Settings</span>
+          </button>
+        </nav>
+      </div>
+
+      <!-- ChatGPT-Style Recents Section -->
+      <div class="sidebar-recents-section">
+        <div class="recents-header-row">
+          <span class="recents-title">Recents</span>
+          <span class="recents-count-badge" *ngIf="filteredConversations().length > 0">{{ filteredConversations().length }}</span>
+        </div>
+
+        <!-- Recents Search Filter -->
+        <div class="recents-search-box">
+          <svg class="recents-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="11" cy="11" r="8"></circle>
             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
           </svg>
           <input type="text" [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)"
-            placeholder="Search chat..." class="search-input" />
-        </div>
-      </div>
-
-      <!-- Quick View Mode Switcher -->
-      <div class="sidebar-nav-switcher">
-        <button class="sidebar-nav-btn" [class.active]="currentView() === 'chat'" (click)="navigateToChat()" type="button">
-          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-          </svg>
-          <span>Chat</span>
-        </button>
-
-        <button class="sidebar-nav-btn" [class.active]="currentView() === 'inspection'" (click)="navigateToInspection()" type="button">
-          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M9 11l3 3L22 4"></path>
-            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
-          </svg>
-          <span>Site Inspection</span>
-        </button>
-      </div>
-
-      <!-- Sidebar Conversations List (Recent Chats) -->
-      <div class="conversations-section">
-        <div class="section-title-row">
-          <span class="section-title">Recent Chats</span>
-          <span class="count-badge" *ngIf="filteredConversations().length > 0">{{ filteredConversations().length }}</span>
+            placeholder="Search recents..." class="recents-search-input" />
         </div>
 
-        <div class="conversations-list">
-          <div *ngFor="let conv of filteredConversations()" class="conversation-item"
-            [class.active]="conv.id === activeConversationId() && currentView() === 'chat'" (click)="selectConversation(conv.id)">
-            <div class="conv-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-              </svg>
-            </div>
-            <div class="conv-content">
-              <div class="conv-title-row">
-                <span class="conv-title">{{ conv.title }}</span>
-                <span class="conv-time">{{ conv.updatedAt | date:'shortTime' }}</span>
-              </div>
-              <div class="conv-snippet">{{ conv.previewSnippet }}</div>
-            </div>
-          </div>
-
-          <!-- Empty state when no conversations have been started -->
-          <div *ngIf="conversations().length === 0" class="empty-recent-chats">
-            <svg class="empty-chats-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <div class="recents-list">
+          <div *ngFor="let conv of filteredConversations()" class="recent-chat-row"
+            [class.active]="conv.id === activeConversationId() && currentView() === 'chat'"
+            (click)="selectConversation(conv.id)">
+            <svg class="chat-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
             </svg>
-            <p class="empty-chats-title">No conversations yet</p>
-            <span class="empty-chats-sub">Start a chat or select Site Inspection</span>
+            <span class="chat-row-title">{{ conv.title }}</span>
+            <button class="btn-delete-chat" (click)="deleteConversation(conv.id, $event)" title="Delete conversation" type="button" aria-label="Delete conversation">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+            </button>
           </div>
 
-          <!-- Empty state when search query yields no matches -->
-          <div *ngIf="conversations().length > 0 && filteredConversations().length === 0" class="no-conversations">
-            No matching conversations
+          <!-- Empty Recents State -->
+          <div *ngIf="conversations().length === 0" class="empty-recents-box">
+            <svg class="empty-recents-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+            <span class="empty-recents-text">No recent chats</span>
+            <span class="empty-recents-sub">Start a new chat to begin</span>
+          </div>
+
+          <!-- Empty search filter state -->
+          <div *ngIf="conversations().length > 0 && filteredConversations().length === 0" class="empty-recents-box">
+            <span class="empty-recents-text">No matching chats</span>
           </div>
         </div>
       </div>
 
-      <!-- Sidebar Footer -->
-      <div class="sidebar-footer">
-        <div class="session-scope-tag">
-          <span class="scope-icon">📋</span>
-          <div class="scope-info">
-            <span class="scope-title">QuestAI Enterprise</span>
-            <span class="scope-desc">Version 2.0 • Inspection Assistant</span>
+      <!-- Bottom User Profile Card with Construction Skyline Watermark -->
+      <div class="sidebar-user-footer">
+        <div class="sidebar-skyline-watermark" aria-hidden="true">
+          <svg viewBox="0 0 260 90" fill="none" xmlns="http://www.w3.org/2000/svg" class="skyline-svg">
+            <path d="M15 85 L15 35 L40 35 L40 85" stroke="currentColor" stroke-width="1.5" stroke-opacity="0.18"/>
+            <path d="M40 45 L60 45 L60 85" stroke="currentColor" stroke-width="1.5" stroke-opacity="0.18"/>
+            <path d="M75 85 L75 18 L78 18 L78 85" stroke="currentColor" stroke-width="2" stroke-opacity="0.22"/>
+            <line x1="55" y1="23" x2="135" y2="23" stroke="currentColor" stroke-width="1.8" stroke-opacity="0.22"/>
+            <line x1="75" y1="18" x2="55" y2="23" stroke="currentColor" stroke-width="1.5" stroke-opacity="0.22"/>
+            <line x1="78" y1="18" x2="115" y2="23" stroke="currentColor" stroke-width="1.5" stroke-opacity="0.22"/>
+            <line x1="115" y1="23" x2="115" y2="48" stroke="currentColor" stroke-width="1.2" stroke-opacity="0.18" stroke-dasharray="2 2"/>
+            <path d="M140 85 L140 50 L165 50 L165 85" stroke="currentColor" stroke-width="1.5" stroke-opacity="0.18"/>
+            <path d="M175 85 L175 35 L195 35 L195 85" stroke="currentColor" stroke-width="1.5" stroke-opacity="0.18"/>
+            <path d="M210 85 L210 12 L213 12 L213 85" stroke="currentColor" stroke-width="2" stroke-opacity="0.22"/>
+            <line x1="190" y1="17" x2="255" y2="17" stroke="currentColor" stroke-width="1.8" stroke-opacity="0.22"/>
+          </svg>
+        </div>
+
+        <div class="user-card-pill" (click)="openSettings()" role="button" tabindex="0">
+          <div class="user-card-avatar">
+            <span>SK</span>
           </div>
+          <div class="user-card-info">
+            <span class="user-card-name">{{ userName() }} Kumar</span>
+            <span class="user-card-role">Site Inspector</span>
+          </div>
+          <svg class="user-card-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
         </div>
       </div>
     </aside>
 
     <!-- Main Chat Workspace -->
     <main class="chat-main" *ngIf="currentView() === 'chat'">
-      <!-- Chat Header Bar -->
-      <div class="chat-workspace-header">
-        <div class="chat-header-title-wrap">
-          <div class="active-status-dot"></div>
-          <h2 class="chat-header-title">Quest AI</h2>
-          <span class="chat-header-sub">Site Inspection & Document Assistant</span>
-        </div>
-      </div>
-
       <!-- Chat Scrollable Messages Area -->
       <div class="chat-scroll-area" #chatScrollContainer>
-        <!-- Empty State (No messages in active conversation) -->
+        <!-- Empty State (Matching the Uploaded Image) -->
         <div *ngIf="activeMessages().length === 0" class="chat-welcome-container">
           <div class="welcome-card">
-            <div class="welcome-badge">
-              <span class="welcome-brand-q">Q</span>
+            
+            <!-- Center Glossy 3D Red Q Badge with Orbital Aura Rings -->
+            <div class="hero-logo-wrapper">
+              <div class="orbital-ring ring-1"></div>
+              <div class="orbital-ring ring-2"></div>
+              <div class="orbital-ring ring-3"></div>
+              <div class="hero-q-badge">
+                <span class="q-letter">Q</span>
+                <span class="q-sparkle">✦</span>
+              </div>
             </div>
-            <h1 class="welcome-heading">What do you want today, {{ userName() }}?</h1>
-            <p class="welcome-subtext">
-              Select a question bank to start an inspection or upload site photographs for AI analysis.
-            </p>
 
-            <!-- Site Inspection Question Bank Badge & Dropdown Trigger -->
-            <div class="inspection-badge-container">
-              <button class="btn-inspection-badge" (click)="toggleHomeInspectionDropdown($event)" type="button"
-                [class.active]="showHomeInspectionDropdown()">
-                <span class="badge-icon-pill">📋</span>
-                <span class="badge-main-label">Site Inspection Checklist</span>
-                <span class="badge-count-tag">12 Question Banks</span>
-                <svg class="badge-chevron" [class.rotated]="showHomeInspectionDropdown()" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="6 9 12 15 18 9"></polyline>
-                </svg>
+            <!-- Greeting matching user request: "hello what you want to do today ,name of the user" -->
+            <h1 class="hero-hello">Hello, {{ userName() }}!</h1>
+            <h2 class="hero-question">What do you want to do today?</h2>
+            <p class="hero-subtext">Ask me anything or choose an option below to get started.</p>
+
+            <!-- Action Chips Row (with 'Tell me about QuestAI' removed as requested!) -->
+            <div class="hero-action-chips-row">
+              <!-- Chip 1: Start Inspection -->
+              <button class="hero-action-chip" (click)="onStartInspectionAction()" type="button">
+                <span class="chip-icon">📋</span>
+                <span class="chip-label">Start Inspection</span>
               </button>
 
-              <!-- Searchable Question Banks Dropdown -->
-              <div *ngIf="showHomeInspectionDropdown()" class="inspection-banks-dropdown" (click)="$event.stopPropagation()">
-                <div class="dropdown-search-wrap">
-                  <svg class="dropdown-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="11" cy="11" r="8"></circle>
-                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                  </svg>
-                  <input type="text" [ngModel]="inspectionBankSearchQuery()" (ngModelChange)="inspectionBankSearchQuery.set($event)"
-                    placeholder="Search question banks (e.g. Street Lighting, Traffic Management, Harness)..."
-                    class="dropdown-search-input" autofocus />
-                  <button *ngIf="inspectionBankSearchQuery()" class="btn-clear-search" (click)="inspectionBankSearchQuery.set('')">✕</button>
-                </div>
+              <!-- Chip 2: AI Photo Inspection -->
+              <button class="hero-action-chip" (click)="onAiPhotoInspectionAction()" type="button">
+                <span class="chip-icon">📷</span>
+                <span class="chip-label">AI Photo Inspection</span>
+              </button>
 
-                <div class="dropdown-banks-list">
-                  <div *ngFor="let bank of filteredInspectionBanks()" class="dropdown-bank-row" (click)="onSelectBankForPhotoUpload(bank)">
-                    <div class="bank-row-left">
-                      <span class="bank-row-icon">{{ bank.icon }}</span>
-                      <div class="bank-row-details">
-                        <span class="bank-row-title">{{ bank.name }}</span>
-                        <span class="bank-row-desc">{{ bank.description }}</span>
+              <!-- Chip 3: Help me fill a form -->
+              <button class="hero-action-chip" (click)="onHelpMeFillFormAction()" type="button">
+                <span class="chip-icon">📄</span>
+                <span class="chip-label">Help me fill a form</span>
+              </button>
+
+              <!-- Chip 4: 12 Question Banks Dropdown -->
+              <div class="inspection-badge-container">
+                <div *ngIf="showHomeInspectionDropdown()" class="dropdown-backdrop-dismiss"
+                  (click)="closeHomeInspectionDropdown()" aria-hidden="true"></div>
+
+                <button class="hero-action-chip dropdown-chip" (click)="toggleHomeInspectionDropdown($event)" type="button"
+                  [class.active]="showHomeInspectionDropdown()">
+                  <span class="chip-icon">🗂️</span>
+                  <span class="chip-label">12 Question Banks</span>
+                  <svg class="badge-chevron" [class.rotated]="showHomeInspectionDropdown()" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </button>
+
+                <!-- Searchable Question Banks Dropdown -->
+                <div *ngIf="showHomeInspectionDropdown()" class="inspection-banks-dropdown" (click)="$event.stopPropagation()">
+                  <div class="dropdown-header-bar">
+                    <div class="dropdown-header-title">
+                      <span class="dropdown-title-icon">📋</span>
+                      <span class="dropdown-title-text">Question Banks Checklist</span>
+                      <span class="dropdown-banks-count-pill">{{ filteredInspectionBanks().length }} Available</span>
+                    </div>
+                    <button class="btn-close-dropdown" (click)="closeHomeInspectionDropdown()" title="Close (Esc)" type="button">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                      </svg>
+                    </button>
+                  </div>
+
+                  <div class="dropdown-search-wrap">
+                    <svg class="dropdown-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="11" cy="11" r="8"></circle>
+                      <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    <input type="text" [ngModel]="inspectionBankSearchQuery()" (ngModelChange)="inspectionBankSearchQuery.set($event)"
+                      placeholder="Search question banks (e.g. Street Lighting, Traffic Management)..."
+                      class="dropdown-search-input" autofocus />
+                    <button *ngIf="inspectionBankSearchQuery()" class="btn-clear-search" (click)="inspectionBankSearchQuery.set('')" type="button">✕</button>
+                  </div>
+
+                  <div class="dropdown-banks-list">
+                    <div *ngFor="let bank of filteredInspectionBanks()" class="dropdown-bank-row" (click)="onBankClick(bank, $event)">
+                      <div class="bank-row-left">
+                        <div class="bank-icon-container">
+                          <span class="bank-row-icon">{{ bank.icon }}</span>
+                        </div>
+                        <div class="bank-row-details">
+                          <div class="bank-title-line">
+                            <span class="bank-row-title">{{ bank.name }}</span>
+                            <span class="bank-question-pill">{{ bank.badge }}</span>
+                          </div>
+                          <span class="bank-row-desc">{{ bank.description }}</span>
+                        </div>
+                      </div>
+                      <div class="bank-row-actions">
+                        <button class="btn-bank-action-primary" (click)="onBankClick(bank, $event)" type="button">
+                          <span>Inspect</span>
+                          <svg class="action-arrow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <polyline points="9 18 15 12 9 6"></polyline>
+                          </svg>
+                        </button>
                       </div>
                     </div>
-                    <div class="bank-row-right">
-                      <span class="bank-row-badge">{{ bank.badge }}</span>
-                      <span class="btn-bank-select-action">Upload Photos →</span>
-                    </div>
-                  </div>
-
-                  <div *ngIf="filteredInspectionBanks().length === 0" class="no-banks-found">
-                    <p>No question bank matches "{{ inspectionBankSearchQuery() }}"</p>
-                    <button class="btn-text-reset" (click)="inspectionBankSearchQuery.set('')">Show all 12 banks</button>
                   </div>
                 </div>
               </div>
             </div>
 
-            <!-- Two Dedicated Real Action Cards (Only Site Inspection, No Dummy Data) -->
-            <div class="home-inspection-actions">
-              <!-- Action 1: Open Full Form -->
-              <div class="home-action-card" (click)="navigateToInspection()" role="button" tabindex="0">
-                <div class="action-card-icon-wrap form-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M9 11l3 3L22 4"></path>
-                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
-                  </svg>
-                </div>
-                <div class="action-card-content">
-                  <h3 class="action-card-title">Start Site Inspection</h3>
-                  <p class="action-card-desc">374 verified questions across all 12 Quest departments with rating & CAR controls</p>
-                </div>
-                <div class="action-card-arrow">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="5" y1="12" x2="19" y2="12"></line>
-                    <polyline points="12 5 19 12 12 19"></polyline>
-                  </svg>
-                </div>
-              </div>
-
-              <!-- Action 2: Upload Photos & Auto-Fill Form -->
-              <div class="home-action-card" (click)="openPhotoUploadForComposer()" role="button" tabindex="0">
-                <div class="action-card-icon-wrap photo-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-                    <circle cx="12" cy="13" r="4"></circle>
-                  </svg>
-                </div>
-                <div class="action-card-content">
-                  <h3 class="action-card-title">Upload Site Photos & Auto-Fill</h3>
-                  <p class="action-card-desc">AI vision evaluates site photos, validates safety compliance, and pre-fills answers</p>
-                </div>
-                <div class="action-card-arrow">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="5" y1="12" x2="19" y2="12"></line>
-                    <polyline points="12 5 19 12 12 19"></polyline>
-                  </svg>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -387,24 +445,41 @@
           </div>
         </div>
 
+        <!-- Subtle Decorative Wavy Curves in Bottom Right (Matching Image) -->
+        <div class="bg-decorative-wave" aria-hidden="true">
+          <svg viewBox="0 0 500 220" fill="none" xmlns="http://www.w3.org/2000/svg" class="wave-svg">
+            <path d="M0 130 C160 80 320 200 500 100 L500 220 L0 220 Z" fill="url(#waveGrad1)"/>
+            <path d="M0 170 C190 120 340 210 500 150 L500 220 L0 220 Z" fill="url(#waveGrad2)"/>
+            <defs>
+              <linearGradient id="waveGrad1" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#fee2e2" stop-opacity="0.45"/>
+                <stop offset="100%" stop-color="#fca5a5" stop-opacity="0.15"/>
+              </linearGradient>
+              <linearGradient id="waveGrad2" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#fecdd3" stop-opacity="0.6"/>
+                <stop offset="100%" stop-color="#fee2e2" stop-opacity="0.25"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+
         <div class="composer-box">
           <!-- Attachment Button (Opens Photo Upload / Inspection Evidence Picker) -->
           <button class="btn-composer-icon" (click)="openPhotoUploadForComposer()" type="button"
-            title="Upload site photographs for AI analysis">
+            title="Upload site photographs for AI analysis" aria-label="Attach file">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-              <circle cx="12" cy="13" r="4"></circle>
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
             </svg>
           </button>
 
           <!-- Input Textarea (Multiline supported, Enter sends) -->
-          <textarea class="composer-input" rows="1" placeholder="Type a message"
+          <textarea class="composer-input" rows="1" placeholder="Type your message here..."
             [ngModel]="composerText()" (ngModelChange)="composerText.set($event)"
             (keydown.enter)="$event.preventDefault(); sendMessage()"></textarea>
 
-          <!-- Modern Red Send Button -->
+          <!-- Modern Red Circle Send Button matching image -->
           <button class="btn-composer-send" (click)="sendMessage()"
-            [disabled]="isGenerating() || !composerText().trim()" type="button" title="Send Message">
+            [disabled]="isGenerating() || !composerText().trim()" type="button" title="Send Message" aria-label="Send message">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <line x1="22" y1="2" x2="11" y2="13"></line>
               <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
@@ -518,6 +593,54 @@
             {{ isAnalyzingPhotos() ? 'Analyzing & Auto-Filling Form...' : 'Analyze ' + uploadedPhotos().length + ' Photo' + (uploadedPhotos().length > 1 ? 's' : '') + ' & Auto-Fill Form' }}
           </span>
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings & System Diagnostics Modal -->
+  <div *ngIf="showSettingsModal()" class="modal-backdrop" (click)="closeSettingsModal()">
+    <div class="modal-window settings-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <h2 class="modal-title">Settings & System Status</h2>
+          <span class="modal-sub">QuestAI Site Inspection Assistant • Enterprise v2.0</span>
+        </div>
+        <button class="btn-modal-close" (click)="closeSettingsModal()" aria-label="Close modal">✕</button>
+      </div>
+      <div class="modal-body settings-body">
+        <div class="settings-card">
+          <div class="settings-card-header">
+            <span class="settings-card-icon">⚡</span>
+            <div class="settings-card-info">
+              <h3 class="settings-card-title">AI Engine</h3>
+              <p class="settings-card-desc">Google Gemini 1.5 Pro proxy (live at http://localhost:5001)</p>
+            </div>
+            <span class="settings-status-tag">Connected</span>
+          </div>
+        </div>
+
+        <div class="settings-card">
+          <div class="settings-card-header">
+            <span class="settings-card-icon">👤</span>
+            <div class="settings-card-info">
+              <h3 class="settings-card-title">Inspector Profile</h3>
+              <p class="settings-card-desc">{{ userName() }} Kumar • Lead Site Inspector</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-card">
+          <div class="settings-card-header">
+            <span class="settings-card-icon">📋</span>
+            <div class="settings-card-info">
+              <h3 class="settings-card-title">Verified Question Banks</h3>
+              <p class="settings-card-desc">12 Quest Construction & Safety Banks (374 Questions loaded)</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-modal-primary" (click)="closeSettingsModal()" type="button">Done</button>
       </div>
     </div>
   </div>

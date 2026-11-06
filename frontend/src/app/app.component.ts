@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed, ViewChild, ElementRef, AfterViewChecked } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, ViewChild, ElementRef, AfterViewChecked, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from './core/services/api.service';
@@ -25,6 +25,9 @@ export class AppComponent implements OnInit, AfterViewChecked {
 
   // Active top-level view: 'chat' | 'inspection'
   currentView = signal<'chat' | 'inspection'>('chat');
+
+  // Which sidebar nav item is currently active
+  sidebarActiveNav = signal<'new-chat' | 'inspection-history' | 'my-reports' | 'settings' | ''>('new-chat');
 
   // Complete list of all 12 Question Banks
   readonly siteInspectionBanks = [
@@ -176,6 +179,12 @@ export class AppComponent implements OnInit, AfterViewChecked {
   // User name for personalized greeting
   readonly userName = signal<string>('Subhash');
 
+  // Notifications Popover state
+  showNotifications = signal<boolean>(false);
+
+  // Settings / Diagnostics Modal state
+  showSettingsModal = signal<boolean>(false);
+
   // Mobile sidebar drawer state
   mobileSidebarOpen = signal<boolean>(false);
 
@@ -252,6 +261,7 @@ export class AppComponent implements OnInit, AfterViewChecked {
   // --- View Switching & Navigation Controls ---
 
   navigateToInspection(bankId?: string): void {
+    this.closeHomeInspectionDropdown();
     this.currentView.set('inspection');
     this.closeMobileSidebar();
     if (this.inspectionComponent) {
@@ -276,6 +286,7 @@ export class AppComponent implements OnInit, AfterViewChecked {
   }
 
   navigateToChat(): void {
+    this.closeHomeInspectionDropdown();
     this.currentView.set('chat');
     this.closeMobileSidebar();
     try {
@@ -321,8 +332,99 @@ export class AppComponent implements OnInit, AfterViewChecked {
 
   // --- Home Screen Site Inspection Dropdown & AI Photo Upload Methods ---
 
-  toggleHomeInspectionDropdown(event?: Event): void {
+  @HostListener('document:click', ['$event'])
+  @HostListener('document:touchstart', ['$event'])
+  onDocumentClick(event: Event): void {
+    const target = event.target as HTMLElement | null;
+    if (!target) return;
+
+    if (this.showHomeInspectionDropdown() && !target.closest('.inspection-badge-container')) {
+      this.closeHomeInspectionDropdown();
+    }
+    if (this.showNotifications() && !target.closest('.notification-wrap')) {
+      this.closeNotifications();
+    }
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscapeKey(): void {
+    if (this.showHomeInspectionDropdown()) {
+      this.closeHomeInspectionDropdown();
+    }
+    if (this.showNotifications()) {
+      this.closeNotifications();
+    }
+    if (this.showSettingsModal()) {
+      this.closeSettingsModal();
+    }
+  }
+
+  toggleNotifications(event?: Event): void {
     if (event) event.stopPropagation();
+    this.showNotifications.update((v) => !v);
+  }
+
+  closeNotifications(): void {
+    this.showNotifications.set(false);
+  }
+
+  openSettings(): void {
+    this.closeMobileSidebar();
+    this.showSettingsModal.set(true);
+  }
+
+  closeSettingsModal(): void {
+    this.showSettingsModal.set(false);
+  }
+
+  deleteConversation(id: string, event?: Event): void {
+    if (event) event.stopPropagation();
+    this.conversations.update((list) => list.filter((c) => c.id !== id));
+    if (this.activeConversationId() === id) {
+      this.activeConversationId.set('');
+    }
+  }
+
+  openInspectionHistory(): void {
+    this.closeMobileSidebar();
+    this.sidebarActiveNav.set('inspection-history');
+    this.navigateToInspection();
+    if (this.inspectionComponent) {
+      this.inspectionComponent.activeStep.set('review-form');
+    }
+  }
+
+  openMyReports(): void {
+    this.closeMobileSidebar();
+    this.sidebarActiveNav.set('my-reports');
+    this.navigateToInspection();
+    if (this.inspectionComponent) {
+      this.inspectionComponent.activeStep.set('finalized');
+    }
+  }
+
+  onStartInspectionAction(): void {
+    this.closeMobileSidebar();
+    this.navigateToInspection();
+    if (this.inspectionComponent) {
+      this.inspectionComponent.activeStep.set('category-select');
+    }
+  }
+
+  onAiPhotoInspectionAction(): void {
+    this.openPhotoUploadForComposer();
+  }
+
+  onHelpMeFillFormAction(): void {
+    this.composerText.set('Help me review site safety requirements and complete the inspection checklist.');
+    this.sendMessage();
+  }
+
+  toggleHomeInspectionDropdown(event?: Event): void {
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
     this.showHomeInspectionDropdown.update((v) => !v);
   }
 
@@ -330,11 +432,17 @@ export class AppComponent implements OnInit, AfterViewChecked {
     this.showHomeInspectionDropdown.set(false);
   }
 
+  onBankClick(bank: any, event?: Event): void {
+    if (event) event.stopPropagation();
+    this.closeHomeInspectionDropdown();
+    this.selectInspectionBank(bank.id);
+  }
+
   onSelectBankForPhotoUpload(bank: any): void {
     this.selectedUploadBank.set(bank);
     this.uploadedPhotos.set([]);
     this.uploadSiteNotes.set('');
-    this.showHomeInspectionDropdown.set(false);
+    this.closeHomeInspectionDropdown();
     this.showPhotoUploadModal.set(true);
   }
 
@@ -531,6 +639,7 @@ export class AppComponent implements OnInit, AfterViewChecked {
   }
 
   startNewChat(): void {
+    this.sidebarActiveNav.set('new-chat');
     this.navigateToChat();
     this.activeConversationId.set('');
     this.composerText.set('');
@@ -539,6 +648,7 @@ export class AppComponent implements OnInit, AfterViewChecked {
   }
 
   selectConversation(id: string): void {
+    this.sidebarActiveNav.set('');
     this.navigateToChat();
     this.activeConversationId.set(id);
     this.closeMobileSidebar();
