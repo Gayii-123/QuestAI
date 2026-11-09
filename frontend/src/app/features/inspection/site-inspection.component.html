@@ -218,9 +218,9 @@
       <div class="scanning-header">
         <div class="scanning-badge">
           <span class="radar-dot" [class.active]="isScanning()"></span>
-          <span>{{ isScanning() ? 'Gemini Multimodal Vision Active' : 'Photo Analysis Stopped' }}</span>
+          <span>{{ isScanning() ? 'AI Photo Review Active' : 'Photo Analysis Stopped' }}</span>
         </div>
-        <h2 class="scanning-title">{{ isScanning() ? 'Scanning Site Photographs' : 'Photo Analysis Error' }}</h2>
+        <h2 class="scanning-title">{{ isScanning() ? "I'm reviewing your photographs..." : 'Photo Analysis Error' }}</h2>
         <p class="scanning-bank-target">
           Evaluating compliance against <strong>{{ currentBank().name }}</strong> checklist ({{ applicableQuestions().length }} questions)
         </p>
@@ -299,7 +299,7 @@
         <div class="review-title-row">
           <h1 class="review-title">AI Inspection Results</h1>
           <span class="review-bank-chip">{{ currentBank().icon }} {{ currentBank().name }}</span>
-          <span *ngIf="aiPreFillApplied()" class="review-ai-badge">✨ Gemini Evaluated</span>
+          <span *ngIf="aiPreFillApplied()" class="review-ai-badge">✨ AI suggestions are ready for your review</span>
           <span *ngIf="aiPreFillSummary()?.overallSiteRisk as risk" class="review-risk-badge" [class]="'risk-' + risk">
             Site Risk: {{ risk | uppercase }}
           </span>
@@ -310,7 +310,7 @@
           <span *ngIf="lastAnalyzedTimestamp()">{{ lastAnalyzedTimestamp() | date:'shortTime' }}</span>
         </p>
         <p *ngIf="aiPreFillSummary()?.summary" class="review-ai-summary-text">
-          <strong>Gemini Visual Summary:</strong> {{ aiPreFillSummary()?.summary }}
+          <strong>Photo Analysis Summary:</strong> {{ aiPreFillSummary()?.summary }}
         </p>
       </div>
 
@@ -452,7 +452,7 @@
               [class.suggestion-accepted]="getAnswer(q.id).aiSuggestionStatus === 'accepted'">
               <div class="obs-header">
                 <span class="obs-sparkle">✨</span>
-                <strong>Gemini AI Suggestion:</strong>
+                <strong>AI Suggestion:</strong>
 
                 <span *ngIf="getAnswer(q.id).aiSuggestionStatus === 'accepted'" class="obs-status-pill pill-accepted">
                   ✓ Accepted
@@ -482,7 +482,7 @@
                 <strong>Evidence Observed:</strong> {{ getAnswer(q.id).aiEvidence }}
               </p>
               <p class="obs-reasoning" *ngIf="getAnswer(q.id).aiReasoning">
-                <strong>Gemini Reasoning:</strong> {{ getAnswer(q.id).aiReasoning }}
+                <strong>Analysis Reasoning:</strong> {{ getAnswer(q.id).aiReasoning }}
               </p>
               <p class="obs-car-plan" *ngIf="getAnswer(q.id).aiSuggestedCarActionPlan">
                 <strong>Suggested CAR Action Plan:</strong> {{ getAnswer(q.id).aiSuggestedCarActionPlan }}
@@ -496,7 +496,7 @@
 
               <!-- Explicit Overwrite Confirmation Prompt if Inspector Already Answered Manually -->
               <div *ngIf="pendingOverwriteQuestionId() === q.id" class="overwrite-confirm-banner" role="alert">
-                <span>This question already has a manual inspector answer. Replace it with Gemini's suggestion?</span>
+                <span>This question already has a manual inspector answer. Replace it with this AI suggestion?</span>
                 <div class="overwrite-confirm-actions">
                   <button class="btn-confirm-overwrite" (click)="acceptAiSuggestion(q.id, true)" type="button">
                     Confirm Overwrite

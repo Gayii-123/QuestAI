@@ -190,7 +190,7 @@
 
               <!-- Message Bubble -->
               <div class="message-bubble" [class.user-bubble]="msg.sender === 'user'"
-                [class.error-bubble]="msg.isError">
+                [class.error-bubble]="msg.isError" [class.workflow-bubble]="msg.isInspectionWorkflowMessage">
                 <div class="bubble-header">
                   <div class="bubble-header-left">
                     <span class="sender-name">
@@ -203,13 +203,33 @@
                 </div>
 
                 <div class="bubble-body">
+                  <!-- Attached Photographs Inside User Message Bubble -->
+                  <div *ngIf="msg.photos && msg.photos.length > 0" class="user-message-photos-grid"
+                    aria-label="Attached site photographs">
+                    <div *ngFor="let photo of msg.photos" class="user-msg-photo-card">
+                      <img [src]="photo.url" [alt]="photo.name" class="user-msg-photo-thumb" />
+                    </div>
+                  </div>
+
                   <!-- User or Error Plain Text -->
-                  <p *ngIf="msg.sender === 'user' || msg.isError" class="bubble-text" [class.error-text]="msg.isError">
+                  <p *ngIf="(msg.sender === 'user' && msg.content) || msg.isError" class="bubble-text"
+                    [class.error-text]="msg.isError">
                     {{ msg.content }}</p>
 
                   <!-- Assistant Structured Response (No raw ** or * markdown) -->
                   <div *ngIf="msg.sender !== 'user' && !msg.isError" class="bubble-structured-content"
                     [innerHTML]="formatStructuredMessage(msg.content)"></div>
+
+                  <!-- Embedded In-Chat Photo Analysis Scanning Animation & Inspection Form -->
+                  <div *ngIf="msg.isInspectionWorkflowMessage" class="embedded-inspection-workflow-wrap">
+                    <app-site-inspection [embeddedInChat]="true"
+                      [conversationId]="activeConversationId()"
+                      [initialBankId]="msg.inspectionBankId || activeConversation()?.selectedBankId || 'civil-other'"
+                      [initialPhotos]="getInspectionPhotosForMessage(msg)"
+                      (switchToChat)="navigateToChat()"
+                      (requestAiPhotoUpload)="onInspectionRequestAiPhotoUpload($event)"
+                      (workflowStatusChange)="onEmbeddedWorkflowStatusChange($event)"></app-site-inspection>
+                  </div>
 
                     <!-- Compact Interactive Inspection Category Chips (Displayed only when requested) -->
                     <div *ngIf="msg.showInspectionCategories && !msg.isError" class="chat-category-chips-wrap"
@@ -313,6 +333,12 @@
 
           <!-- Message Composer (Modern Pinned Bottom Bar) -->
           <div class="composer-container">
+            <!-- Hidden Native File & Camera Inputs for Chat Composer -->
+            <input #chatGalleryInput type="file" multiple accept="image/jpeg,image/jpg,image/png,image/webp"
+              (change)="onComposerFilesSelected($event)" style="display: none" />
+            <input #chatCameraInput type="file" accept="image/jpeg,image/jpg,image/png,image/webp"
+              capture="environment" (change)="onComposerCameraCaptured($event)" style="display: none" />
+
             <!-- Attached Document Preview Staging Bar -->
             <div *ngIf="attachedDocument()" class="staged-attachment-bar">
               <div class="staged-doc-pill">
@@ -327,29 +353,90 @@
               </div>
             </div>
 
-            <div class="composer-box">
-              <!-- Attachment Button (Opens Photo Upload / Inspection Evidence Picker) -->
-              <button class="btn-composer-icon" (click)="openPhotoUploadForComposer()" type="button"
-                title="Upload site photographs for AI analysis">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-                  <circle cx="12" cy="13" r="4"></circle>
-                </svg>
-              </button>
+            <!-- Inline Photo Validation Notice (if any) -->
+            <div *ngIf="photoUploadError() && !showPhotoUploadModal()" class="composer-photo-error" role="alert">
+              <span>{{ photoUploadError() }}</span>
+              <button type="button" class="composer-photo-error-close" (click)="photoUploadError.set('')"
+                aria-label="Dismiss notice">✕</button>
+            </div>
 
-              <!-- Input Textarea (Multiline supported, Enter sends) -->
-              <textarea #composerTextarea class="composer-input" rows="1" placeholder="Type a message"
-                [ngModel]="composerText()" (ngModelChange)="composerText.set($event)" [disabled]="isGenerating()"
-                (keydown.enter)="$event.preventDefault(); sendMessage()"></textarea>
+            <!-- ChatGPT-Style Composer Box with Pending Thumbnail Strip -->
+            <div class="composer-box-outer" [class.has-pending-photos]="uploadedPhotos().length > 0">
+              <!-- Pending Photo Thumbnails Preview Directly Above Composer Input -->
+              <div *ngIf="uploadedPhotos().length > 0" class="composer-pending-photos-strip"
+                aria-label="Selected photographs ready to send">
+                <div *ngFor="let photo of uploadedPhotos(); let i = index" class="composer-pending-thumb-item">
+                  <img [src]="photo.url" [alt]="photo.name" class="composer-pending-thumb-img" />
+                  <button type="button" class="btn-remove-pending-photo" (click)="removePendingComposerPhoto(i)"
+                    title="Remove photo" aria-label="Remove photo">✕</button>
+                </div>
+                <button type="button" class="btn-add-more-pending-photos"
+                  (click)="openGalleryFilePicker(chatGalleryInput)" title="Add more photographs">
+                  <span>+</span>
+                </button>
+              </div>
 
-              <!-- Modern Red Send Button -->
-              <button class="btn-composer-send" (click)="sendMessage()"
-                [disabled]="isGenerating() || !composerText().trim()" type="button" title="Send Message">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <line x1="22" y1="2" x2="11" y2="13"></line>
-                  <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                </svg>
-              </button>
+              <div class="composer-box">
+                <!-- ChatGPT-Style Attachment (+) Button & Menu -->
+                <div class="composer-attach-wrapper">
+                  <button class="btn-composer-attach" [class.active]="showAttachmentMenu()"
+                    (click)="toggleAttachmentMenu($event)" type="button"
+                    title="Attach photographs from device or camera" aria-label="Attach photographs">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                      <line x1="12" y1="5" x2="12" y2="19"></line>
+                      <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                  </button>
+
+                  <!-- Attachment Options Menu -->
+                  <div *ngIf="showAttachmentMenu()" class="composer-attach-menu" role="menu">
+                    <button type="button" class="attach-menu-item" role="menuitem"
+                      (click)="openGalleryFilePicker(chatGalleryInput)">
+                      <svg class="attach-menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                        <polyline points="21 15 16 10 5 21"></polyline>
+                      </svg>
+                      <div class="attach-menu-text">
+                        <span class="attach-menu-title">Upload photos from device</span>
+                        <span class="attach-menu-sub">JPG, PNG, or WebP</span>
+                      </div>
+                    </button>
+
+                    <button type="button" class="attach-menu-item" role="menuitem"
+                      (click)="openCameraCapture(chatCameraInput)">
+                      <svg class="attach-menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2">
+                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z">
+                        </path>
+                        <circle cx="12" cy="13" r="4"></circle>
+                      </svg>
+                      <div class="attach-menu-text">
+                        <span class="attach-menu-title">Take a photo</span>
+                        <span class="attach-menu-sub">Use device camera</span>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Input Textarea (Multiline supported, Enter sends) -->
+                <textarea #composerTextarea class="composer-input" rows="1"
+                  [placeholder]="uploadedPhotos().length > 0 ? 'Add a message or press Send to analyse photos...' : 'Type a message'"
+                  [ngModel]="composerText()" (ngModelChange)="composerText.set($event)" [disabled]="isGenerating()"
+                  (focus)="closeAttachmentMenu()"
+                  (keydown.enter)="$event.preventDefault(); sendMessage()"></textarea>
+
+                <!-- Modern Red Send Button -->
+                <button class="btn-composer-send" (click)="sendMessage()"
+                  [disabled]="isGenerating() || (!composerText().trim() && uploadedPhotos().length === 0)" type="button"
+                  title="Send Message">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                  </svg>
+                </button>
+              </div>
             </div>
 
             <!-- Helper Note -->
@@ -361,7 +448,8 @@
 
     <!-- Main Site Inspection Workspace -->
     <main class="inspection-main" *ngIf="currentView() === 'inspection'">
-      <app-site-inspection (switchToChat)="navigateToChat()"
+      <app-site-inspection [conversationId]="activeConversationId() || 'standalone'"
+        (switchToChat)="navigateToChat()"
         (requestAiPhotoUpload)="onInspectionRequestAiPhotoUpload($event)"></app-site-inspection>
     </main>
   </div>

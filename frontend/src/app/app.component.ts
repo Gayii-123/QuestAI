@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ApiService } from './core/services/api.service';
+import { ChatPersistenceService } from './core/services/chat-persistence.service';
 import { ChatMessage, Conversation } from './core/models/chat.models';
 import {
   SiteInspectionComponent,
@@ -21,9 +22,12 @@ import { InspectionPhoto } from './features/inspection/site-inspection.models';
 export class AppComponent implements OnInit, AfterViewChecked {
   private readonly apiService = inject(ApiService);
   private readonly sanitizer = inject(DomSanitizer);
+  private readonly chatPersistence = inject(ChatPersistenceService);
 
   @ViewChild('chatScrollContainer') private chatScrollContainer?: ElementRef<HTMLDivElement>;
   @ViewChild('composerTextarea') private composerTextarea?: ElementRef<HTMLTextAreaElement>;
+  @ViewChild('chatGalleryInput') private chatGalleryInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('chatCameraInput') private chatCameraInput?: ElementRef<HTMLInputElement>;
   @ViewChild(SiteInspectionComponent) private inspectionComponent?: SiteInspectionComponent;
 
   // Active top-level view: 'chat' | 'inspection'
@@ -167,7 +171,8 @@ export class AppComponent implements OnInit, AfterViewChecked {
     );
   });
 
-  // Photo Upload & AI Auto-Fill Modal state
+  // Composer Attachment (+) Menu & Pending Photo Previews state
+  showAttachmentMenu = signal<boolean>(false);
   showPhotoUploadModal = signal<boolean>(false);
   selectedUploadBank = signal<any | null>(null);
   readonly availableRiskBanks = [
@@ -191,6 +196,7 @@ export class AppComponent implements OnInit, AfterViewChecked {
     'Working at height',
   ]);
   uploadedPhotos = signal<InspectionPhoto[]>([]);
+  pendingComposerPhotos = this.uploadedPhotos;
   uploadSiteNotes = signal<string>('');
   photoUploadError = signal<string>('');
   isAnalyzingPhotos = signal<boolean>(false);
@@ -267,6 +273,53 @@ export class AppComponent implements OnInit, AfterViewChecked {
     } catch {
       // Safe fallback
     }
+
+    // Restore conversations and image attachments from IndexedDB
+    void this.restorePersistedChatState();
+  }
+
+  async restorePersistedChatState(): Promise<void> {
+    try {
+      const state = await this.chatPersistence.loadState();
+      if (state.conversations.length > 0) {
+        this.conversations.set(state.conversations);
+        const targetId =
+          state.activeConversationId &&
+          state.conversations.some((c) => c.id === state.activeConversationId)
+            ? state.activeConversationId
+            : state.conversations[0].id;
+        this.activeConversationId.set(targetId);
+
+        const activeConv = state.conversations.find((c) => c.id === targetId);
+        if (activeConv?.selectedBankId) {
+          const bank = this.siteInspectionBanks.find((b) => b.id === activeConv.selectedBankId);
+          if (bank) {
+            this.selectedUploadBank.set(bank);
+          }
+        }
+        const pendingForActive =
+          state.pendingPhotosByConv[targetId] || state.pendingPhotosByConv['__draft__'] || [];
+        if (pendingForActive.length > 0) {
+          this.uploadedPhotos.set(pendingForActive);
+        }
+      } else if (state.pendingPhotosByConv['__draft__']?.length) {
+        this.uploadedPhotos.set(state.pendingPhotosByConv['__draft__']);
+      }
+    } catch {
+      // Safe fallback if IndexedDB is unavailable
+    }
+  }
+
+  private persistChatState(): void {
+    void this.chatPersistence.saveConversations(
+      this.conversations(),
+      this.activeConversationId()
+    );
+  }
+
+  private persistPendingComposerPhotos(): void {
+    const convKey = this.activeConversationId() || '__draft__';
+    void this.chatPersistence.savePendingAttachments(convKey, this.uploadedPhotos());
   }
 
   ngAfterViewChecked(): void {
@@ -339,24 +392,50 @@ export class AppComponent implements OnInit, AfterViewChecked {
     this.mobileSidebarOpen.set(false);
   }
 
-  openPhotoUploadForComposer(): void {
-    this.currentView.set('inspection');
-    this.closeMobileSidebar();
-    const openUploadStep = () => {
-      if (this.inspectionComponent) {
-        this.inspectionComponent.activeStep.set('photo-upload');
-      }
-    };
-    if (this.inspectionComponent) {
-      openUploadStep();
-    } else {
-      setTimeout(openUploadStep, 0);
+  openPhotoUploadForComposer(event?: Event): void {
+    this.toggleAttachmentMenu(event);
+  }
+
+  toggleAttachmentMenu(event?: Event): void {
+    if (event) {
+      event.stopPropagation();
     }
-    try {
-      if (typeof window !== 'undefined') {
-        window.history.pushState({}, '', '/inspection');
-      }
-    } catch {}
+    this.showAttachmentMenu.update((v) => !v);
+  }
+
+  closeAttachmentMenu(): void {
+    this.showAttachmentMenu.set(false);
+  }
+
+  openGalleryFilePicker(inputEl?: HTMLInputElement): void {
+    this.showAttachmentMenu.set(false);
+    (inputEl || this.chatGalleryInput?.nativeElement)?.click();
+  }
+
+  openCameraCapture(inputEl?: HTMLInputElement): void {
+    this.showAttachmentMenu.set(false);
+    (inputEl || this.chatCameraInput?.nativeElement)?.click();
+  }
+
+  onComposerFilesSelected(event: Event): void {
+    this.showAttachmentMenu.set(false);
+    this.onFilesSelected(event);
+  }
+
+  onComposerCameraCaptured(event: Event): void {
+    this.showAttachmentMenu.set(false);
+    this.onFilesSelected(event);
+  }
+
+  addPendingPhotos(photos: InspectionPhoto[]): void {
+    this.photoUploadError.set('');
+    const current = this.uploadedPhotos();
+    if (current.length + photos.length > MAX_INSPECTION_PHOTOS) {
+      this.photoUploadError.set(`Maximum ${MAX_INSPECTION_PHOTOS} photographs allowed per analysis.`);
+      return;
+    }
+    this.uploadedPhotos.set([...current, ...photos]);
+    this.persistPendingComposerPhotos();
   }
 
   removeAttachedDocument(): void {
@@ -511,6 +590,7 @@ export class AppComponent implements OnInit, AfterViewChecked {
 
     if (newPhotos.length > 0) {
       this.uploadedPhotos.update((current) => [...current, ...newPhotos]);
+      this.persistPendingComposerPhotos();
     }
   }
 
@@ -557,52 +637,34 @@ export class AppComponent implements OnInit, AfterViewChecked {
 
   removeUploadedPhoto(index: number): void {
     this.uploadedPhotos.update((list) => list.filter((_, i) => i !== index));
+    this.persistPendingComposerPhotos();
+  }
+
+  removePendingComposerPhoto(index: number): void {
+    this.removeUploadedPhoto(index);
   }
 
   clearUploadedPhotos(): void {
     this.uploadedPhotos.set([]);
+    this.persistPendingComposerPhotos();
   }
 
   /**
    * Hands off the selected inspection bank, uploaded photographs, and site notes
-   * to SiteInspectionComponent, which immediately launches the Step 3 viewfinder
-   * scanning animation and calls POST /api/ai/inspect-photos (Gemini 3.8 Flash).
+   * to SiteInspectionComponent inside the active conversation (or standalone workspace),
+   * which immediately launches the viewfinder scanning animation and calls POST /api/ai/inspect-photos.
    */
   runAiPhotoAnalysisAndFill(): void {
-    const bank = this.selectedUploadBank();
+    const bank = this.selectedUploadBank() || this.siteInspectionBanks[0];
     const photos = this.uploadedPhotos();
     if (!bank || photos.length === 0 || this.isAnalyzingPhotos()) return;
 
-    const handoffPayload = {
-      bankId: bank.id as string,
-      trafficSubtype: bank.trafficSubtype as '12D' | '12AB' | undefined,
-      selectedRiskBanks: bank.isManagers ? [...this.selectedUploadRiskBanks()] : undefined,
-      photos: [...photos],
-      siteNotes: this.uploadSiteNotes(),
-    };
-
-    this.isAnalyzingPhotos.set(false);
     this.showPhotoUploadModal.set(false);
-    this.currentView.set('inspection');
-    this.closeMobileSidebar();
-
-    try {
-      if (typeof window !== 'undefined') {
-        window.history.pushState({}, '', '/inspection');
-      }
-    } catch {}
-
-    const triggerAnalysis = () => {
-      if (this.inspectionComponent) {
-        this.inspectionComponent.startExternalPhotoAnalysis(handoffPayload);
-      }
-    };
-
-    if (this.inspectionComponent) {
-      triggerAnalysis();
-    } else {
-      setTimeout(triggerAnalysis, 0);
+    this.selectedUploadBank.set(bank);
+    if (this.uploadSiteNotes() && !this.composerText()) {
+      this.composerText.set(this.uploadSiteNotes());
     }
+    this.sendMessage();
   }
 
   startNewChat(): void {
@@ -610,40 +672,128 @@ export class AppComponent implements OnInit, AfterViewChecked {
     this.activeConversationId.set('');
     this.composerText.set('');
     this.attachedDocument.set(null);
+    this.uploadedPhotos.set([]);
+    this.selectedUploadBank.set(null);
+    this.showAttachmentMenu.set(false);
     this.closeMobileSidebar();
+    this.persistChatState();
   }
 
   selectConversation(id: string): void {
     this.navigateToChat();
     this.activeConversationId.set(id);
+    const conv = this.conversations().find((c) => c.id === id);
+    if (conv?.selectedBankId) {
+      const bank = this.siteInspectionBanks.find((b) => b.id === conv.selectedBankId);
+      if (bank) this.selectedUploadBank.set(bank);
+    }
+    void this.chatPersistence.loadPendingAttachments(id).then((photos) => {
+      this.uploadedPhotos.set(photos);
+    });
     this.closeMobileSidebar();
     this.shouldScrollToBottom = true;
+    this.persistChatState();
   }
 
   // --- Message Handling ---
 
   sendMessage(): void {
     const text = this.composerText().trim();
-    if (!text || this.isGenerating()) return;
+    const photosToSend = [...this.uploadedPhotos()];
+    if ((!text && photosToSend.length === 0) || this.isGenerating()) return;
+
+    this.showAttachmentMenu.set(false);
+    this.photoUploadError.set('');
 
     let currentConv = this.activeConversation();
     const docAttachment = this.attachedDocument();
 
     // If starting a brand new conversation
     if (!currentConv) {
-      const title = text.length > 36 ? text.substring(0, 36) + '...' : text;
+      const baseTitle = text || (this.selectedUploadBank()?.name ? `${this.selectedUploadBank().name} Inspection` : 'Site Inspection Photos');
+      const title = baseTitle.length > 36 ? baseTitle.substring(0, 36) + '...' : baseTitle;
       const newId = 'conv-' + Date.now();
       const newConv: Conversation = {
         id: newId,
         title: title,
         updatedAt: new Date(),
-        previewSnippet: text,
+        previewSnippet: baseTitle,
+        selectedBankId: this.selectedUploadBank()?.id,
         messages: [],
       };
 
       this.conversations.update((list) => [newConv, ...list]);
       this.activeConversationId.set(newId);
       currentConv = newConv;
+    }
+
+    // 1. Handle message containing photographs (In-Chat Inspection Photo Analysis Workflow)
+    if (photosToSend.length > 0) {
+      const targetBankId =
+        currentConv.selectedBankId ||
+        this.selectedUploadBank()?.id ||
+        'civil-other';
+      const targetBank =
+        this.siteInspectionBanks.find((b) => b.id === targetBankId) ||
+        this.siteInspectionBanks[0];
+
+      this.selectedUploadBank.set(targetBank);
+      this.setConversationSelectedBank(targetBank.id);
+
+      const userPhotoMessage: ChatMessage = {
+        id: 'msg-' + Date.now(),
+        sender: 'user',
+        content: text,
+        timestamp: new Date(),
+        photos: photosToSend.map((p) => ({ ...p })),
+        attachmentName: docAttachment || undefined,
+      };
+
+      this.appendMessageToActive(userPhotoMessage);
+      this.composerText.set('');
+      this.uploadSiteNotes.set('');
+      this.attachedDocument.set(null);
+      this.uploadedPhotos.set([]);
+      void this.chatPersistence.savePendingAttachments(currentConv.id, []);
+      void this.chatPersistence.savePendingAttachments('__draft__', []);
+
+      // Clear any previous embedded workflow message in this conversation so only the new one renders
+      this.clearPreviousWorkflowMessagesInActiveConversation();
+
+      const workflowMsg: ChatMessage = {
+        id: 'msg-' + (Date.now() + 1),
+        sender: 'assistant',
+        content: "I'm reviewing your photographs...",
+        timestamp: new Date(),
+        isInspectionWorkflowMessage: true,
+        inspectionBankId: targetBank.id,
+      };
+      this.appendMessageToActive(workflowMsg);
+      this.shouldScrollToBottom = true;
+
+      const handoffPayload = {
+        bankId: targetBank.id as string,
+        trafficSubtype: targetBank.trafficSubtype as '12D' | '12AB' | undefined,
+        selectedRiskBanks: targetBank.isManagers ? [...this.selectedUploadRiskBanks()] : undefined,
+        photos: photosToSend,
+        siteNotes: text,
+      };
+
+      const triggerInChatAnalysis = () => {
+        if (this.inspectionComponent) {
+          if (currentConv) {
+            this.inspectionComponent.conversationId = currentConv.id;
+          }
+          this.inspectionComponent.startExternalPhotoAnalysis(handoffPayload);
+        }
+      };
+
+      if (this.inspectionComponent) {
+        triggerInChatAnalysis();
+      } else {
+        setTimeout(triggerInChatAnalysis, 0);
+      }
+      return;
     }
 
     const hadActiveSelector = this.hasActiveCategorySelector();
@@ -672,17 +822,7 @@ export class AppComponent implements OnInit, AfterViewChecked {
         : this.matchExactCategoryName(text);
 
       if (typedBank) {
-        this.markCategorySelectedInConversation(typedBank.id);
-        const confirmMsg: ChatMessage = {
-          id: 'msg-' + (Date.now() + 1),
-          sender: 'assistant',
-          content: `Selected ${typedBank.name}. Please upload your site photographs in the dialog to continue, or skip photos to open the manual checklist.`,
-          timestamp: new Date(),
-          selectedBankId: typedBank.id,
-        };
-        this.appendMessageToActive(confirmMsg);
         this.onSelectCategoryChipFromChat(typedBank);
-        this.shouldScrollToBottom = true;
         return;
       }
     }
@@ -697,19 +837,18 @@ export class AppComponent implements OnInit, AfterViewChecked {
 
     this.isGenerating.set(true);
 
-    // Contact real Gemini AI model via backend POST /api/ai/generate
+    // Contact backend POST /api/ai/generate
     this.apiService.generateText(text).subscribe({
       next: (res) => {
         const assistantContent = isFormRequest
           ? 'Sure! Which inspection form would you like to fill?'
-          : res.data.text;
+          : this.sanitizeProviderBranding(res.data.text);
 
         const assistantMsg: ChatMessage = {
           id: 'msg-' + (Date.now() + 1),
           sender: 'assistant',
           content: assistantContent,
           timestamp: new Date(res.data.generatedAt || Date.now()),
-          modelIdentifier: res.data.model,
           attachmentName: docAttachment || undefined,
           showInspectionCategories: isFormRequest,
           suggestedBankId: mentionedBank?.id,
@@ -720,19 +859,19 @@ export class AppComponent implements OnInit, AfterViewChecked {
         this.shouldScrollToBottom = true;
       },
       error: (err) => {
-        let errorMessage = 'An unexpected error occurred while communicating with Gemini.';
+        let errorMessage = "We couldn't complete your request right now. Please try again.";
         if (err.status === 0) {
           errorMessage =
-            'Unable to reach the QuestAI backend at http://localhost:5001. Please verify that the backend server is running (npm run dev in backend/).';
+            'Unable to reach the QuestAI backend at http://localhost:5001. Please verify that the backend server is running.';
         } else if (err.status === 429) {
           errorMessage =
-            'Gemini API quota or rate limit reached. Please wait a few moments and try again.';
+            'Service quota or rate limit reached. Please wait a few moments and try again.';
         } else if (err.status === 504) {
-          errorMessage = 'The request to Gemini timed out. Please try asking again.';
+          errorMessage = 'The request timed out. Please try asking again.';
         } else if (err.error?.error?.message) {
-          errorMessage = err.error.error.message;
+          errorMessage = this.sanitizeProviderBranding(err.error.error.message);
         } else if (err.message) {
-          errorMessage = err.message;
+          errorMessage = this.sanitizeProviderBranding(err.message);
         }
 
         const errorMsg: ChatMessage = {
@@ -750,6 +889,11 @@ export class AppComponent implements OnInit, AfterViewChecked {
     });
   }
 
+  private sanitizeProviderBranding(text: string | undefined): string {
+    if (!text) return '';
+    return text.replace(/\bgemini(-[0-9a-z.-]+)?\b/gi, 'QuestAI');
+  }
+
   retryMessage(prompt?: string): void {
     if (!prompt || this.isGenerating()) return;
     this.composerText.set(prompt);
@@ -758,13 +902,116 @@ export class AppComponent implements OnInit, AfterViewChecked {
 
   /**
    * Called when the user clicks one of the 12 compact category chips in the assistant response
-   * (or selects a category by typing its name). Records the selected bank and opens the existing
-   * photo-upload dialog.
+   * (or selects a category by typing its name). Records the selected bank and sends the
+   * conversational prompt: "Great! Please upload your site photographs here." without opening any modal.
    */
   onSelectCategoryChipFromChat(bank: any, messageId?: string): void {
     if (!bank) return;
+
+    // Ensure an active conversation exists if triggered directly
+    if (!this.activeConversation()) {
+      const newId = 'conv-' + Date.now();
+      const newConv: Conversation = {
+        id: newId,
+        title: `${bank.name} Inspection`,
+        updatedAt: new Date(),
+        previewSnippet: bank.name,
+        selectedBankId: bank.id,
+        messages: [],
+      };
+      this.conversations.update((list) => [newConv, ...list]);
+      this.activeConversationId.set(newId);
+    }
+
+    this.selectedUploadBank.set(bank);
+    this.showPhotoUploadModal.set(false);
+    this.setConversationSelectedBank(bank.id);
     this.markCategorySelectedInConversation(bank.id, messageId);
-    this.onSelectBankForPhotoUpload(bank);
+
+    if (this.inspectionComponent && bank.id) {
+      this.inspectionComponent.selectBank(bank.id);
+    }
+
+    const promptMsg: ChatMessage = {
+      id: 'msg-' + (Date.now() + 1),
+      sender: 'assistant',
+      content: 'Great! Please upload your site photographs here.',
+      timestamp: new Date(),
+      selectedBankId: bank.id,
+    };
+    this.appendMessageToActive(promptMsg);
+    this.shouldScrollToBottom = true;
+  }
+
+  /**
+   * Retrieves full photograph Blobs/data URLs associated with this inspection workflow message.
+   * Checks the preceding user message in the active conversation where photos were attached,
+   * restoring full evidence across refreshes.
+   */
+  getInspectionPhotosForMessage(workflowMsg: ChatMessage): InspectionPhoto[] {
+    const conv = this.activeConversation();
+    if (!conv) return [];
+    // 1. If workflow message itself has photos attached
+    if (workflowMsg.photos && workflowMsg.photos.length > 0) {
+      return workflowMsg.photos;
+    }
+    // 2. Locate the closest preceding user message that holds the uploaded photos
+    const msgs = conv.messages;
+    const msgIndex = msgs.findIndex((m) => m.id === workflowMsg.id);
+    const searchRange = msgIndex > 0 ? msgs.slice(0, msgIndex) : msgs;
+    for (let i = searchRange.length - 1; i >= 0; i--) {
+      const candidate = searchRange[i];
+      if (candidate.sender === 'user' && candidate.photos && candidate.photos.length > 0) {
+        return candidate.photos;
+      }
+    }
+    return [];
+  }
+
+  onEmbeddedWorkflowStatusChange(event: {
+    state: 'scanning' | 'ready' | 'error' | 'finalized';
+    message: string;
+  }): void {
+    const convId = this.activeConversationId();
+    if (!convId) return;
+    this.conversations.update((list) =>
+      list.map((c) => {
+        if (c.id !== convId) return c;
+        return {
+          ...c,
+          updatedAt: new Date(),
+          messages: c.messages.map((m) =>
+            m.isInspectionWorkflowMessage ? { ...m, content: event.message } : m
+          ),
+        };
+      })
+    );
+    this.persistChatState();
+  }
+
+  private setConversationSelectedBank(bankId: string): void {
+    const convId = this.activeConversationId();
+    if (!convId) return;
+    this.conversations.update((list) =>
+      list.map((c) => (c.id === convId ? { ...c, selectedBankId: bankId } : c))
+    );
+    this.persistChatState();
+  }
+
+  private clearPreviousWorkflowMessagesInActiveConversation(): void {
+    const convId = this.activeConversationId();
+    if (!convId) return;
+    this.conversations.update((list) =>
+      list.map((c) => {
+        if (c.id !== convId) return c;
+        return {
+          ...c,
+          messages: c.messages.map((m) =>
+            m.isInspectionWorkflowMessage ? { ...m, isInspectionWorkflowMessage: false } : m
+          ),
+        };
+      })
+    );
   }
 
   /**
@@ -791,7 +1038,7 @@ export class AppComponent implements OnInit, AfterViewChecked {
 
   private hasActiveCategorySelector(): boolean {
     const msgs = this.activeMessages();
-    return msgs.some((m) => m.sender === 'assistant' && Boolean(m.showInspectionCategories));
+    return msgs.some((m) => m.sender === 'assistant' && !!m.showInspectionCategories);
   }
 
   private clearActiveCategorySelectors(): void {
@@ -1068,6 +1315,7 @@ export class AppComponent implements OnInit, AfterViewChecked {
         return c;
       })
     );
+    this.persistChatState();
   }
 
   // --- Attachment Button Notice ---

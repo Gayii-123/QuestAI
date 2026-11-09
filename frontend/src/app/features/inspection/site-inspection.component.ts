@@ -4,6 +4,7 @@ import {
   OnDestroy,
   signal,
   computed,
+  Input,
   Output,
   EventEmitter,
   inject,
@@ -71,8 +72,17 @@ export interface DraftMigrationReport {
 export class SiteInspectionComponent implements OnInit, OnDestroy {
   private readonly apiService = inject(ApiService);
 
+  @Input() embeddedInChat = false;
+  @Input() conversationId?: string;
+  @Input() initialBankId?: string;
+  @Input() initialStep?: InspectionStep;
+  @Input() initialPhotos?: InspectionPhoto[];
   @Output() switchToChat = new EventEmitter<void>();
   @Output() requestAiPhotoUpload = new EventEmitter<string>();
+  @Output() workflowStatusChange = new EventEmitter<{
+    state: 'scanning' | 'ready' | 'error' | 'finalized';
+    message: string;
+  }>();
 
   // Active Workflow Step: 'category-select' | 'photo-upload' | 'ai-scanning' | 'review-form' | 'finalized'
   activeStep = signal<InspectionStep>('category-select');
@@ -296,7 +306,7 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
   private scanStageTimers: ReturnType<typeof setTimeout>[] = [];
 
   // AI model identifier and mock flag
-  aiModelIdentifier = signal<string>('gemini-3.8-flash');
+  aiModelIdentifier = signal<string>('QuestAI Vision');
   isMockEngine = signal(false);
   lastAnalyzedTimestamp = signal<string>('');
 
@@ -535,10 +545,42 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
   });
 
   ngOnInit(): void {
+    // If an initial bank ID was provided, apply it before loading the draft
+    if (this.initialBankId) {
+      this.selectedBankId.set(this.initialBankId);
+      const bank = this.currentBank();
+      if (bank?.trafficSubtype) {
+        this.trafficSubtype.set(bank.trafficSubtype);
+      }
+    }
+
+    // If initial full-fidelity photos were provided (e.g. from IndexedDB chat message), preload them
+    if (this.initialPhotos && this.initialPhotos.length > 0) {
+      this.uploadedPhotos.set([...this.initialPhotos]);
+    }
+
     // Clean up any legacy mock pending pre-fill in localStorage
     this.cleanupLegacyPendingAiFill();
     // Initialize draft from localStorage if present (with safe legacy mock cleanup)
     this.loadDraft();
+
+    // If an explicit initial step was provided, apply it; otherwise, if loadDraft restored a finalized report,
+    // transition directly to 'finalized', or if AI evaluation / review answers exist, transition to 'review-form'
+    if (this.initialStep) {
+      this.activeStep.set(this.initialStep);
+    } else if (this.finalizedReport()) {
+      this.activeStep.set('finalized');
+    } else if (
+      this.aiPreFillSummary() ||
+      Object.keys(this.formAnswers()).some((k) => this.formAnswers()[k]?.hasAiEvaluation || this.hasManualInspectorAnswer(this.formAnswers()[k]))
+    ) {
+      this.activeStep.set('review-form');
+      const groups = groupQuestionsByHeader(this.applicableQuestions());
+      if (groups.length > 0 && !this.activeSectionName()) {
+        this.activeSectionName.set(groups[0].headername);
+        this.expandedSections.set({ [groups[0].headername]: true });
+      }
+    }
   }
 
   ngOnDestroy(): void {
@@ -882,14 +924,18 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
     this.activeStep.set('ai-scanning');
     this.isScanning.set(true);
     this.scanError.set(null);
-    this.scanningStatusMessage.set('Preparing uploaded photographs');
+    this.scanningStatusMessage.set("I'm reviewing your photographs...");
+    this.workflowStatusChange.emit({
+      state: 'scanning',
+      message: "I'm reviewing your photographs...",
+    });
 
     const request = this.buildPhotoInspectionRequest();
 
     // Update status message as the HTTP request is dispatched
-    this.scanningStatusMessage.set('Sending photographs for Gemini analysis');
+    this.scanningStatusMessage.set("I'm reviewing your photographs...");
 
-    // Truthful lifecycle status updates while awaiting Gemini's response (no fabricated percentages)
+    // Truthful lifecycle status updates while awaiting response (no fabricated percentages)
     this.scanStageTimers.push(
       setTimeout(() => {
         if (this.isScanning()) {
@@ -915,16 +961,27 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
         this.scanSubscription = undefined;
         this.isScanning.set(false);
         this.scanningStatusMessage.set('Photo analysis failed');
-        this.scanError.set(this.formatPhotoAnalysisError(err));
+        const formattedErr = this.formatPhotoAnalysisError(err);
+        this.scanError.set(formattedErr);
+        this.workflowStatusChange.emit({
+          state: 'error',
+          message: "We couldn't complete the photo analysis. Please try again.",
+        });
       },
     });
   }
 
+  private sanitizeProviderBranding(text: string | undefined): string {
+    if (!text) return '';
+    return text.replace(/\bgemini(-[0-9a-z.-]+)?\b/gi, 'AI service');
+  }
+
   private formatPhotoAnalysisError(err: any): string {
-    const backendMessage =
+    const rawBackendMessage =
       err?.error?.error?.message ||
       (Array.isArray(err?.error?.error?.details) && err.error.error.details.join('; ')) ||
       err?.error?.message;
+    const backendMessage = this.sanitizeProviderBranding(rawBackendMessage);
 
     if (err?.status === 0) {
       return 'Cannot reach the QuestAI backend server on port 5001. Please ensure the backend is running.';
@@ -933,15 +990,15 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
       return backendMessage || 'Invalid photo analysis request payload. Check photo format and size limits.';
     }
     if (err?.status === 401 || err?.status === 403) {
-      return backendMessage || 'Gemini authentication failed on the backend. Verify backend API key configuration.';
+      return backendMessage || 'Authentication failed on the backend. Verify backend API key configuration.';
     }
     if (err?.status === 429) {
-      return backendMessage || 'Gemini API quota or rate limit exceeded. Please wait a moment and try again.';
+      return backendMessage || 'Service quota or rate limit exceeded. Please wait a moment and try again.';
     }
     if (err?.status === 504) {
-      return backendMessage || 'Gemini photo analysis timed out. Try again or upload fewer/smaller photos.';
+      return backendMessage || 'Photo analysis timed out. Try again or upload fewer/smaller photos.';
     }
-    return backendMessage || 'Gemini photo analysis failed. Please try again.';
+    return backendMessage || "We couldn't complete the photo analysis. Please try again.";
   }
 
   cancelScanning(): void {
@@ -995,7 +1052,7 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
     const existingAnswers = this.formAnswers();
     const mergedAnswers: Record<string, QuestionAnswer> = {};
     const analyzedAt = data?.analyzedAt || new Date().toISOString();
-    const modelId = data?.modelIdentifier || 'gemini-3.8-flash';
+    const modelId = data?.modelIdentifier || 'QuestAI Vision';
 
     let suggestedPassCount = 0;
     let suggestedCarCount = 0;
@@ -1144,9 +1201,13 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
 
     this.persistDraftToStorage();
     this.activeStep.set('review-form');
+    this.workflowStatusChange.emit({
+      state: 'ready',
+      message: 'Your photographs have been analysed. Your inspection form is ready for review.',
+    });
 
     this.showToast(
-      `✨ Gemini Analysis Complete: ${suggestedPassCount} Suggested Pass, ${suggestedCarCount} Suggested CAR, ${needsReviewCount} Needs Human Check`
+      `Your photographs have been analysed. Your inspection form is ready for review (${suggestedPassCount} Suggested Pass, ${suggestedCarCount} Suggested CAR, ${needsReviewCount} Needs Human Check).`
     );
   }
 
@@ -1652,6 +1713,7 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
 
     const report: FinalizedInspectionReport = {
       referenceNumber: ref,
+      conversationId: this.conversationId,
       bankId: bank.id,
       bankName: bank.name,
       department: bank.department,
@@ -1687,6 +1749,10 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
     this.finalizedReport.set(report);
     this.showFinalizeModal.set(false);
     this.activeStep.set('finalized');
+    this.workflowStatusChange.emit({
+      state: 'finalized',
+      message: `Inspection finalized! Reference: ${ref}`,
+    });
 
     this.showToast(`Inspection finalized! Reference: ${ref}`);
   }
@@ -1720,22 +1786,36 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
     }, 400);
   }
 
+  private getDraftStorageKey(bankId: string): string {
+    if (this.conversationId) {
+      return `questai_inspection_${this.conversationId}_${bankId}`;
+    }
+    return `questai_inspection_${bankId}`;
+  }
+
   private persistDraftToStorage(): void {
     try {
+      const lightweightPhotos = this.uploadedPhotos().map((p) => ({
+        ...p,
+        // Avoid storing large Base64 strings in localStorage; full photos are stored in IndexedDB
+        url: p.url && p.url.length > 2048 ? '' : p.url,
+      }));
       const data = {
         schemaVersion: DRAFT_SCHEMA_VERSION,
+        conversationId: this.conversationId,
         bankId: this.selectedBankId(),
         trafficSubtype: this.trafficSubtype(),
         selectedRiskBanks: this.selectedRiskBanks(),
         metadata: this.inspectionMetadata(),
         answers: this.formAnswers(),
-        uploadedPhotos: this.uploadedPhotos(),
+        uploadedPhotos: lightweightPhotos,
         aiSummary: this.aiPreFillSummary(),
         aiModelIdentifier: this.aiModelIdentifier(),
         isMockEngine: this.isMockEngine(),
+        finalizedReport: this.finalizedReport(),
         updatedAt: new Date().toISOString(),
       };
-      localStorage.setItem(`questai_inspection_${this.selectedBankId()}`, JSON.stringify(data));
+      localStorage.setItem(this.getDraftStorageKey(this.selectedBankId()), JSON.stringify(data));
     } catch {}
   }
 
@@ -1878,7 +1958,7 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
     const cleanModelId =
       !isLegacyMockRun && typeof parsed?.aiModelIdentifier === 'string'
         ? parsed.aiModelIdentifier
-        : 'gemini-3.8-flash';
+        : 'QuestAI Vision';
 
     const report: DraftMigrationReport = {
       bankId,
@@ -1900,17 +1980,54 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
   }
 
   public loadDraft(): void {
+    if (this.initialBankId && this.selectedBankId() !== this.initialBankId && this.questionBanks.some((b) => b.id === this.initialBankId)) {
+      this.selectedBankId.set(this.initialBankId);
+      const bank = this.currentBank();
+      if (bank?.trafficSubtype) {
+        this.trafficSubtype.set(bank.trafficSubtype);
+      }
+    }
     const bankId = this.selectedBankId();
     try {
-      const raw = localStorage.getItem(`questai_inspection_${bankId}`);
+      const primaryKey = this.getDraftStorageKey(bankId);
+      let raw = localStorage.getItem(primaryKey);
+
+      // Safe, idempotent fallback & migration: check legacy un-scoped key if conversation draft not yet found
+      if (!raw && this.conversationId) {
+        const legacyKey = `questai_inspection_${bankId}`;
+        const legacyRaw = localStorage.getItem(legacyKey);
+        if (legacyRaw) {
+          raw = legacyRaw;
+          // Migrate copy into conversation-scoped key without deleting original
+          try {
+            localStorage.setItem(primaryKey, legacyRaw);
+          } catch {}
+        }
+      }
+
       if (raw) {
         const parsed = JSON.parse(raw);
         const sanitized = this.sanitizeAndMigrateDraft(bankId, parsed);
 
         this.formAnswers.set(sanitized.answers);
         if (parsed.metadata) this.inspectionMetadata.set(parsed.metadata);
-        if (Array.isArray(parsed.uploadedPhotos)) {
-          this.uploadedPhotos.set(parsed.uploadedPhotos);
+        if (Array.isArray(parsed.uploadedPhotos) && parsed.uploadedPhotos.length > 0) {
+          // If we already received full-fidelity photos via @Input initialPhotos, preserve their full URLs
+          if (this.initialPhotos && this.initialPhotos.length > 0) {
+            const fullPhotoMap = new Map<string, string>();
+            for (const p of this.initialPhotos) {
+              if (p.url) fullPhotoMap.set(p.id, p.url);
+            }
+            const hydrated = parsed.uploadedPhotos.map((p: any) => ({
+              ...p,
+              url: fullPhotoMap.get(p.id) || p.url,
+            }));
+            this.uploadedPhotos.set(hydrated);
+          } else {
+            this.uploadedPhotos.set(parsed.uploadedPhotos);
+          }
+        } else if (this.initialPhotos && this.initialPhotos.length > 0) {
+          this.uploadedPhotos.set([...this.initialPhotos]);
         } else {
           this.uploadedPhotos.set([]);
         }
@@ -1921,19 +2038,45 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
         this.aiModelIdentifier.set(sanitized.aiModelIdentifier);
         this.isMockEngine.set(false);
 
+        // Restore finalized report if stored in draft or matching reference in finalized list
+        if (parsed.finalizedReport) {
+          this.finalizedReport.set(parsed.finalizedReport);
+        } else {
+          try {
+            const finalizedRaw = localStorage.getItem('questai_finalized_inspections');
+            if (finalizedRaw) {
+              const list: FinalizedInspectionReport[] = JSON.parse(finalizedRaw);
+              const match = list.find(
+                (r) =>
+                  r.bankId === bankId &&
+                  (!this.conversationId || !r.conversationId || r.conversationId === this.conversationId)
+              );
+              if (match) {
+                this.finalizedReport.set(match);
+              }
+            }
+          } catch {}
+        }
+
         if (sanitized.migrated) {
           this.lastDraftMigrationReport.set(sanitized.report);
           this.persistDraftToStorage();
         }
       } else {
         this.formAnswers.set({});
-        this.uploadedPhotos.set([]);
+        if (this.initialPhotos && this.initialPhotos.length > 0) {
+          this.uploadedPhotos.set([...this.initialPhotos]);
+        } else {
+          this.uploadedPhotos.set([]);
+        }
         this.aiPreFillSummary.set(null);
+        this.finalizedReport.set(null);
       }
     } catch {
       this.formAnswers.set({});
-      this.uploadedPhotos.set([]);
+      this.uploadedPhotos.set(this.initialPhotos ? [...this.initialPhotos] : []);
       this.aiPreFillSummary.set(null);
+      this.finalizedReport.set(null);
     }
   }
 
@@ -1948,7 +2091,7 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
     this.pendingOverwriteQuestionId.set(null);
     this.editingQuestionId.set(null);
     try {
-      localStorage.removeItem(`questai_inspection_${this.selectedBankId()}`);
+      localStorage.removeItem(this.getDraftStorageKey(this.selectedBankId()));
     } catch {}
     this.showResetModal.set(false);
     this.showToast('Inspection form reset for this question bank.');

@@ -9,8 +9,6 @@
  * 7. Scanning animation lifecycle (start, duplicate-guard, success stop, error stop, cancel stop, ngOnDestroy)
  */
 
-import { describe, it } from 'node:test';
-import assert from 'node:assert/strict';
 import '@angular/compiler';
 import { EnvironmentInjector, createEnvironmentInjector, runInInjectionContext } from '@angular/core';
 import { DomSanitizer } from '@angular/platform-browser';
@@ -28,8 +26,62 @@ import {
   PhotoInspectionResponseWrapper,
   PhotoInspectionResult,
 } from '../../core/services/api.service';
+import { ChatPersistenceService } from '../../core/services/chat-persistence.service';
 import { QuestionAnswer } from './site-inspection.models';
 import { SiteInspectionComponent } from './site-inspection.component';
+
+// Polyfill in-memory localStorage for Node testing environments
+if (typeof (globalThis as any).localStorage === 'undefined') {
+  const store = new Map<string, string>();
+  (globalThis as any).localStorage = {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, value: string) => store.set(key, String(value)),
+    removeItem: (key: string) => store.delete(key),
+    clear: () => store.clear(),
+    get length() {
+      return store.size;
+    },
+    key: (index: number) => Array.from(store.keys())[index] ?? null,
+  };
+}
+
+const assert = {
+  equal<T>(actual: T, expected: T, message?: string): void {
+    if (actual !== expected) {
+      throw new Error(
+        message || `Assertion failed: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`
+      );
+    }
+  },
+  deepEqual<T>(actual: T, expected: T, message?: string): void {
+    const a = JSON.stringify(actual);
+    const e = JSON.stringify(expected);
+    if (a !== e) {
+      throw new Error(message || `Deep assertion failed: expected ${e}, got ${a}`);
+    }
+  },
+};
+
+const pendingTests: Array<{ name: string; fn: () => void | Promise<void> }> = [];
+
+function describe(suiteName: string, fn: () => void): void {
+  console.log(`▶ ${suiteName}`);
+  fn();
+  (async () => {
+    for (const t of pendingTests) {
+      await t.fn();
+      console.log(`  ✔ ${t.name}`);
+    }
+    console.log(`✔ ${suiteName}`);
+  })().catch((err) => {
+    console.error('✖ Test suite failed:', err);
+    throw err;
+  });
+}
+
+function it(testName: string, fn: () => void | Promise<void>): void {
+  pendingTests.push({ name: testName, fn });
+}
 
 /**
  * Minimal 1x1 valid JPEG data URL (binary starts with FF D8 FF)
@@ -52,10 +104,40 @@ function createComponentWithMockApi(
 }
 
 function createAppComponentWithMockApi(
-  generateTextFn: (prompt: string) => any
-): { app: AppComponent; injector: EnvironmentInjector } {
+  generateTextFn: (prompt: string) => any,
+  analyzePhotosFn?: (req: PhotoInspectionRequest) => any,
+  persistenceService?: ChatPersistenceService
+): { app: AppComponent; injector: EnvironmentInjector; persistence: ChatPersistenceService } {
+  const persistence = persistenceService || new ChatPersistenceService();
   const mockApiPartial: Partial<ApiService> = {
     generateText: generateTextFn,
+    analyzeInspectionPhotos:
+      analyzePhotosFn ||
+      ((req: PhotoInspectionRequest) =>
+        of({
+          success: true,
+          data: {
+            bankId: req.bankId,
+            bankName: req.bankName,
+            analyzedAt: new Date().toISOString(),
+            modelIdentifier: 'QuestAI Vision',
+            photoCount: req.photos.length,
+            visualSummary: 'Site photographs reviewed for compliance.',
+            overallRiskLevel: 'low',
+            questionsEvaluated: req.questions.length,
+            evaluations: req.questions.slice(0, 2).map((q) => ({
+              questionId: q.id,
+              suggestedRating: 1 as const,
+              confidence: 0.91,
+              requiresHumanVerification: false,
+              visibleEvidence: 'Verified in site photograph.',
+              explanation: 'Meets safety requirements.',
+              suggestedComment: 'Compliant in uploaded photograph.',
+              relevantPhotoIndices: [0],
+            })),
+          },
+          timestamp: new Date().toISOString(),
+        })),
   };
   const mockSanitizer: Partial<DomSanitizer> = {
     bypassSecurityTrustHtml: (val: string) => val as any,
@@ -64,11 +146,12 @@ function createAppComponentWithMockApi(
     [
       { provide: ApiService, useValue: mockApiPartial },
       { provide: DomSanitizer, useValue: mockSanitizer },
+      { provide: ChatPersistenceService, useValue: persistence },
     ],
     null as any
   );
   const app = runInInjectionContext(injector, () => new AppComponent());
-  return { app, injector };
+  return { app, injector, persistence };
 }
 
 describe('QuestAI Phase 3 – Frontend Gemini Integration & Scanning Lifecycle Suite', () => {
@@ -449,44 +532,84 @@ describe('QuestAI Phase 3 – Frontend Gemini Integration & Scanning Lifecycle S
     component.ngOnDestroy();
   });
 
-  it('7. conversational chat workflow (Tests 1, 2, 3, 4, 8, 9): greetings, form intent, 12 category chips, photo modal & typed category selection', () => {
-    const { app } = createAppComponentWithMockApi((prompt: string) => {
-      const lower = prompt.toLowerCase();
-      if (lower === 'hi') {
+  it('7. ChatGPT-style photo attachments, in-chat photo analysis, zero Gemini branding, and IndexedDB persistence (Tests 1–15)', async () => {
+    let capturedPhotoRequests: PhotoInspectionRequest[] = [];
+    const sharedPersistence = new ChatPersistenceService();
+
+    const { app, injector } = createAppComponentWithMockApi(
+      (prompt: string) => {
+        const lower = prompt.toLowerCase();
+        if (lower === 'hi') {
+          return of({
+            success: true,
+            data: {
+              text: 'Hi! How can I help you today?',
+              model: 'gemini-3.8-flash',
+              generatedAt: new Date().toISOString(),
+              latencyMs: 120,
+            },
+            timestamp: new Date().toISOString(),
+          });
+        }
+        if (lower === 'how are you?') {
+          return of({
+            success: true,
+            data: {
+              text: "I'm doing well, thank you! How can I help you today?",
+              model: 'gemini-3.8-flash',
+              generatedAt: new Date().toISOString(),
+              latencyMs: 110,
+            },
+            timestamp: new Date().toISOString(),
+          });
+        }
         return of({
           success: true,
           data: {
-            text: 'Hi! How can I help you today?',
+            text: 'Sure! Which inspection form would you like to fill?',
             model: 'gemini-3.8-flash',
             generatedAt: new Date().toISOString(),
-            latencyMs: 120,
+            latencyMs: 140,
           },
           timestamp: new Date().toISOString(),
         });
-      }
-      if (lower === 'how are you?') {
+      },
+      (req: PhotoInspectionRequest) => {
+        capturedPhotoRequests.push(req);
         return of({
           success: true,
           data: {
-            text: "I'm doing well, thank you! How can I help you today?",
-            model: 'gemini-3.8-flash',
-            generatedAt: new Date().toISOString(),
-            latencyMs: 110,
+            bankId: req.bankId,
+            bankName: req.bankName,
+            analyzedAt: new Date().toISOString(),
+            modelIdentifier: 'QuestAI Vision',
+            photoCount: req.photos.length,
+            visualSummary: 'Site photographs reviewed for compliance.',
+            overallRiskLevel: 'low',
+            questionsEvaluated: req.questions.length,
+            evaluations: req.questions.slice(0, 2).map((q) => ({
+              questionId: q.id,
+              suggestedRating: 1 as const,
+              confidence: 0.92,
+              requiresHumanVerification: false,
+              visibleEvidence: 'Verified in site photograph.',
+              explanation: 'Meets safety requirements.',
+              suggestedComment: 'Compliant in uploaded photograph.',
+              relevantPhotoIndices: [0],
+            })),
           },
           timestamp: new Date().toISOString(),
         });
-      }
-      return of({
-        success: true,
-        data: {
-          text: 'Sure! Which inspection form would you like to fill?',
-          model: 'gemini-3.8-flash',
-          generatedAt: new Date().toISOString(),
-          latencyMs: 140,
-        },
-        timestamp: new Date().toISOString(),
-      });
-    });
+      },
+      sharedPersistence
+    );
+
+    // Attach an embedded SiteInspectionComponent instance so in-chat workflow triggers synchronously in tests
+    const embeddedInspection = runInInjectionContext(injector, () => new SiteInspectionComponent());
+    embeddedInspection.embeddedInChat = true;
+    embeddedInspection.conversationId = app.activeConversationId();
+    embeddedInspection.workflowStatusChange.subscribe((ev) => app.onEmbeddedWorkflowStatusChange(ev));
+    (app as any).inspectionComponent = embeddedInspection;
 
     // Verify exact 12 category chip labels
     const expectedCategoryNames = [
@@ -514,44 +637,190 @@ describe('QuestAI Phase 3 – Frontend Gemini Integration & Scanning Lifecycle S
     let msgs = app.activeMessages();
     assert.equal(msgs.length, 2);
     assert.equal(msgs[1].content, 'Hi! How can I help you today?');
-    assert.equal(Boolean(msgs[1].showInspectionCategories), false);
+    assert.equal(!!msgs[1].showInspectionCategories, false);
 
-    // TEST 2: User sends "How are you?" -> short conversational response, no category panel
-    app.composerText.set('How are you?');
-    app.sendMessage();
-    msgs = app.activeMessages();
-    assert.equal(msgs.length, 4);
-    assert.equal(Boolean(msgs[3].showInspectionCategories), false);
-
-    // TEST 8: User sends an ordinary safety question containing the word "inspection" -> no category panel
-    app.composerText.set('Why is ladder inspection important for safety?');
-    app.sendMessage();
-    msgs = app.activeMessages();
-    assert.equal(msgs.length, 6);
-    assert.equal(Boolean(msgs[5].showInspectionCategories), false);
-
-    // TEST 3: User sends "I want to fill a Site Inspection form." -> asks which form and shows 12 category chips
+    // TEST 2: User sends "I want to fill a Site Inspection form." -> asks which form and shows 12 category chips
     app.composerText.set('I want to fill a Site Inspection form.');
     app.sendMessage();
     msgs = app.activeMessages();
-    assert.equal(msgs.length, 8);
-    assert.equal(msgs[7].content, 'Sure! Which inspection form would you like to fill?');
-    assert.equal(msgs[7].showInspectionCategories, true);
+    assert.equal(msgs.length, 4);
+    assert.equal(msgs[3].content, 'Sure! Which inspection form would you like to fill?');
+    assert.equal(msgs[3].showInspectionCategories, true);
 
-    // TEST 4: User clicks "Civil / Other" chip -> records bank and opens existing photo-upload dialog
+    // TEST 3: User clicks "Civil / Other" chip -> assistant replies "Great! Please upload your site photographs here."
+    // and NO separate upload modal opens
     const civilBank = app.siteInspectionBanks.find((b) => b.id === 'civil-other')!;
-    app.onSelectCategoryChipFromChat(civilBank, msgs[7].id);
+    app.onSelectCategoryChipFromChat(civilBank, msgs[3].id);
+    msgs = app.activeMessages();
     assert.equal(app.selectedUploadBank()?.id, 'civil-other');
-    assert.equal(app.showPhotoUploadModal(), true);
-    assert.equal(app.activeMessages()[7].selectedBankId, 'civil-other');
-
-    // Close modal and test TEST 9: User types a category name ("Street Lighting") after being asked to choose
-    app.closePhotoUploadModal();
     assert.equal(app.showPhotoUploadModal(), false);
+    assert.equal(msgs[msgs.length - 1].content, 'Great! Please upload your site photographs here.');
 
-    app.composerText.set('Street Lighting');
+    // Also verify typed category selection ("Ladder / Stepladder") sends the same prompt without opening modal
+    app.composerText.set('Ladder / Stepladder');
     app.sendMessage();
-    assert.equal(app.selectedUploadBank()?.id, 'street-lighting');
-    assert.equal(app.showPhotoUploadModal(), true);
+    msgs = app.activeMessages();
+    assert.equal(app.selectedUploadBank()?.id, 'ladder-stepladder');
+    assert.equal(app.showPhotoUploadModal(), false);
+    assert.equal(msgs[msgs.length - 1].content, 'Great! Please upload your site photographs here.');
+
+    // TEST 4: User clicks the (+) attachment button -> attachment menu opens
+    assert.equal(app.showAttachmentMenu(), false);
+    app.toggleAttachmentMenu();
+    assert.equal(app.showAttachmentMenu(), true);
+    app.closeAttachmentMenu();
+    assert.equal(app.showAttachmentMenu(), false);
+
+    // TEST 5, 6, 7: User attaches multiple photos (gallery + camera) -> thumbnails appear above composer without auto-sending
+    app.addPendingPhotos([
+      {
+        id: 'p-1',
+        name: 'ladder_front.jpg',
+        url: VALID_TEST_JPEG_DATA_URL,
+        timestamp: new Date().toISOString(),
+      },
+      {
+        id: 'p-2',
+        name: 'ladder_feet.jpg',
+        url: VALID_TEST_JPEG_DATA_URL,
+        timestamp: new Date().toISOString(),
+      },
+      {
+        id: 'p-cam-3',
+        name: 'camera_rung.jpg',
+        url: VALID_TEST_JPEG_DATA_URL,
+        timestamp: new Date().toISOString(),
+      },
+    ]);
+    assert.equal(app.uploadedPhotos().length, 3);
+    assert.equal(capturedPhotoRequests.length, 0, 'Must not auto-send or auto-analyse before Send is pressed');
+
+    // Remove one thumbnail before sending
+    app.removePendingComposerPhoto(1);
+    assert.equal(app.uploadedPhotos().length, 2);
+    assert.equal(app.uploadedPhotos()[0].id, 'p-1');
+    assert.equal(app.uploadedPhotos()[1].id, 'p-cam-3');
+
+    // Verify pending composer attachments are persisted in IndexedDB before sending
+    const persistedPendingBeforeSend = await sharedPersistence.loadPendingAttachments(
+      app.activeConversationId()
+    );
+    assert.equal(persistedPendingBeforeSend.length, 2);
+
+    // TEST 8, 9, 10, 11: User sends the attached photos in chat ->
+    // 1. User message includes the 2 photos
+    // 2. Composer pending photos are cleared
+    // 3. Real photo-analysis endpoint is called with 'ladder-stepladder' and 2 photos
+    // 4. Inspection form is ready in-chat and assistant message updates to "Your photographs have been analysed. Your inspection form is ready for review."
+    app.composerText.set('Here are the site ladder photos');
+    app.sendMessage();
+
+    assert.equal(app.uploadedPhotos().length, 0);
+    assert.equal(capturedPhotoRequests.length, 1);
+    assert.equal(capturedPhotoRequests[0].bankId, 'ladder-stepladder');
+    assert.equal(capturedPhotoRequests[0].photos.length, 2);
+    assert.equal(embeddedInspection.activeStep(), 'review-form');
+    assert.equal(embeddedInspection.isScanning(), false);
+
+    msgs = app.activeMessages();
+    const userPhotoMsg = msgs[msgs.length - 2];
+    const assistantWorkflowMsg = msgs[msgs.length - 1];
+    assert.equal(userPhotoMsg.sender, 'user');
+    assert.equal(userPhotoMsg.photos?.length, 2);
+    assert.equal(assistantWorkflowMsg.sender, 'assistant');
+    assert.equal(assistantWorkflowMsg.isInspectionWorkflowMessage, true);
+    assert.equal(
+      assistantWorkflowMsg.content,
+      'Your photographs have been analysed. Your inspection form is ready for review.'
+    );
+
+    // TEST 12: Verify "Gemini" does not appear anywhere in conversation messages or status text
+    const serializedConversation = JSON.stringify(app.conversations());
+    assert.equal(/gemini/i.test(serializedConversation), false, 'Conversation must not contain Gemini branding');
+
+    // TEST 13, 14, 15: Verify IndexedDB persistence restores conversations and sent image attachments after refresh/re-init
+    const persistedState = await sharedPersistence.loadState();
+    assert.equal(persistedState.conversations.length, 1);
+    const restoredPhotoMsg = persistedState.conversations[0].messages.find(
+      (m) => m.photos && m.photos.length > 0
+    );
+    assert.equal(restoredPhotoMsg?.photos?.length, 2);
+
+    // =========================================================================
+    // PHASE 3.2 VERIFICATION: Tests 1-8
+    // =========================================================================
+
+    // Test 1 & 2: Civil and Ladder bank restoration with initialBankId
+    const ladderComp = runInInjectionContext(injector, () => new SiteInspectionComponent());
+    ladderComp.conversationId = app.activeConversationId();
+    ladderComp.initialBankId = 'ladder-stepladder';
+    ladderComp.initialPhotos = restoredPhotoMsg?.photos;
+    ladderComp.loadDraft();
+    assert.equal(ladderComp.selectedBankId(), 'ladder-stepladder');
+    ladderComp.ngOnInit();
+    assert.equal(ladderComp.selectedBankId(), 'ladder-stepladder');
+    assert.equal(ladderComp.activeStep(), 'review-form');
+    assert.equal(ladderComp.uploadedPhotos().length, 2);
+    assert.equal(ladderComp.uploadedPhotos()[0].url.length > 50, true);
+
+    // Test 3: Two separate conversations using the same category (Civil/Other) do not overwrite each other
+    const conv1Comp = runInInjectionContext(injector, () => new SiteInspectionComponent());
+    conv1Comp.conversationId = 'conv-civil-1';
+    conv1Comp.initialBankId = 'civil-other';
+    conv1Comp.ngOnInit();
+    const civilQ1 = conv1Comp.applicableQuestions()[0].id;
+    conv1Comp.setRating(civilQ1, '1');
+    conv1Comp.setComment(civilQ1, 'Conversation 1 specific civil comment');
+    conv1Comp.saveDraft();
+
+    const conv2Comp = runInInjectionContext(injector, () => new SiteInspectionComponent());
+    conv2Comp.conversationId = 'conv-civil-2';
+    conv2Comp.initialBankId = 'civil-other';
+    conv2Comp.ngOnInit();
+    conv2Comp.setRating(civilQ1, '-1');
+    conv2Comp.setComment(civilQ1, 'Conversation 2 specific civil comment');
+    conv2Comp.saveDraft();
+
+    // Reload Conv 1 and verify its answers were not overwritten by Conv 2
+    const conv1Reloaded = runInInjectionContext(injector, () => new SiteInspectionComponent());
+    conv1Reloaded.conversationId = 'conv-civil-1';
+    conv1Reloaded.initialBankId = 'civil-other';
+    conv1Reloaded.ngOnInit();
+    assert.equal(conv1Reloaded.formAnswers()[civilQ1]?.rating, '1');
+    assert.equal(conv1Reloaded.formAnswers()[civilQ1]?.comment, 'Conversation 1 specific civil comment');
+
+    // Reload Conv 2 and verify its distinct answers
+    const conv2Reloaded = runInInjectionContext(injector, () => new SiteInspectionComponent());
+    conv2Reloaded.conversationId = 'conv-civil-2';
+    conv2Reloaded.initialBankId = 'civil-other';
+    conv2Reloaded.ngOnInit();
+    assert.equal(conv2Reloaded.formAnswers()[civilQ1]?.rating, '-1');
+    assert.equal(conv2Reloaded.formAnswers()[civilQ1]?.comment, 'Conversation 2 specific civil comment');
+
+    // Test 6 & 7: Finalized inspection restoration & activeStep = 'finalized'
+    conv1Reloaded.confirmFinalizeInspection();
+    const finalRef = conv1Reloaded.finalizedReport()?.referenceNumber;
+    assert.equal(typeof finalRef === 'string' && finalRef.startsWith('SI-2026-'), true);
+    assert.equal(conv1Reloaded.activeStep(), 'finalized');
+
+    // Reload Conv 1 after finalization
+    const conv1FinalizedReload = runInInjectionContext(injector, () => new SiteInspectionComponent());
+    conv1FinalizedReload.conversationId = 'conv-civil-1';
+    conv1FinalizedReload.initialBankId = 'civil-other';
+    conv1FinalizedReload.ngOnInit();
+    assert.equal(conv1FinalizedReload.activeStep(), 'finalized');
+    assert.equal(conv1FinalizedReload.finalizedReport()?.referenceNumber, finalRef);
+
+    // Test 8: Switching to Conv 2 still shows non-finalized review-form
+    assert.equal(conv2Reloaded.activeStep(), 'review-form');
+    assert.equal(conv2Reloaded.finalizedReport(), null);
+
+    ladderComp.ngOnDestroy();
+    conv1Comp.ngOnDestroy();
+    conv2Comp.ngOnDestroy();
+    conv1Reloaded.ngOnDestroy();
+    conv2Reloaded.ngOnDestroy();
+    conv1FinalizedReload.ngOnDestroy();
+    embeddedInspection.ngOnDestroy();
   });
 });

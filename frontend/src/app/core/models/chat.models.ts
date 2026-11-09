@@ -1,3 +1,5 @@
+import { InspectionPhoto } from '../../features/inspection/site-inspection.models';
+
 export interface InspectionFindingPreview {
   id?: string;
   category: string;
@@ -15,6 +17,7 @@ export interface ChatMessage {
   content: string;
   timestamp: Date;
   attachmentName?: string;
+  photos?: InspectionPhoto[];
   structuredInspection?: {
     summary?: string;
     overallRiskLevel?: 'low' | 'medium' | 'high' | 'critical';
@@ -28,6 +31,8 @@ export interface ChatMessage {
   showInspectionCategories?: boolean;
   suggestedBankId?: string;
   selectedBankId?: string;
+  isInspectionWorkflowMessage?: boolean;
+  inspectionBankId?: string;
 }
 
 export interface Conversation {
@@ -36,6 +41,7 @@ export interface Conversation {
   updatedAt: Date;
   previewSnippet: string;
   messages: ChatMessage[];
+  selectedBankId?: string;
 }
 
 export interface SuggestionPrompt {
