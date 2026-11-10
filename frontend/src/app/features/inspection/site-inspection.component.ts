@@ -984,7 +984,7 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
     const backendMessage = this.sanitizeProviderBranding(rawBackendMessage);
 
     if (err?.status === 0) {
-      return 'Cannot reach the QuestAI backend server on port 5001. Please ensure the backend is running.';
+      return 'Cannot reach the QuestAI Cloud Functions backend. Please check your network connection and backend deployment.';
     }
     if (err?.status === 400) {
       return backendMessage || 'Invalid photo analysis request payload. Check photo format and size limits.';
@@ -1736,7 +1736,18 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
       isMock: this.isMockEngine(),
     };
 
-    // Store in standalone local storage (Key: questai_finalized_inspections)
+    // 1. Persist to Quest Firestore collection 'quest-ai-inspections' via Cloud Function
+    this.apiService.saveFinalizedInspection(report).subscribe({
+      next: (res) => {
+        console.log(`[QuestAI] Finalized inspection stored in Quest Firestore:`, res);
+        this.showToast(`Inspection ${ref} successfully saved to Quest Firestore!`);
+      },
+      error: (err) => {
+        console.warn(`[QuestAI] Could not save to Firestore (offline fallback used):`, err);
+      },
+    });
+
+    // 2. Store in local storage as offline fallback (Key: questai_finalized_inspections)
     try {
       const existingRaw = localStorage.getItem('questai_finalized_inspections');
       const existingList = existingRaw ? JSON.parse(existingRaw) : [];

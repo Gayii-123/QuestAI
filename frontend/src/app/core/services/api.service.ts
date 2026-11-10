@@ -143,6 +143,22 @@ export interface PhotoInspectionResponseWrapper {
   timestamp: string;
 }
 
+export interface SaveInspectionResponse {
+  success: boolean;
+  id: string;
+  referenceNumber: string;
+  collection: string;
+  message: string;
+  timestamp: string;
+}
+
+export interface GetInspectionsResponse {
+  success: boolean;
+  count: number;
+  data: any[];
+  timestamp: string;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -151,28 +167,66 @@ export class ApiService {
   private readonly apiUrl = environment.apiUrl;
 
   /**
-   * Check backend health status (GET /api/health)
+   * Resolves endpoint URL dynamically based on whether backend is hosted as
+   * individual Cloud Functions (us-central1-quest-uk898.cloudfunctions.net/questAi...),
+   * a unified Express proxy (/questAiApi or /api), or custom endpoint map.
+   */
+  private getEndpointUrl(
+    action: 'health' | 'status' | 'generate' | 'inspect' | 'inspectPhotos' | 'saveInspection'
+  ): string {
+    const custom = (environment as { endpoints?: Record<string, string> }).endpoints;
+    if (custom && custom[action]) {
+      return custom[action];
+    }
+
+    const base = (this.apiUrl || '').replace(/\/+$/, '');
+    const isCloudFunctionsRoot =
+      base.includes('cloudfunctions.net') && !base.endsWith('/questAiApi');
+
+    if (isCloudFunctionsRoot) {
+      switch (action) {
+        case 'health': return `${base}/questAiHealth`;
+        case 'status': return `${base}/questAiStatus`;
+        case 'generate': return `${base}/questAiGenerateText`;
+        case 'inspect': return `${base}/questAiInspect`;
+        case 'inspectPhotos': return `${base}/questAiInspectPhotos`;
+        case 'saveInspection': return `${base}/questAiSaveInspection`;
+      }
+    }
+
+    switch (action) {
+      case 'health': return `${base}/health`;
+      case 'status': return `${base}/ai/status`;
+      case 'generate': return `${base}/ai/generate`;
+      case 'inspect': return `${base}/ai/inspect`;
+      case 'inspectPhotos': return `${base}/ai/inspect-photos`;
+      case 'saveInspection': return `${base}/api/inspections`;
+    }
+  }
+
+  /**
+   * Check backend health status (GET /health or /questAiHealth)
    */
   getHealth(): Observable<HealthResponse> {
-    return this.http.get<HealthResponse>(`${this.apiUrl}/health`);
+    return this.http.get<HealthResponse>(this.getEndpointUrl('health'));
   }
 
   /**
-   * Get AI service status & readiness (GET /api/ai/status)
+   * Get AI service status & readiness (GET /ai/status or /questAiStatus)
    */
   getAiStatus(): Observable<AIServiceStatusResponse> {
-    return this.http.get<AIServiceStatusResponse>(`${this.apiUrl}/ai/status`);
+    return this.http.get<AIServiceStatusResponse>(this.getEndpointUrl('status'));
   }
 
   /**
-   * Send text prompt to Gemini AI model via backend proxy (POST /api/ai/generate)
+   * Send text prompt to Gemini AI model (POST /ai/generate or /questAiGenerateText)
    */
   generateText(prompt: string): Observable<GenerateTextResponse> {
-    return this.http.post<GenerateTextResponse>(`${this.apiUrl}/ai/generate`, { prompt });
+    return this.http.post<GenerateTextResponse>(this.getEndpointUrl('generate'), { prompt });
   }
 
   /**
-   * Send site inspection request to AI service placeholder (POST /api/ai/inspect)
+   * Send site inspection request to AI service (POST /ai/inspect or /questAiInspect)
    */
   runInspection(siteName: string, notes?: string): Observable<InspectionResponse> {
     const payload = {
@@ -180,14 +234,30 @@ export class ApiService {
       siteName,
       notes: notes || 'Baseline site inspection',
     };
-    return this.http.post<InspectionResponse>(`${this.apiUrl}/ai/inspect`, payload);
+    return this.http.post<InspectionResponse>(this.getEndpointUrl('inspect'), payload);
   }
 
   /**
-   * Multimodal inspection evaluation of site photographs (POST /api/ai/inspect-photos)
+   * Multimodal inspection evaluation of site photographs (POST /ai/inspect-photos or /questAiInspectPhotos)
    */
   analyzeInspectionPhotos(payload: PhotoInspectionRequest): Observable<PhotoInspectionResponseWrapper> {
-    return this.http.post<PhotoInspectionResponseWrapper>(`${this.apiUrl}/ai/inspect-photos`, payload);
+    return this.http.post<PhotoInspectionResponseWrapper>(this.getEndpointUrl('inspectPhotos'), payload);
+  }
+
+  /**
+   * Save finalized inspection report to Quest Firestore collection 'quest-ai-inspections'
+   */
+  saveFinalizedInspection(report: any): Observable<SaveInspectionResponse> {
+    return this.http.post<SaveInspectionResponse>(this.getEndpointUrl('saveInspection'), { report });
+  }
+
+  /**
+   * Fetch stored inspections from Quest Firestore collection 'quest-ai-inspections'
+   */
+  getStoredInspections(bankId?: string): Observable<GetInspectionsResponse> {
+    const url = this.getEndpointUrl('saveInspection');
+    const params = bankId ? `?bankId=${encodeURIComponent(bankId)}` : '';
+    return this.http.get<GetInspectionsResponse>(`${url}${params}`);
   }
 }
 

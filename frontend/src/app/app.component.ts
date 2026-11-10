@@ -862,12 +862,14 @@ export class AppComponent implements OnInit, AfterViewChecked {
         let errorMessage = "We couldn't complete your request right now. Please try again.";
         if (err.status === 0) {
           errorMessage =
-            'Unable to reach the QuestAI backend at http://localhost:5001. Please verify that the backend server is running.';
+            'Unable to reach the QuestAI Cloud Functions backend. Please verify your connection and backend deployment.';
         } else if (err.status === 429) {
           errorMessage =
             'Service quota or rate limit reached. Please wait a few moments and try again.';
         } else if (err.status === 504) {
           errorMessage = 'The request timed out. Please try asking again.';
+        } else if (err.error?.message) {
+          errorMessage = this.sanitizeProviderBranding(err.error.message);
         } else if (err.error?.error?.message) {
           errorMessage = this.sanitizeProviderBranding(err.error.error.message);
         } else if (err.message) {
