@@ -30,8 +30,17 @@ export class AppComponent implements OnInit, AfterViewChecked {
   @ViewChild('chatCameraInput') private chatCameraInput?: ElementRef<HTMLInputElement>;
   @ViewChild(SiteInspectionComponent) private inspectionComponent?: SiteInspectionComponent;
 
-  // Active top-level view: 'chat' | 'inspection'
-  currentView = signal<'chat' | 'inspection'>('chat');
+  // Active top-level view: 'chat' | 'inspection' | 'inspection-history'
+  currentView = signal<'chat' | 'inspection' | 'inspection-history'>('chat');
+
+  // Inspection history from localStorage
+  inspectionHistoryList = signal<any[]>([]);
+
+  // Whether to show inspection record detail
+  selectedHistoryRecord = signal<any | null>(null);
+
+  // Sidebar view: 'recent-chats' | 'inspection-history' | 'my-reports'
+  sidebarActiveSection = signal<'recent-chats' | 'inspection-history' | 'my-reports'>('recent-chats');
 
   // Complete list of all 12 Question Banks
   readonly siteInspectionBanks = [
@@ -276,6 +285,9 @@ export class AppComponent implements OnInit, AfterViewChecked {
 
     // Restore conversations and image attachments from IndexedDB
     void this.restorePersistedChatState();
+
+    // Load inspection history from localStorage
+    this.loadInspectionHistory();
   }
 
   async restorePersistedChatState(): Promise<void> {
@@ -333,6 +345,7 @@ export class AppComponent implements OnInit, AfterViewChecked {
 
   navigateToInspection(bankId?: string): void {
     this.currentView.set('inspection');
+    this.sidebarActiveSection.set('recent-chats');
     this.closeMobileSidebar();
     const applyStep = () => {
       if (this.inspectionComponent) {
@@ -364,6 +377,7 @@ export class AppComponent implements OnInit, AfterViewChecked {
 
   navigateToChat(): void {
     this.currentView.set('chat');
+    this.sidebarActiveSection.set('recent-chats');
     this.closeMobileSidebar();
     try {
       if (typeof window !== 'undefined') {
@@ -1339,6 +1353,77 @@ export class AppComponent implements OnInit, AfterViewChecked {
   }
 
 
+
+  // --- Inspection History ---
+
+  loadInspectionHistory(): void {
+    try {
+      const raw = localStorage.getItem('questai_finalized_inspections');
+      if (raw) {
+        const list = JSON.parse(raw);
+        this.inspectionHistoryList.set(Array.isArray(list) ? list : []);
+      } else {
+        this.inspectionHistoryList.set([]);
+      }
+    } catch {
+      this.inspectionHistoryList.set([]);
+    }
+  }
+
+  navigateToInspectionHistory(): void {
+    this.loadInspectionHistory();
+    this.sidebarActiveSection.set('inspection-history');
+    this.currentView.set('chat');
+    this.closeMobileSidebar();
+  }
+
+  navigateToRecentChats(): void {
+    this.sidebarActiveSection.set('recent-chats');
+    this.currentView.set('chat');
+    this.closeMobileSidebar();
+  }
+
+  navigateToMyReports(): void {
+    this.loadInspectionHistory();
+    this.sidebarActiveSection.set('my-reports');
+    this.currentView.set('chat');
+    this.closeMobileSidebar();
+  }
+
+  openHistoryRecord(record: any): void {
+    this.selectedHistoryRecord.set(record);
+  }
+
+  closeHistoryRecord(): void {
+    this.selectedHistoryRecord.set(null);
+  }
+
+  getRecordPassRate(record: any): number {
+    if (!record?.stats?.total || record.stats.total === 0) return 0;
+    return Math.round((record.stats.passCount / record.stats.total) * 100);
+  }
+
+  getRecordRiskClass(record: any): string {
+    const pass = this.getRecordPassRate(record);
+    if (pass >= 85) return 'risk-low';
+    if (pass >= 60) return 'risk-medium';
+    return 'risk-high';
+  }
+
+  formatHistoryDate(isoDate: string): string {
+    if (!isoDate) return '';
+    try {
+      return new Date(isoDate).toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch {
+      return isoDate;
+    }
+  }
 
   private scrollToBottom(): void {
     try {

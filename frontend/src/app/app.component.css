@@ -1,4 +1,4 @@
-/* ==============================================================================
+﻿/* ==============================================================================
    QuestAI 2.0 - Modern Enterprise AI Chat & Inspection Styling
    Clean, modern 2026 SaaS UI with white/soft-grey surfaces and Quest red accents
    ============================================================================== */
@@ -2840,4 +2840,882 @@
   .user-role-label {
     display: none;
   }
+}
+
+/* ==============================================================================
+   Sidebar Primary Nav (New Chat / Inspection History / My Reports)
+   ============================================================================== */
+
+.sidebar-primary-nav {
+  display: flex;
+  flex-direction: column;
+  padding: 0.5rem 0.75rem;
+  gap: 0.15rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.sidebar-primary-nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: all 0.15s ease-in-out;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+
+.sidebar-primary-nav-btn:hover {
+  background-color: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+
+.sidebar-primary-nav-btn.active {
+  background-color: var(--primary-red-light);
+  color: var(--primary-red);
+  font-weight: 600;
+}
+
+.sidebar-nav-new-chat {
+  background-color: #fee2e2;
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+.sidebar-nav-new-chat:hover {
+  background-color: #fecaca;
+  color: #991b1b;
+}
+
+/* ==============================================================================
+   Sidebar Footer — User Profile Card (picture 2 style)
+   ============================================================================== */
+
+.sidebar-footer {
+  padding: 0;
+  border-top: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface);
+  overflow: hidden;
+}
+
+.sidebar-user-profile {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.85rem 0.85rem 0.65rem 0.85rem;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.sidebar-user-profile:hover {
+  background-color: var(--bg-surface-hover);
+}
+
+.sidebar-user-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f9a8a8, #f87171);
+  color: #b91c1c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  border: 2px solid #fecaca;
+}
+
+.sidebar-user-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.sidebar-user-name {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-user-role {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.sidebar-user-chevron {
+  width: 16px;
+  height: 16px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.sidebar-footer-illustration {
+  height: 70px;
+  background: linear-gradient(to top, rgba(220,38,38,0.08), transparent);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 260 70' fill='none'%3E%3Crect x='10' y='10' width='20' height='55' rx='2' fill='%23fca5a5' opacity='0.4'/%3E%3Crect x='40' y='25' width='15' height='40' rx='2' fill='%23fca5a5' opacity='0.3'/%3E%3Crect x='65' y='5' width='25' height='60' rx='2' fill='%23fca5a5' opacity='0.4'/%3E%3Crect x='100' y='15' width='18' height='50' rx='2' fill='%23fca5a5' opacity='0.3'/%3E%3Crect x='130' y='30' width='12' height='35' rx='2' fill='%23fca5a5' opacity='0.25'/%3E%3Crect x='155' y='20' width='22' height='45' rx='2' fill='%23fca5a5' opacity='0.3'/%3E%3Crect x='190' y='10' width='16' height='55' rx='2' fill='%23fca5a5' opacity='0.4'/%3E%3Crect x='220' y='35' width='14' height='30' rx='2' fill='%23fca5a5' opacity='0.25'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+/* ==============================================================================
+   Welcome Screen (matching mockup)
+   ============================================================================== */
+
+.welcome-minimal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 2rem 1rem;
+  max-width: 650px;
+  margin: 0 auto;
+}
+
+.welcome-logo-wrap {
+  position: relative;
+  margin-bottom: 1.25rem;
+}
+
+.welcome-logo-badge {
+  width: 72px;
+  height: 72px;
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: 800;
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(220,38,38,0.3), 0 2px 8px rgba(220,38,38,0.2);
+  position: relative;
+}
+
+.welcome-logo-sparkle {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  font-size: 1rem;
+  color: #fbbf24;
+}
+
+.welcome-heading {
+  font-size: 2.4rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.03em;
+  margin-bottom: 0.4rem;
+  line-height: 1.1;
+}
+
+.welcome-subheading {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+  letter-spacing: -0.02em;
+}
+
+.welcome-description {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin-bottom: 1.75rem;
+  font-weight: 500;
+}
+
+.welcome-action-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  justify-content: center;
+}
+
+.welcome-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.1rem;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-pill);
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  box-shadow: var(--shadow-xs);
+  white-space: nowrap;
+}
+
+.welcome-chip:hover {
+  background-color: var(--primary-red-light);
+  border-color: var(--primary-red-border);
+  color: var(--primary-red-hover);
+  box-shadow: 0 2px 8px rgba(220,38,38,0.12);
+  transform: translateY(-1px);
+}
+
+.chip-icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.chip-icon-red {
+  color: var(--primary-red);
+}
+
+.chip-icon-sparkle {
+  color: #fbbf24;
+}
+
+.chip-icon-outline {
+  color: var(--text-secondary);
+}
+
+/* ==============================================================================
+   Inspection History Sidebar Items
+   ============================================================================== */
+
+.history-item {
+  cursor: pointer;
+}
+
+.history-icon svg {
+  width: 15px;
+  height: 15px;
+  color: var(--text-secondary);
+}
+
+.history-pass-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+}
+
+.history-pass-badge.risk-low {
+  background-color: #dcfce7;
+  color: #15803d;
+}
+
+.history-pass-badge.risk-medium {
+  background-color: #fef9c3;
+  color: #a16207;
+}
+
+.history-pass-badge.risk-high {
+  background-color: #fee2e2;
+  color: #b91c1c;
+}
+
+/* ==============================================================================
+   Inspection History Detail Modal
+   ============================================================================== */
+
+.history-detail-modal {
+  max-width: 640px;
+  width: 95%;
+}
+
+.history-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.history-record-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.history-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.history-meta-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.history-meta-value {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.history-stats-row {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.history-stat-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.75rem 0.5rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
+  gap: 0.2rem;
+}
+
+.stat-num {
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.stat-lbl {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+.stat-pass { background-color: #f0fdf4; border-color: #bbf7d0; }
+.stat-pass .stat-num { color: #15803d; }
+
+.stat-car { background-color: #fef2f2; border-color: #fecaca; }
+.stat-car .stat-num { color: #b91c1c; }
+
+.stat-na { background-color: #f8fafc; border-color: var(--border-light); }
+.stat-na .stat-num { color: var(--text-secondary); }
+
+.stat-total { background-color: #f0f9ff; border-color: #bae6fd; }
+.stat-total .stat-num { color: #0369a1; }
+
+.history-answers-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.history-answers-title {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.history-answers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.history-answer-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.5rem 0.65rem;
+  background-color: var(--bg-app);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+}
+
+.history-answer-rating {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.rating-pass { background-color: #dcfce7; color: #15803d; }
+.rating-car { background-color: #fee2e2; color: #b91c1c; }
+.rating-na { background-color: #f1f5f9; color: var(--text-secondary); }
+
+.history-answer-detail {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.history-qid {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  word-break: break-all;
+}
+
+.history-comment, .history-select {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+/* ==============================================================================
+   SIDEBAR FIX â€” override all issues
+   ============================================================================== */
+
+.sidebar-primary-nav {
+  display: flex !important;
+  flex-direction: column !important;
+  padding: 0.6rem 0.75rem !important;
+  gap: 0.1rem !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
+}
+
+.sidebar-primary-nav-btn {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 0.65rem !important;
+  padding: 0.65rem 0.8rem !important;
+  border-radius: var(--radius-md) !important;
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  color: var(--text-secondary) !important;
+  cursor: pointer !important;
+  text-align: left !important;
+  width: 100% !important;
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  line-height: 1.4 !important;
+}
+
+.sidebar-primary-nav-btn svg {
+  width: 17px !important;
+  height: 17px !important;
+  flex-shrink: 0 !important;
+}
+
+.sidebar-primary-nav-btn span {
+  flex: 1 !important;
+  min-width: 0 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.sidebar-primary-nav-btn:hover {
+  background-color: var(--bg-surface-hover) !important;
+  color: var(--text-primary) !important;
+}
+
+.sidebar-primary-nav-btn.sidebar-nav-active {
+  background-color: var(--primary-red-light) !important;
+  color: var(--primary-red) !important;
+  font-weight: 600 !important;
+}
+
+/* Sidebar footer fixes */
+.sidebar-footer {
+  border-top: 1px solid var(--border-subtle) !important;
+  background: var(--bg-surface) !important;
+  padding: 0.75rem !important;
+  margin-top: auto !important;
+}
+
+.sidebar-user-profile {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 0.65rem !important;
+  padding: 0.55rem 0.75rem !important;
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03) !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.sidebar-user-profile:hover {
+  background-color: var(--bg-surface-hover) !important;
+  border-color: #cbd5e1 !important;
+}
+
+.sidebar-user-avatar {
+  width: 36px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+  border-radius: 50% !important;
+  background: #fee2e2 !important;
+  color: #b91c1c !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 0.8rem !important;
+  font-weight: 700 !important;
+}
+
+.sidebar-user-info {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 !important;
+  min-width: 0 !important;
+  gap: 1px !important;
+}
+
+.sidebar-user-name {
+  display: block !important;
+  font-size: 0.84rem !important;
+  font-weight: 700 !important;
+  color: var(--text-primary) !important;
+  line-height: 1.3 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.sidebar-user-role {
+  display: block !important;
+  font-size: 0.72rem !important;
+  color: var(--text-secondary) !important;
+  font-weight: 500 !important;
+  line-height: 1.3 !important;
+}
+
+.sidebar-user-chevron {
+  width: 16px !important;
+  height: 16px !important;
+  min-width: 16px !important;
+  color: var(--text-muted) !important;
+  flex-shrink: 0 !important;
+}
+
+.sidebar-footer-skyline,
+.sidebar-footer-illustration {
+  display: none !important;
+}
+
+/* ==============================================================================
+   Ambient Decorative Background Waves on Sides (matching mockup)
+   ============================================================================== */
+.chat-app-layout {
+  position: relative !important;
+  background-color: #ffffff !important;
+  overflow: hidden !important;
+}
+
+.ambient-waves-layer {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+  overflow: hidden !important;
+}
+
+.ambient-wave-top-left {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 58vw !important;
+  max-width: 720px !important;
+  height: 46vh !important;
+  max-height: 420px !important;
+  pointer-events: none !important;
+  opacity: 0.9 !important;
+}
+
+.ambient-wave-bottom-right {
+  position: absolute !important;
+  bottom: 0 !important;
+  right: 0 !important;
+  width: 65vw !important;
+  max-width: 860px !important;
+  height: 52vh !important;
+  max-height: 480px !important;
+  pointer-events: none !important;
+  opacity: 0.92 !important;
+}
+
+.ambient-wave-bottom-left {
+  position: absolute !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  width: 42vw !important;
+  max-width: 520px !important;
+  height: 38vh !important;
+  max-height: 340px !important;
+  pointer-events: none !important;
+  opacity: 0.75 !important;
+}
+
+/* Ensure foreground surfaces allow background waves to show through on sides */
+.app-topbar {
+  position: relative !important;
+  z-index: 10 !important;
+  background: rgba(255, 255, 255, 0.82) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+
+.chat-sidebar {
+  position: relative !important;
+  z-index: 5 !important;
+  background: rgba(255, 255, 255, 0.88) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+}
+
+.chat-main {
+  position: relative !important;
+  z-index: 1 !important;
+  background: transparent !important;
+}
+
+/* Topbar right mockup elements */
+.topbar-right {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.75rem !important;
+}
+
+.topbar-status-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.45rem !important;
+  padding: 0.35rem 0.8rem !important;
+  border-radius: 9999px !important;
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  font-size: 0.78rem !important;
+  font-weight: 500 !important;
+  color: #334155 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+}
+
+.status-dot-green {
+  width: 7px !important;
+  height: 7px !important;
+  border-radius: 50% !important;
+  background: #10b981 !important;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.6) !important;
+}
+
+.status-label-online {
+  font-size: 0.76rem !important;
+  color: #1e293b !important;
+  font-weight: 600 !important;
+}
+
+.topbar-bell-btn {
+  position: relative !important;
+  width: 34px !important;
+  height: 34px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 50% !important;
+  color: #475569 !important;
+  background: transparent !important;
+  border: none !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.topbar-bell-btn:hover {
+  background: rgba(0, 0, 0, 0.05) !important;
+  color: #0f172a !important;
+}
+
+.notif-badge-dot {
+  position: absolute !important;
+  top: 5px !important;
+  right: 6px !important;
+  width: 7px !important;
+  height: 7px !important;
+  border-radius: 50% !important;
+  background: #ef4444 !important;
+  border: 1.5px solid #ffffff !important;
+}
+
+.topbar-avatar-circle {
+  width: 34px !important;
+  height: 34px !important;
+  border-radius: 50% !important;
+  background: #fee2e2 !important;
+  color: #b91c1c !important;
+  font-size: 0.78rem !important;
+  font-weight: 700 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Center Q Logo Orbital Ring */
+.welcome-logo-wrap {
+  position: relative !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin-bottom: 1.25rem !important;
+}
+
+.welcome-orbital-ring {
+  position: absolute !important;
+  width: 140px !important;
+  height: 60px !important;
+  border-radius: 50% !important;
+  border: 1.5px solid rgba(244, 63, 94, 0.35) !important;
+  box-shadow: 0 0 26px rgba(244, 63, 94, 0.2), inset 0 0 14px rgba(254, 205, 211, 0.25) !important;
+  transform: rotate(-16deg) !important;
+  pointer-events: none !important;
+}
+
+.welcome-orbital-ring::before {
+  content: "" !important;
+  position: absolute !important;
+  width: 7px !important;
+  height: 7px !important;
+  border-radius: 50% !important;
+  background: #fb7185 !important;
+  top: -3px !important;
+  left: 20% !important;
+  box-shadow: 0 0 8px #f43f5e !important;
+}
+
+.welcome-orbital-ring::after {
+  content: "" !important;
+  position: absolute !important;
+  width: 5px !important;
+  height: 5px !important;
+  border-radius: 50% !important;
+  background: #fda4af !important;
+  bottom: -2px !important;
+  right: 25% !important;
+  box-shadow: 0 0 6px #fb7185 !important;
+}
+
+/* Action Chips pill styling matching mockup */
+.welcome-action-chips {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.75rem !important;
+  margin-top: 1.75rem !important;
+}
+
+.welcome-chip {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.55rem !important;
+  padding: 0.6rem 1.15rem !important;
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 9999px !important;
+  font-size: 0.85rem !important;
+  font-weight: 500 !important;
+  color: #1e293b !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.welcome-chip:hover {
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.06) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* Pill Composer Input matching mockup */
+.composer-box {
+  border-radius: 9999px !important;
+  padding: 0.35rem 0.5rem 0.35rem 1rem !important;
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06) !important;
+}
+
+.btn-composer-attach {
+  color: #64748b !important;
+}
+
+.btn-composer-attach:hover {
+  color: #0f172a !important;
+}
+
+/* ==============================================================================
+   Custom Stylized "Q" Emblem Logo (Highway, Skyline, Orbital Ring)
+   ============================================================================== */
+.welcome-logo-wrap {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin-bottom: 0.25rem !important;
+}
+
+.welcome-emblem-img {
+  width: 125px !important;
+  max-width: 130px !important;
+  height: auto !important;
+  display: block !important;
+  margin: 0 auto !important;
+  filter: drop-shadow(0 8px 20px rgba(225, 29, 72, 0.22)) !important;
+  transition: transform 0.25s ease !important;
+}
+
+.welcome-emblem-img:hover {
+  transform: scale(1.04) !important;
+}
+
+.brand-badge {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  background: transparent !important;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.25) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.brand-badge-img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  display: block !important;
+}
+
+.avatar-assistant {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  background: transparent !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.2) !important;
+}
+
+.avatar-assistant-img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  display: block !important;
 }

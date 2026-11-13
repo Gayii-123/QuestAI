@@ -1,4 +1,71 @@
 <div class="chat-app-layout">
+  <!-- Ambient Decorative Background Waves on Sides (matching mockup) -->
+  <div class="ambient-waves-layer" aria-hidden="true">
+    <!-- Top-Left Ambient Organic Waves -->
+    <svg class="ambient-wave-top-left" viewBox="0 0 650 450" preserveAspectRatio="none" fill="none">
+      <defs>
+        <linearGradient id="waveTL1" x1="0%" y1="0%" x2="100%" y2="80%">
+          <stop offset="0%" stop-color="#fca5a5" stop-opacity="0.38" />
+          <stop offset="45%" stop-color="#fecdd3" stop-opacity="0.22" />
+          <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+        </linearGradient>
+        <linearGradient id="waveTL2" x1="0%" y1="0%" x2="80%" y2="100%">
+          <stop offset="0%" stop-color="#fb7185" stop-opacity="0.28" />
+          <stop offset="50%" stop-color="#fecdd3" stop-opacity="0.15" />
+          <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+        </linearGradient>
+        <linearGradient id="waveTL3" x1="0%" y1="20%" x2="70%" y2="100%">
+          <stop offset="0%" stop-color="#f43f5e" stop-opacity="0.2" />
+          <stop offset="60%" stop-color="#ffe4e6" stop-opacity="0.08" />
+          <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+        </linearGradient>
+      </defs>
+      <path d="M-40 -40 C 180 30, 240 240, 480 120 C 560 80, 610 100, 650 -40 Z" fill="url(#waveTL1)" />
+      <path d="M-40 -40 C 130 90, 210 320, 390 180 C 490 100, 560 160, 610 -40 Z" fill="url(#waveTL2)" />
+      <path d="M-40 -40 C 90 140, 160 380, 320 230 C 410 140, 480 200, 540 -40 Z" fill="url(#waveTL3)" />
+    </svg>
+
+    <!-- Bottom-Right Ambient Organic Waves -->
+    <svg class="ambient-wave-bottom-right" viewBox="0 0 750 500" preserveAspectRatio="none" fill="none">
+      <defs>
+        <linearGradient id="waveBR1" x1="100%" y1="100%" x2="0%" y2="0%">
+          <stop offset="0%" stop-color="#f43f5e" stop-opacity="0.55" />
+          <stop offset="40%" stop-color="#fb7185" stop-opacity="0.32" />
+          <stop offset="85%" stop-color="#fecdd3" stop-opacity="0.14" />
+          <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+        </linearGradient>
+        <linearGradient id="waveBR2" x1="100%" y1="80%" x2="10%" y2="0%">
+          <stop offset="0%" stop-color="#fda4af" stop-opacity="0.48" />
+          <stop offset="50%" stop-color="#ffe4e6" stop-opacity="0.24" />
+          <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+        </linearGradient>
+        <linearGradient id="waveBR3" x1="90%" y1="100%" x2="0%" y2="20%">
+          <stop offset="0%" stop-color="#e11d48" stop-opacity="0.4" />
+          <stop offset="55%" stop-color="#fb7185" stop-opacity="0.2" />
+          <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+        </linearGradient>
+      </defs>
+      <!-- Broad flowing back wave -->
+      <path d="M780 540 L 780 180 C 650 140, 510 320, 330 240 C 180 170, 90 320, -40 380 L -40 540 Z" fill="url(#waveBR2)" />
+      <!-- Dynamic middle sweeping wave -->
+      <path d="M780 540 L 780 240 C 620 190, 480 370, 270 290 C 140 240, 40 370, 0 420 L 0 540 Z" fill="url(#waveBR1)" />
+      <!-- Front vibrant crest wave -->
+      <path d="M780 540 L 780 320 C 660 270, 530 420, 360 360 C 220 310, 110 420, 50 460 L 50 540 Z" fill="url(#waveBR3)" />
+    </svg>
+
+    <!-- Bottom-Left Ambient Organic Wave -->
+    <svg class="ambient-wave-bottom-left" viewBox="0 0 550 350" preserveAspectRatio="none" fill="none">
+      <defs>
+        <linearGradient id="waveBL1" x1="0%" y1="100%" x2="90%" y2="0%">
+          <stop offset="0%" stop-color="#fca5a5" stop-opacity="0.35" />
+          <stop offset="45%" stop-color="#fecdd3" stop-opacity="0.18" />
+          <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+        </linearGradient>
+      </defs>
+      <path d="M-40 380 L -40 140 C 110 110, 190 260, 360 210 C 460 180, 500 270, 550 320 L 550 380 Z" fill="url(#waveBL1)" />
+    </svg>
+  </div>
+
   <!-- Mobile Sidebar Backdrop Overlay -->
   <div class="sidebar-backdrop" *ngIf="mobileSidebarOpen()" (click)="closeMobileSidebar()" aria-hidden="true"></div>
 
@@ -39,17 +106,26 @@
       </button>
     </nav>
 
-    <!-- Topbar Right Controls -->
+    <!-- Topbar Right Controls (matching mockup) -->
     <div class="topbar-right">
-      <!-- User Profile Avatar -->
-      <div class="user-profile-badge" title="Subhash Kumar • Site Inspector">
-        <div class="avatar-circle">
-          <span>SK</span>
-        </div>
-        <div class="user-profile-info">
-          <span class="user-name-label">{{ userName() }} Kumar</span>
-          <span class="user-role-label">Site Inspector</span>
-        </div>
+      <!-- AI Online Status Badge -->
+      <div class="topbar-status-badge" title="Agent Status: AI Online">
+        <span class="status-dot-green"></span>
+        <span class="status-label-online">AI Online</span>
+      </div>
+
+      <!-- Notifications Bell Button -->
+      <button class="topbar-bell-btn" type="button" aria-label="Notifications" title="Notifications">
+        <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+          <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+        </svg>
+        <span class="notif-badge-dot"></span>
+      </button>
+
+      <!-- User Profile Avatar Circle -->
+      <div class="topbar-avatar-circle" title="Subhash Kumar • Site Inspector">
+        <span>SK</span>
       </div>
     </div>
   </header>
@@ -69,44 +145,50 @@
           </svg>
           <span>New Chat</span>
         </button>
-
-        <!-- Search Input -->
-        <div class="search-box">
-          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
-          <input type="text" [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)"
-            placeholder="Search chat..." class="search-input" />
-        </div>
       </div>
 
-      <!-- Quick View Mode Switcher -->
-      <div class="sidebar-nav-switcher">
-        <button class="sidebar-nav-btn" [class.active]="currentView() === 'chat'" (click)="navigateToChat()"
-          type="button">
-          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <!-- Sidebar Navigation Menu (matching mockup) -->
+      <div class="sidebar-primary-nav">
+        <!-- New Chat / Recent Chats -->
+        <button class="sidebar-primary-nav-btn"
+          [class.sidebar-nav-active]="sidebarActiveSection() === 'recent-chats'"
+          (click)="navigateToRecentChats()" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
           </svg>
-          <span>Chat</span>
+          <span>Recent Chats</span>
         </button>
 
-        <button class="sidebar-nav-btn" [class.active]="currentView() === 'inspection'" (click)="navigateToInspection()"
-          type="button">
-          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M9 11l3 3L22 4"></path>
-            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+        <!-- Inspection History -->
+        <button class="sidebar-primary-nav-btn"
+          [class.sidebar-nav-active]="sidebarActiveSection() === 'inspection-history'"
+          (click)="navigateToInspectionHistory()" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
           </svg>
-          <span>Site Inspection</span>
+          <span>Inspection History</span>
+        </button>
+
+        <!-- My Reports -->
+        <button class="sidebar-primary-nav-btn"
+          [class.sidebar-nav-active]="sidebarActiveSection() === 'my-reports'"
+          (click)="navigateToMyReports()" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+          </svg>
+          <span>My Reports</span>
         </button>
       </div>
 
-      <!-- Sidebar Conversations List (Recent Chats) -->
-      <div class="conversations-section">
+      <!-- Sidebar Conversations List (Recent Chats - shown when section = recent-chats) -->
+      <div class="conversations-section" *ngIf="sidebarActiveSection() === 'recent-chats'">
         <div class="section-title-row">
           <span class="section-title">Recent Chats</span>
-          <span class="count-badge" *ngIf="filteredConversations().length > 0">{{ filteredConversations().length
-            }}</span>
+          <span class="count-badge" *ngIf="filteredConversations().length > 0">{{ filteredConversations().length }}</span>
         </div>
 
         <div class="conversations-list">
@@ -127,30 +209,99 @@
             </div>
           </div>
 
-          <!-- Empty state when no conversations have been started -->
           <div *ngIf="conversations().length === 0" class="empty-recent-chats">
             <svg class="empty-chats-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
             </svg>
             <p class="empty-chats-title">No conversations yet</p>
-            <span class="empty-chats-sub">Start a chat or select Site Inspection</span>
+            <span class="empty-chats-sub">Start a new chat to get started</span>
           </div>
 
-          <!-- Empty state when search query yields no matches -->
           <div *ngIf="conversations().length > 0 && filteredConversations().length === 0" class="no-conversations">
             No matching conversations
           </div>
         </div>
       </div>
 
-      <!-- Sidebar Footer -->
-      <div class="sidebar-footer">
-        <div class="session-scope-tag">
-          <span class="scope-icon">📋</span>
-          <div class="scope-info">
-            <span class="scope-title">QuestAI Enterprise</span>
-            <span class="scope-desc">Version 2.0 • Inspection Assistant</span>
+      <!-- Inspection History List (shown in sidebar when section = inspection-history) -->
+      <div class="conversations-section" *ngIf="sidebarActiveSection() === 'inspection-history'">
+        <div class="section-title-row">
+          <span class="section-title">Inspection History</span>
+          <span class="count-badge" *ngIf="inspectionHistoryList().length > 0">{{ inspectionHistoryList().length }}</span>
+        </div>
+        <div class="conversations-list">
+          <div *ngFor="let rec of inspectionHistoryList()" class="conversation-item history-item"
+            (click)="openHistoryRecord(rec)">
+            <div class="conv-icon history-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+              </svg>
+            </div>
+            <div class="conv-content">
+              <div class="conv-title-row">
+                <span class="conv-title">{{ rec.bankName }}</span>
+                <span class="conv-time history-pass-badge" [class]="getRecordRiskClass(rec)">{{ getRecordPassRate(rec) }}%</span>
+              </div>
+              <div class="conv-snippet">{{ rec.referenceNumber }} • {{ formatHistoryDate(rec.finalizedAt) }}</div>
+            </div>
           </div>
+          <div *ngIf="inspectionHistoryList().length === 0" class="empty-recent-chats">
+            <svg class="empty-chats-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            <p class="empty-chats-title">No inspections yet</p>
+            <span class="empty-chats-sub">Complete an inspection to see it here</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- My Reports (same as inspection history list) -->
+      <div class="conversations-section" *ngIf="sidebarActiveSection() === 'my-reports'">
+        <div class="section-title-row">
+          <span class="section-title">My Reports</span>
+          <span class="count-badge" *ngIf="inspectionHistoryList().length > 0">{{ inspectionHistoryList().length }}</span>
+        </div>
+        <div class="conversations-list">
+          <div *ngFor="let rec of inspectionHistoryList()" class="conversation-item history-item"
+            (click)="openHistoryRecord(rec)">
+            <div class="conv-icon history-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 11l3 3L22 4"></path>
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+              </svg>
+            </div>
+            <div class="conv-content">
+              <div class="conv-title-row">
+                <span class="conv-title">{{ rec.bankName }}</span>
+                <span class="conv-time history-pass-badge" [class]="getRecordRiskClass(rec)">{{ getRecordPassRate(rec) }}%</span>
+              </div>
+              <div class="conv-snippet">Ref: {{ rec.referenceNumber }}</div>
+            </div>
+          </div>
+          <div *ngIf="inspectionHistoryList().length === 0" class="empty-recent-chats">
+            <svg class="empty-chats-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+            </svg>
+            <p class="empty-chats-title">No reports yet</p>
+            <span class="empty-chats-sub">Finalized inspections appear here</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sidebar Footer — User Profile Card (matching picture 2) -->
+      <div class="sidebar-footer">
+        <div class="sidebar-user-profile">
+          <div class="sidebar-user-avatar">SK</div>
+          <div class="sidebar-user-info">
+            <span class="sidebar-user-name">Subhash Kumar</span>
+            <span class="sidebar-user-role">Site Inspector</span>
+          </div>
+          <svg class="sidebar-user-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
         </div>
       </div>
     </aside>
@@ -171,10 +322,30 @@
         <!-- Empty State (Clean, Minimal Conversational Canvas) -->
         <div *ngIf="activeMessages().length === 0" class="chat-welcome-container">
             <div class="welcome-minimal">
-              <div class="welcome-badge">
-                <span class="welcome-brand-q">Q</span>
+              <div class="welcome-logo-wrap">
+                <div class="welcome-orbital-ring"></div>
+                <div class="welcome-logo-badge">
+                  <span class="welcome-brand-q">Q</span>
+                  <span class="welcome-logo-sparkle">✦</span>
+                </div>
               </div>
-              <h1 class="welcome-heading">How can I help you today?</h1>
+              <h1 class="welcome-heading">Hello, {{ userName() }}!</h1>
+              <h2 class="welcome-subheading">What do you want to do today?</h2>
+              <p class="welcome-description">Ask me anything or choose an option below to get started.</p>
+              <div class="welcome-action-chips">
+                <button class="welcome-chip" type="button" (click)="navigateToInspection()">
+                  <span class="chip-icon chip-icon-red">📋</span>
+                  <span>Start Inspection</span>
+                </button>
+                <button class="welcome-chip" type="button" (click)="onInspectionRequestAiPhotoUpload('civil-other')">
+                  <span class="chip-icon chip-icon-red">📷</span>
+                  <span>AI Photo Inspection</span>
+                </button>
+                <button class="welcome-chip" type="button" (click)="composerText.set('Help me fill a form'); sendMessage()">
+                  <span class="chip-icon chip-icon-outline">📄</span>
+                  <span>Help me fill a form</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -377,14 +548,13 @@
               </div>
 
               <div class="composer-box">
-                <!-- ChatGPT-Style Attachment (+) Button & Menu -->
+                <!-- ChatGPT-Style Attachment Paperclip Button & Menu -->
                 <div class="composer-attach-wrapper">
                   <button class="btn-composer-attach" [class.active]="showAttachmentMenu()"
                     (click)="toggleAttachmentMenu($event)" type="button"
-                    title="Attach photographs from device or camera" aria-label="Attach photographs">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-                      <line x1="12" y1="5" x2="12" y2="19"></line>
-                      <line x1="5" y1="12" x2="19" y2="12"></line>
+                    title="Attach photographs or documents" aria-label="Attach">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
                     </svg>
                   </button>
 
@@ -422,7 +592,7 @@
 
                 <!-- Input Textarea (Multiline supported, Enter sends) -->
                 <textarea #composerTextarea class="composer-input" rows="1"
-                  [placeholder]="uploadedPhotos().length > 0 ? 'Add a message or press Send to analyse photos...' : 'Type a message'"
+                  [placeholder]="uploadedPhotos().length > 0 ? 'Add a message or press Send to analyse photos...' : 'Type your message here...'"
                   [ngModel]="composerText()" (ngModelChange)="composerText.set($event)" [disabled]="isGenerating()"
                   (focus)="closeAttachmentMenu()"
                   (keydown.enter)="$event.preventDefault(); sendMessage()"></textarea>
@@ -583,3 +753,44 @@
     </div>
   </div>
 </div>
+  <!-- Inspection History Record Detail Modal -->
+  <div *ngIf="selectedHistoryRecord()" class="modal-backdrop" (click)="closeHistoryRecord()">
+    <div class="modal-window history-detail-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="modal-badge-row">
+            <span class="modal-badge">Inspection Record</span>
+            <span class="modal-bank-tag">{{ selectedHistoryRecord()?.bankName }}</span>
+          </div>
+          <h2 class="modal-title">{{ selectedHistoryRecord()?.referenceNumber }}</h2>
+        </div>
+        <button class="btn-modal-close" (click)="closeHistoryRecord()" aria-label="Close">X</button>
+      </div>
+      <div class="modal-body history-modal-body">
+        <div class="history-record-meta">
+          <div class="history-meta-item"><span class="history-meta-label">Inspector</span><span class="history-meta-value">{{ selectedHistoryRecord()?.inspectorName || 'N/A' }}</span></div>
+          <div class="history-meta-item"><span class="history-meta-label">Site Location</span><span class="history-meta-value">{{ selectedHistoryRecord()?.siteLocation || 'N/A' }}</span></div>
+          <div class="history-meta-item"><span class="history-meta-label">Job Reference</span><span class="history-meta-value">{{ selectedHistoryRecord()?.jobReference || 'N/A' }}</span></div>
+          <div class="history-meta-item"><span class="history-meta-label">Finalized At</span><span class="history-meta-value">{{ formatHistoryDate(selectedHistoryRecord()?.finalizedAt) }}</span></div>
+        </div>
+        <div class="history-stats-row">
+          <div class="history-stat-card stat-pass"><span class="stat-num">{{ selectedHistoryRecord()?.stats?.passCount || 0 }}</span><span class="stat-lbl">Pass</span></div>
+          <div class="history-stat-card stat-car"><span class="stat-num">{{ selectedHistoryRecord()?.stats?.carCount || 0 }}</span><span class="stat-lbl">CAR</span></div>
+          <div class="history-stat-card stat-na"><span class="stat-num">{{ selectedHistoryRecord()?.stats?.naCount || 0 }}</span><span class="stat-lbl">N/A</span></div>
+          <div class="history-stat-card stat-total"><span class="stat-num">{{ selectedHistoryRecord()?.stats?.total || 0 }}</span><span class="stat-lbl">Total</span></div>
+        </div>
+        <div class="history-answers-section">
+          <h4 class="history-answers-title">Form Answers</h4>
+          <div class="history-answers-list" *ngIf="selectedHistoryRecord()?.answers">
+            <ng-container *ngFor="let entry of (selectedHistoryRecord()?.answers | keyvalue)">
+              <div class="history-answer-row" *ngIf="$any(entry.value)?.rating || $any(entry.value)?.selectans || $any(entry.value)?.comment">
+                <div class="history-answer-rating" [class.rating-pass]="$any(entry.value)?.rating === '1'" [class.rating-car]="$any(entry.value)?.rating === '-1'" [class.rating-na]="$any(entry.value)?.rating === '0'">{{ $any(entry.value)?.rating === '1' ? 'Pass' : $any(entry.value)?.rating === '-1' ? 'CAR' : $any(entry.value)?.rating === '0' ? 'N/A' : '' }}</div>
+                <div class="history-answer-detail"><span class="history-qid">{{ entry.key }}</span><span class="history-comment" *ngIf="$any(entry.value)?.comment">{{ $any(entry.value)?.comment }}</span><span class="history-select" *ngIf="$any(entry.value)?.selectans">{{ $any(entry.value)?.selectans }}</span></div>
+              </div>
+            </ng-container>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer"><button class="btn-modal-cancel" (click)="closeHistoryRecord()" type="button">Close</button></div>
+    </div>
+  </div>

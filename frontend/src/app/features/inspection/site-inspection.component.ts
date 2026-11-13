@@ -1781,6 +1781,38 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
     this.activeStep.set('category-select');
   }
 
+  /**
+   * Loads an existing filled inspection record from Inspection History
+   */
+  public loadInspectionRecord(record: {
+    bankId: string;
+    answers?: Record<string, QuestionAnswer>;
+    metadata?: any;
+    photos?: InspectionPhoto[];
+    finalizedReport?: FinalizedInspectionReport | null;
+    step?: InspectionStep;
+  }): void {
+    if (record.bankId) {
+      this.selectBank(record.bankId);
+    }
+    if (record.answers) {
+      this.formAnswers.set(record.answers);
+    }
+    if (record.metadata) {
+      this.inspectionMetadata.set(record.metadata);
+    }
+    if (record.photos && record.photos.length > 0) {
+      this.uploadedPhotos.set(record.photos);
+    }
+    if (record.finalizedReport) {
+      this.finalizedReport.set(record.finalizedReport);
+      this.activeStep.set(record.step || 'finalized');
+    } else {
+      this.activeStep.set(record.step || 'review-form');
+    }
+    this.showToast(`Loaded inspection: ${record.finalizedReport?.referenceNumber || record.bankId}`);
+  }
+
   // === DRAFT MANAGEMENT & LEGACY MOCK CLEANUP (PART 6) ===
 
   saveDraft(): void {
