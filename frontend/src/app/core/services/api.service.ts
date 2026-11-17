@@ -143,6 +143,76 @@ export interface PhotoInspectionResponseWrapper {
   timestamp: string;
 }
 
+export interface StartSessionRequest {
+  conversationId?: string;
+  bankId: string;
+  trafficSubtype?: '12D' | '12AB';
+  selectedRiskBanks?: string[];
+  siteContext?: {
+    siteName?: string;
+    location?: string;
+    jobReference?: string;
+    initialNotes?: string;
+  };
+  ownerUid?: string;
+}
+
+export interface NextActionData {
+  type: 'ask_question' | 'request_photo' | 'draft_ready';
+  questionId?: string;
+  headername?: string;
+  qnum?: string | number;
+  canonicalText?: string;
+  conversationalPrompt?: string;
+  prompt?: string;
+  inputType?: 'text' | 'rating' | 'select' | 'multiselect';
+  allowedChoices?: string[];
+  draftReady?: boolean;
+  unresolvedCount?: number;
+  message?: string;
+}
+
+export interface StartSessionResponse {
+  success: boolean;
+  data: {
+    inspectionId: string;
+    conversationId: string;
+    bankId: string;
+    bankName: string;
+    department: string;
+    workflowStatus: string;
+    message: { type: string; text: string };
+    stats: any;
+    createdAt: string;
+  };
+  timestamp: string;
+}
+
+export interface EvidenceBatchResponse {
+  success: boolean;
+  data: {
+    inspectionId: string;
+    batchId: string;
+    visualSummary: string;
+    newObservationsCount: number;
+    updatedQuestionIds: string[];
+    workflowStatus: string;
+    nextAction: NextActionData;
+  };
+  timestamp: string;
+}
+
+export interface SubmitAnswerResponse {
+  success: boolean;
+  data: {
+    inspectionId: string;
+    updatedQuestionId: string;
+    interpretation: any;
+    nextAction: NextActionData;
+  };
+  timestamp: string;
+}
+
 export interface SaveInspectionResponse {
   success: boolean;
   id: string;
@@ -172,7 +242,19 @@ export class ApiService {
    * a unified Express proxy (/questAiApi or /api), or custom endpoint map.
    */
   private getEndpointUrl(
-    action: 'health' | 'status' | 'generate' | 'inspect' | 'inspectPhotos' | 'saveInspection'
+    action:
+      | 'health'
+      | 'status'
+      | 'generate'
+      | 'inspect'
+      | 'inspectPhotos'
+      | 'saveInspection'
+      | 'sessionStart'
+      | 'evidenceBatch'
+      | 'submitAnswer'
+      | 'getSession'
+      | 'prepareDraft'
+      | 'confirmDraft'
   ): string {
     const custom = (environment as { endpoints?: Record<string, string> }).endpoints;
     if (custom && custom[action]) {
@@ -191,6 +273,12 @@ export class ApiService {
         case 'inspect': return `${base}/questAiInspect`;
         case 'inspectPhotos': return `${base}/questAiInspectPhotos`;
         case 'saveInspection': return `${base}/questAiSaveInspection`;
+        case 'sessionStart': return `${base}/questAiSessionStart`;
+        case 'evidenceBatch': return `${base}/questAiEvidenceBatch`;
+        case 'submitAnswer': return `${base}/questAiSubmitAnswer`;
+        case 'getSession': return `${base}/questAiGetSession`;
+        case 'prepareDraft': return `${base}/questAiPrepareDraft`;
+        case 'confirmDraft': return `${base}/questAiConfirmDraft`;
       }
     }
 
@@ -201,6 +289,12 @@ export class ApiService {
       case 'inspect': return `${base}/ai/inspect`;
       case 'inspectPhotos': return `${base}/ai/inspect-photos`;
       case 'saveInspection': return `${base}/api/inspections`;
+      case 'sessionStart': return `${base}/session/start`;
+      case 'evidenceBatch': return `${base}/session/evidence`;
+      case 'submitAnswer': return `${base}/session/answer`;
+      case 'getSession': return `${base}/session`;
+      case 'prepareDraft': return `${base}/session/draft`;
+      case 'confirmDraft': return `${base}/session/confirm`;
     }
   }
 
@@ -258,6 +352,50 @@ export class ApiService {
     const url = this.getEndpointUrl('saveInspection');
     const params = bankId ? `?bankId=${encodeURIComponent(bankId)}` : '';
     return this.http.get<GetInspectionsResponse>(`${url}${params}`);
+  }
+
+  /**
+   * Guided Conversational: Start a new inspection session
+   */
+  startInspectionSession(payload: StartSessionRequest): Observable<StartSessionResponse> {
+    return this.http.post<StartSessionResponse>(this.getEndpointUrl('sessionStart'), payload);
+  }
+
+  /**
+   * Guided Conversational: Ingest a new evidence photograph batch into session
+   */
+  addEvidenceBatch(payload: { inspectionId: string; batchId?: string; photos: any[] }): Observable<EvidenceBatchResponse> {
+    return this.http.post<EvidenceBatchResponse>(this.getEndpointUrl('evidenceBatch'), payload);
+  }
+
+  /**
+   * Guided Conversational: Submit natural language user reply for current active question
+   */
+  submitInspectionAnswer(payload: { inspectionId: string; questionId?: string; reply: { text: string; selectedValue?: string } }): Observable<SubmitAnswerResponse> {
+    return this.http.post<SubmitAnswerResponse>(this.getEndpointUrl('submitAnswer'), payload);
+  }
+
+  /**
+   * Guided Conversational: Retrieve session state and all assessments
+   */
+  getInspectionSession(inspectionId: string): Observable<any> {
+    const url = this.getEndpointUrl('getSession');
+    return this.http.get<any>(`${url}?id=${encodeURIComponent(inspectionId)}`);
+  }
+
+  /**
+   * Guided Conversational: Prepare structured review draft
+   */
+  prepareInspectionDraft(inspectionId: string): Observable<any> {
+    const url = this.getEndpointUrl('prepareDraft');
+    return this.http.get<any>(`${url}?id=${encodeURIComponent(inspectionId)}`);
+  }
+
+  /**
+   * Guided Conversational: Confirm inspection draft by human inspector
+   */
+  confirmInspectionDraft(inspectionId: string, details?: any): Observable<any> {
+    return this.http.post<any>(this.getEndpointUrl('confirmDraft'), { inspectionId, ...details });
   }
 }
 
