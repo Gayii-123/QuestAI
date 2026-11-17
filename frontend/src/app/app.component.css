@@ -4388,6 +4388,34 @@
    ============================================================================== */
 .chat-welcome-container {
   max-width: 980px !important;
+  margin: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.welcome-minimal {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  text-align: center !important;
+  width: 100% !important;
+}
+
+.welcome-minimal .welcome-heading {
+  font-size: 2.15rem !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+  letter-spacing: -0.025em !important;
+  margin-bottom: 0.6rem !important;
+}
+
+.welcome-minimal .welcome-description {
+  font-size: 0.95rem !important;
+  color: #475569 !important;
+  font-weight: 450 !important;
+  margin-bottom: 2rem !important;
 }
 
 .welcome-action-cards.pill-cards-wrap {

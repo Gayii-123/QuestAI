@@ -132,10 +132,10 @@
     <aside class="chat-sidebar red-theme-sidebar" [class.mobile-open]="mobileSidebarOpen()"
       [class.desktop-collapsed]="desktopSidebarCollapsed()">
 
-      <!-- Top Brand Section (3D Logo + Quest AI - horizontal layout matching mockup) -->
-      <div class="sidebar-red-brand" (click)="navigateToHome()" role="button" tabindex="0" title="Quest AI Home">
-        <img src="questai-logo.png" alt="Quest AI" class="sidebar-brand-q-logo" />
-        <span class="sidebar-brand-title">Quest <span class="brand-red-text">AI</span></span>
+      <!-- Top Brand Section (3D Logo + Quest Ai - horizontal layout matching mockup) -->
+      <div class="sidebar-red-brand" (click)="navigateToHome()" role="button" tabindex="0" title="Quest Ai Home">
+        <img src="questai-logo.png" alt="Quest Ai" class="sidebar-brand-q-logo" />
+        <span class="sidebar-brand-title">Quest <span class="brand-red-text">Ai</span></span>
       </div>
 
       <!-- Divider line between Quest AI and Home (matching screenshot) -->
@@ -188,7 +188,11 @@
           </div>
           <div class="sidebar-conv-actions-row">
             <button class="sidebar-clear-all-btn" (click)="promptClearAllConversations($event)" type="button" title="Clear all recent chats">
-              Clear All
+              <span>Clear All</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
             </button>
             <button class="sidebar-view-all-btn" (click)="navigateToRecentChats()" type="button" *ngIf="conversations().length > 3">
               <span>View All</span>
@@ -257,6 +261,8 @@
         <svg class="sidebar-road-svg" viewBox="0 0 260 140" fill="none" preserveAspectRatio="none">
           <path d="M 0 140 L 0 50 C 90 60, 180 100, 260 70 L 260 140 Z" fill="#991b1b" opacity="0.6" />
           <path d="M 0 140 L 0 80 C 100 85, 170 120, 260 95 L 260 140 Z" fill="#7f1d1d" opacity="0.75" />
+          <!-- Dashed Highway Lane Marker -->
+          <path d="M 10 135 C 90 120, 170 115, 250 85" stroke="#ffffff" stroke-width="3" stroke-dasharray="10 8" stroke-linecap="round" opacity="0.8" />
         </svg>
       </div>
     </aside>
@@ -289,14 +295,10 @@
 
       <!-- Chat Scrollable Messages Area -->
       <div class="chat-scroll-area" #chatScrollContainer>
-        <!-- Empty State (Clean, Minimal Conversational Canvas) -->
+        <!-- Empty State (Clean, Minimal Conversational Canvas - matching Image 2) -->
         <div *ngIf="activeMessages().length === 0" class="chat-welcome-container">
           <div class="welcome-minimal">
-            <div class="welcome-logo-wrap">
-              <img src="questai-logo.png" alt="QuestAI Logo" class="welcome-logo-img" />
-            </div>
-            <h1 class="welcome-heading">Hello, <span class="welcome-heading-red">{{ userName() }}!</span></h1>
-            <h2 class="welcome-subheading">What do you want to do today?</h2>
+            <h1 class="welcome-heading">What do you want to do today?</h1>
             <p class="welcome-description">Ask me anything or choose an option below to get started.</p>
 
             <!-- 3 Pill Action Cards (matching uploaded reference) -->
