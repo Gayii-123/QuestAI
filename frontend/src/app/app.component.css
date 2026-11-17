@@ -4066,6 +4066,13 @@
   font-weight: 800 !important;
 }
 
+/* Divider line between Quest AI and Home (matching exact uploaded mockup) */
+.sidebar-brand-divider {
+  height: 1px !important;
+  background: rgba(255, 255, 255, 0.16) !important;
+  margin: 0.25rem 1.15rem 1.25rem 1.15rem !important;
+}
+
 /* Sidebar Navigation */
 .sidebar-red-nav {
   display: flex !important;
