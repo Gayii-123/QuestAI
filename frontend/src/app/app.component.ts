@@ -942,8 +942,9 @@ export class AppComponent implements OnInit, AfterViewChecked {
       }
       this.activeInspectionSession.set(session);
 
-      // Display Claude-style sequential activity messages corresponding to actual backend request
-      this.startAnalyzingStepSequence();
+      // Display "Reviewing your photographs..." state corresponding to actual backend request
+      this.isGenerating.set(true);
+      this.analyzingStepMessage.set('Reviewing your photographs...');
       this.shouldScrollToBottom = true;
 
       this.conversationalInspection
@@ -959,7 +960,6 @@ export class AppComponent implements OnInit, AfterViewChecked {
           userText: text,
         })
         .then((turnResponse) => {
-          this.clearAnalyzingStepTimers();
           this.clearPreviousWorkflowMessagesInActiveConversation();
 
           const photoCountText =
@@ -1008,19 +1008,19 @@ export class AppComponent implements OnInit, AfterViewChecked {
           this.shouldScrollToBottom = true;
         })
         .catch((err) => {
-          this.clearAnalyzingStepTimers();
           this.isGenerating.set(false);
           this.analyzingStepMessage.set('');
           let errorMessage =
-            "I'm having trouble completing the photo analysis right now. The AI service may be temporarily unavailable.";
-          if (err?.status === 0) {
+            'Unable to complete photo analysis right now. Please verify your connection or try again.';
+          if (err?.status === 0 || err?.status === 429) {
             errorMessage =
-              "I'm having trouble reaching the analysis service right now. Please check your connection and try again.";
-          } else if (err?.status === 429) {
-            errorMessage =
-              "I'm having trouble completing the photo analysis right now. The AI service is temporarily unavailable—please try again in a moment.";
+              'The AI photo analysis service is temporarily unavailable due to Cloud Functions connectivity or rate limits. You can still complete your Site Inspection by selecting a category or uploading photographs.';
           } else if (err?.status === 504) {
-            errorMessage = 'The photo analysis took a bit too long to respond. Please try again in a moment.';
+            errorMessage = 'The photo analysis request timed out. Please try again.';
+          } else if (err?.error?.message) {
+            errorMessage = this.sanitizeProviderBranding(err.error.message);
+          } else if (err?.message) {
+            errorMessage = this.sanitizeProviderBranding(err.message);
           }
 
           const errMsg: ChatMessage = {
@@ -1029,8 +1029,6 @@ export class AppComponent implements OnInit, AfterViewChecked {
             content: errorMessage,
             timestamp: new Date(),
             isError: true,
-            photos: photosToSend.map((p) => ({ ...p })),
-            selectedBankId: targetBank.id,
             retryPrompt: text,
           };
           this.appendMessageToActive(errMsg);
