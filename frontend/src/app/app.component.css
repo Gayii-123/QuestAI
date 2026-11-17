@@ -1279,13 +1279,22 @@
   gap: 0.35rem;
 }
 
-/* User Message: Soft Brand Light-Pink */
+/* User Message: Clean White Card with Crisp Dark Text (mockup match) */
 .message-bubble.user-bubble {
-  background-color: var(--bg-user-bubble);
-  border-color: var(--user-bubble-border);
-  color: var(--user-bubble-text);
+  background-color: #ffffff !important;
+  border: 1px solid var(--border-light) !important;
+  color: #0f172a !important;
   border-radius: 16px 16px 4px 16px;
-  box-shadow: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.message-bubble.user-bubble .sender-name,
+.message-bubble.user-bubble .bubble-text {
+  color: #0f172a !important;
+}
+
+.message-bubble.user-bubble .message-time {
+  color: #64748b !important;
 }
 
 .bubble-header {
