@@ -300,7 +300,8 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
 
   // === STEP 3: AI SCANNING STATE ===
   isScanning = signal(false);
-  scanningStatusMessage = signal<string>('Preparing uploaded photographs');
+  scanningStatusMessage = signal<string>('Reviewing uploaded photographs...');
+  textFadeKey = signal(0);
   scanError = signal<string | null>(null);
   private scanSubscription?: Subscription;
   private scanStageTimers: ReturnType<typeof setTimeout>[] = [];
@@ -564,11 +565,10 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
     // Initialize draft from localStorage if present (with safe legacy mock cleanup)
     this.loadDraft();
 
-    // If an explicit initial step was provided, apply it; otherwise, if loadDraft restored a finalized report,
-    // transition directly to 'finalized', or if AI evaluation / review answers exist, transition to 'review-form'
-    if (this.initialStep) {
-      this.activeStep.set(this.initialStep);
-    } else if (this.finalizedReport()) {
+    // If loadDraft restored a finalized report, transition directly to 'finalized',
+    // or if AI evaluation / review answers exist, transition to 'review-form'.
+    // When embedded in chat without an existing completed draft, start directly in 'ai-scanning'.
+    if (this.finalizedReport()) {
       this.activeStep.set('finalized');
     } else if (
       this.aiPreFillSummary() ||
@@ -580,6 +580,17 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
         this.activeSectionName.set(groups[0].headername);
         this.expandedSections.set({ [groups[0].headername]: true });
       }
+    } else if (this.embeddedInChat) {
+      this.activeStep.set('ai-scanning');
+      if (this.uploadedPhotos().length > 0 && !this.isScanning()) {
+        setTimeout(() => {
+          if (!this.isScanning() && this.uploadedPhotos().length > 0 && !this.aiPreFillSummary()) {
+            this.startAiPhotoScanning();
+          }
+        }, 0);
+      }
+    } else if (this.initialStep) {
+      this.activeStep.set(this.initialStep);
     }
   }
 
@@ -657,6 +668,10 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
   backToCategorySelect(): void {
     if (this.isScanning()) {
       this.cancelScanning();
+    }
+    if (this.embeddedInChat) {
+      this.activeStep.set('photo-upload');
+      return;
     }
     this.activeStep.set('category-select');
   }
@@ -841,6 +856,9 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
     photos: InspectionPhoto[];
     siteNotes?: string;
   }): void {
+    if (this.isScanning()) {
+      return;
+    }
     this.selectBank(params.bankId);
     if (params.trafficSubtype) {
       this.trafficSubtype.set(params.trafficSubtype);
@@ -901,6 +919,13 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
     this.scanStageTimers = [];
   }
 
+  updateStatusMessage(msg: string): void {
+    if (this.scanningStatusMessage() !== msg) {
+      this.scanningStatusMessage.set(msg);
+      this.textFadeKey.update((k) => k + 1);
+    }
+  }
+
   startAiPhotoScanning(): void {
     // Prevent duplicate submissions while a request is already in flight
     if (this.isScanning()) {
@@ -924,48 +949,55 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
     this.activeStep.set('ai-scanning');
     this.isScanning.set(true);
     this.scanError.set(null);
-    this.scanningStatusMessage.set("I'm reviewing your photographs...");
+    this.updateStatusMessage('Reviewing uploaded photographs...');
     this.workflowStatusChange.emit({
       state: 'scanning',
-      message: "I'm reviewing your photographs...",
+      message: 'Reviewing uploaded photographs...',
     });
 
     const request = this.buildPhotoInspectionRequest();
 
-    // Update status message as the HTTP request is dispatched
-    this.scanningStatusMessage.set("I'm reviewing your photographs...");
-
-    // Truthful lifecycle status updates while awaiting response (no fabricated percentages)
+    // Truthful sequential lifecycle status updates while awaiting response
     this.scanStageTimers.push(
       setTimeout(() => {
         if (this.isScanning()) {
-          this.scanningStatusMessage.set('Analysing site evidence');
+          this.updateStatusMessage('Analysing site photographs...');
         }
-      }, 900),
+      }, 1000),
       setTimeout(() => {
         if (this.isScanning()) {
-          this.scanningStatusMessage.set('Processing inspection question evaluations');
+          this.updateStatusMessage('Examining visual evidence...');
         }
-      }, 2600)
+      }, 2400),
+      setTimeout(() => {
+        if (this.isScanning()) {
+          this.updateStatusMessage('Checking inspection requirements...');
+        }
+      }, 4500),
+      setTimeout(() => {
+        if (this.isScanning()) {
+          this.updateStatusMessage('Preparing inspection findings...');
+        }
+      }, 7000)
     );
 
     this.scanSubscription = this.apiService.analyzeInspectionPhotos(request).subscribe({
       next: (res) => {
         this.clearScanTimers();
         this.scanSubscription = undefined;
-        this.scanningStatusMessage.set('Processing inspection question evaluations');
+        this.updateStatusMessage('Preparing inspection findings...');
         this.applyBackendAiResults(res.data);
       },
       error: (err) => {
         this.clearScanTimers();
         this.scanSubscription = undefined;
         this.isScanning.set(false);
-        this.scanningStatusMessage.set('Photo analysis failed');
+        this.updateStatusMessage('Photo analysis failed');
         const formattedErr = this.formatPhotoAnalysisError(err);
         this.scanError.set(formattedErr);
         this.workflowStatusChange.emit({
           state: 'error',
-          message: "We couldn't complete the photo analysis. Please try again.",
+          message: formattedErr,
         });
       },
     });
@@ -977,28 +1009,33 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
   }
 
   private formatPhotoAnalysisError(err: any): string {
-    const rawBackendMessage =
+    const rawBackendMessage = String(
       err?.error?.error?.message ||
       (Array.isArray(err?.error?.error?.details) && err.error.error.details.join('; ')) ||
-      err?.error?.message;
-    const backendMessage = this.sanitizeProviderBranding(rawBackendMessage);
+      err?.error?.message ||
+      err?.message ||
+      ''
+    );
 
-    if (err?.status === 0) {
-      return 'Cannot reach the QuestAI Cloud Functions backend. Please check your network connection and backend deployment.';
+    const isQuotaOrRateLimit =
+      err?.status === 429 ||
+      /quota|rate\s*limit|resource_exhausted|too\s*many\s*requests|429|temporarily\s*unavailable|overloaded|capacity/i.test(
+        rawBackendMessage
+      );
+
+    if (isQuotaOrRateLimit) {
+      return "I'm having trouble completing the photo analysis right now. The AI service is temporarily unavailable—please try again in a moment.";
+    }
+    if (err?.status === 0 || /network|failed\s*to\s*fetch|offline/i.test(rawBackendMessage)) {
+      return "I'm having trouble reaching the analysis service right now. Please check your connection and try again.";
+    }
+    if (err?.status === 504 || err?.status === 408 || /timed?\s*out|deadline/i.test(rawBackendMessage)) {
+      return "The photo analysis took a bit too long to respond. Please try again in a moment.";
     }
     if (err?.status === 400) {
-      return backendMessage || 'Invalid photo analysis request payload. Check photo format and size limits.';
+      return "I couldn't process one or more of the attached photographs. Please make sure they are valid JPG, PNG, or WebP images under 10 MB.";
     }
-    if (err?.status === 401 || err?.status === 403) {
-      return backendMessage || 'Authentication failed on the backend. Verify backend API key configuration.';
-    }
-    if (err?.status === 429) {
-      return backendMessage || 'Service quota or rate limit exceeded. Please wait a moment and try again.';
-    }
-    if (err?.status === 504) {
-      return backendMessage || 'Photo analysis timed out. Try again or upload fewer/smaller photos.';
-    }
-    return backendMessage || "We couldn't complete the photo analysis. Please try again.";
+    return "I'm having trouble completing the photo analysis right now. The AI service may be temporarily unavailable.";
   }
 
   cancelScanning(): void {
@@ -1015,6 +1052,9 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
 
   retryScanning(): void {
     if (this.isScanning()) return;
+    if (this.uploadedPhotos().length === 0 && this.initialPhotos && this.initialPhotos.length > 0) {
+      this.uploadedPhotos.set([...this.initialPhotos]);
+    }
     this.scanError.set(null);
     this.startAiPhotoScanning();
   }
@@ -1859,7 +1899,7 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
         updatedAt: new Date().toISOString(),
       };
       localStorage.setItem(this.getDraftStorageKey(this.selectedBankId()), JSON.stringify(data));
-    } catch {}
+    } catch { }
   }
 
   /**
@@ -2044,7 +2084,7 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
           // Migrate copy into conversation-scoped key without deleting original
           try {
             localStorage.setItem(primaryKey, legacyRaw);
-          } catch {}
+          } catch { }
         }
       }
 
@@ -2098,7 +2138,7 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
                 this.finalizedReport.set(match);
               }
             }
-          } catch {}
+          } catch { }
         }
 
         if (sanitized.migrated) {
@@ -2135,7 +2175,7 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
     this.editingQuestionId.set(null);
     try {
       localStorage.removeItem(this.getDraftStorageKey(this.selectedBankId()));
-    } catch {}
+    } catch { }
     this.showResetModal.set(false);
     this.showToast('Inspection form reset for this question bank.');
   }
@@ -2197,7 +2237,7 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
 
         const img = new Image();
         img.onload = () => {
-          const maxDim = 1200;
+          const maxDim = 1024;
           let width = img.width;
           let height = img.height;
 
@@ -2209,26 +2249,23 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
               width = Math.round((width * maxDim) / height);
               height = maxDim;
             }
+          }
 
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            if (ctx) {
-              ctx.drawImage(img, 0, 0, width, height);
-              const targetMime = originalMime === 'image/png' ? 'image/png' : 'image/jpeg';
-              const optimizedUrl =
-                targetMime === 'image/png'
-                  ? canvas.toDataURL('image/png')
-                  : canvas.toDataURL('image/jpeg', 0.85);
-              resolve({
-                dataUrl: optimizedUrl,
-                mimeType: targetMime,
-                byteLength: this.estimateDataUrlBytes(optimizedUrl),
-                normalizedName: this.ensureSupportedExtension(file.name, targetMime),
-              });
-              return;
-            }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const targetMime = 'image/jpeg';
+            const optimizedUrl = canvas.toDataURL('image/jpeg', 0.8);
+            resolve({
+              dataUrl: optimizedUrl,
+              mimeType: targetMime,
+              byteLength: this.estimateDataUrlBytes(optimizedUrl),
+              normalizedName: this.ensureSupportedExtension(file.name, targetMime),
+            });
+            return;
           }
           resolve({
             dataUrl: result,
