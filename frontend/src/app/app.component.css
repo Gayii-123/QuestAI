@@ -4041,39 +4041,717 @@
 }
 
 .brand-badge {
-  width: 32px !important;
-  height: 32px !important;
-  border-radius: 8px !important;
-  overflow: hidden !important;
-  background: transparent !important;
-  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.25) !important;
+  width: 34px !important;
+  height: 34px !important;
+  border-radius: 9px !important;
+  background: linear-gradient(135deg, #ef4444, #b91c1c) !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.35) !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
+  flex-shrink: 0 !important;
 }
 
-.brand-badge-img {
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: cover !important;
+.brand-letter {
   display: block !important;
+  font-size: 1.25rem !important;
+  font-weight: 800 !important;
+  color: #ffffff !important;
+  line-height: 1 !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
 }
 
 .avatar-assistant {
   width: 32px !important;
   height: 32px !important;
   border-radius: 8px !important;
-  overflow: hidden !important;
-  background: transparent !important;
+  background: linear-gradient(135deg, #ef4444, #b91c1c) !important;
+  color: #ffffff !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.2) !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.25) !important;
 }
 
-.avatar-assistant-img {
+.avatar-assistant span {
+  color: #ffffff !important;
+  font-weight: 800 !important;
+  font-size: 1rem !important;
+  line-height: 1 !important;
+}
+
+/* ==============================================================================
+   Center QuestAI 3D Logo (Clean, no spiral or glittering)
+   ============================================================================== */
+.welcome-logo-wrap {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 0 auto 0.35rem auto !important;
+  position: relative !important;
+}
+
+.welcome-logo-img {
+  width: 58px !important;
+  height: auto !important;
+  max-width: 58px !important;
+  object-fit: contain !important;
+  display: block !important;
+  filter: drop-shadow(0 4px 10px rgba(220, 38, 38, 0.2)) !important;
+  transition: transform 0.25s ease !important;
+  user-select: none !important;
+}
+
+.welcome-logo-img:hover {
+  transform: scale(1.05) !important;
+}
+
+.welcome-orbital-ring,
+.welcome-logo-sparkle,
+.welcome-logo-badge {
+  display: none !important;
+}
+/* ==============================================================================
+   Red Theme Sidebar & Highway Perspective Layout (Matching exact Mockup)
+   ============================================================================== */
+.chat-app-layout.red-theme-layout {
+  display: flex !important;
+  flex-direction: row !important;
+  height: 100vh !important;
+  width: 100vw !important;
+  background-color: #ffffff !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.workspace-body.red-sidebar-body {
+  display: flex !important;
+  flex-direction: row !important;
+  width: 100% !important;
+  height: 100vh !important;
+  overflow: hidden !important;
+  position: relative !important;
+  z-index: 10 !important;
+}
+
+/* Red Sidebar */
+.chat-sidebar.red-theme-sidebar {
+  width: 270px !important;
+  min-width: 270px !important;
+  max-width: 270px !important;
+  height: 100vh !important;
+  background: linear-gradient(180deg, #c40c14 0%, #a30f16 40%, #82080e 75%, #590408 100%) !important;
+  border-right: none !important;
+  display: flex !important;
+  flex-direction: column !important;
+  position: relative !important;
+  z-index: 30 !important;
+  padding: 0 !important;
+  color: #ffffff !important;
+  box-shadow: 6px 0 24px rgba(0, 0, 0, 0.16) !important;
+}
+
+/* Sidebar Top Brand */
+.sidebar-red-brand {
+  padding: 2.2rem 1.25rem 1.6rem 1.25rem !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  cursor: pointer !important;
+  user-select: none !important;
+}
+
+.sidebar-brand-q-logo {
+  width: 48px !important;
+  height: auto !important;
+  max-width: 48px !important;
+  object-fit: contain !important;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4)) !important;
+  transition: transform 0.2s ease !important;
+}
+
+.sidebar-brand-q-logo:hover {
+  transform: scale(1.06) !important;
+}
+
+.sidebar-brand-title {
+  font-size: 1.3rem !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  margin-top: 0.65rem !important;
+  letter-spacing: -0.01em !important;
+}
+
+/* Sidebar Navigation */
+.sidebar-red-nav {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.45rem !important;
+  padding: 0 1rem !important;
+  flex: 1 !important;
+  overflow-y: auto !important;
+}
+
+.sidebar-red-nav-item {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.85rem !important;
+  padding: 0.85rem 1.15rem !important;
+  border-radius: 12px !important;
+  color: rgba(255, 255, 255, 0.94) !important;
+  background: transparent !important;
+  border: none !important;
+  font-size: 0.95rem !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  transition: all 0.18s ease !important;
+  text-align: left !important;
+  width: 100% !important;
+}
+
+.sidebar-red-nav-item:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #ffffff !important;
+  transform: translateX(2px) !important;
+}
+
+.sidebar-red-nav-item.active {
+  background: rgba(255, 255, 255, 0.18) !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15) !important;
+}
+
+.sidebar-red-icon {
+  width: 20px !important;
+  height: 20px !important;
+  flex-shrink: 0 !important;
+  color: #ffffff !important;
+}
+
+.sidebar-nav-label {
+  flex: 1 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.sidebar-chevron-icon {
+  width: 15px !important;
+  height: 15px !important;
+  color: rgba(255, 255, 255, 0.8) !important;
+  flex-shrink: 0 !important;
+}
+
+/* Sub-list of Recent Chats in Red Sidebar */
+.sidebar-red-conversations {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.35rem !important;
+  padding-left: 1.5rem !important;
+  padding-right: 0.25rem !important;
+  margin-top: 0.2rem !important;
+  margin-bottom: 0.6rem !important;
+}
+
+.sidebar-red-conv-item {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 0.65rem !important;
+  padding: 0.55rem 0.75rem !important;
+  border-radius: 8px !important;
+  color: rgba(255, 255, 255, 0.88) !important;
+  cursor: pointer !important;
+  font-size: 0.82rem !important;
+  transition: all 0.15s ease !important;
+}
+
+.sidebar-red-conv-item:hover {
+  background: rgba(255, 255, 255, 0.14) !important;
+  color: #ffffff !important;
+}
+
+.sidebar-red-conv-item.active {
+  background: rgba(255, 255, 255, 0.22) !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+
+.red-conv-icon {
+  width: 15px !important;
+  height: 15px !important;
+  flex-shrink: 0 !important;
+  margin-top: 2px !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.red-conv-content {
+  display: flex !important;
+  flex-direction: column !important;
+  min-width: 0 !important;
+}
+
+.red-conv-title {
+  font-size: 0.82rem !important;
+  font-weight: 500 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  line-height: 1.25 !important;
+}
+
+.red-conv-time {
+  font-size: 0.7rem !important;
+  opacity: 0.7 !important;
+  margin-top: 1px !important;
+}
+
+.sidebar-view-all-btn {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 0.35rem !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+  font-size: 0.78rem !important;
+  font-weight: 600 !important;
+  padding: 0.4rem 0.75rem !important;
+  cursor: pointer !important;
+  background: none !important;
+  border: none !important;
+}
+
+.sidebar-view-all-btn:hover {
+  color: #ffffff !important;
+  text-decoration: underline !important;
+}
+
+.red-empty-text {
+  font-size: 0.78rem !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  padding: 0.4rem 0.5rem !important;
+}
+
+/* Sidebar Bottom Road Ribbon */
+.sidebar-bottom-road {
+  position: relative !important;
+  width: 100% !important;
+  height: 120px !important;
+  margin-top: auto !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+}
+
+.sidebar-road-svg {
   width: 100% !important;
   height: 100% !important;
-  object-fit: cover !important;
   display: block !important;
+}
+
+/* Main Canvas & Top Bar */
+.canvas-top-header {
+  display: flex !important;
+  align-items: center !important;
+  padding: 1.25rem 2rem 0.5rem 2rem !important;
+  position: relative !important;
+  z-index: 15 !important;
+}
+
+.canvas-top-spacer {
+  flex: 1 !important;
+}
+
+.mobile-toggle-btn {
+  display: none !important;
+}
+
+@media (max-width: 900px) {
+  .mobile-toggle-btn {
+    display: flex !important;
+  }
+}
+
+/* Highway Scene SVG Vector Background */
+.highway-scene-svg {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  pointer-events: none !important;
+}
+
+/* Welcome Center Screen */
+.welcome-heading-red {
+  color: #dc2626 !important;
+  font-weight: 800 !important;
+}
+
+.welcome-action-cards {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 1.25rem !important;
+  max-width: 940px !important;
+  width: 100% !important;
+  margin: 2rem auto 1rem auto !important;
+}
+
+@media (max-width: 1080px) {
+  .welcome-action-cards {
+    grid-template-columns: 1fr !important;
+    max-width: 540px !important;
+  }
+}
+
+.welcome-action-card {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.95rem !important;
+  padding: 0.85rem 1.25rem !important;
+  background: #ffffff !important;
+  border: 1px solid #eef2f6 !important;
+  border-radius: 14px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04) !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  text-align: left !important;
+}
+
+.action-card-badge {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 10px !important;
+  background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  box-shadow: 0 4px 10px rgba(220, 38, 38, 0.25) !important;
+}
+
+.action-card-title {
+  font-size: 0.94rem !important;
+  font-weight: 700 !important;
+  color: #0f172a !important;
+  line-height: 1.2 !important;
+}
+
+.welcome-action-card:hover {
+  transform: translateY(-3px) !important;
+  box-shadow: 0 10px 28px rgba(220, 38, 38, 0.12) !important;
+  border-color: #fca5a5 !important;
+}
+
+.action-card-badge {
+  width: 44px !important;
+  height: 44px !important;
+  border-radius: 12px !important;
+  background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  box-shadow: 0 4px 10px rgba(220, 38, 38, 0.28) !important;
+}
+
+.action-card-icon {
+  width: 22px !important;
+  height: 22px !important;
+  color: #ffffff !important;
+}
+
+.action-card-text {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 !important;
+  min-width: 0 !important;
+}
+
+.action-card-title {
+  font-size: 0.98rem !important;
+  font-weight: 700 !important;
+  color: #0f172a !important;
+  line-height: 1.2 !important;
+}
+
+.action-card-sub {
+  font-size: 0.77rem !important;
+  color: #64748b !important;
+  margin-top: 3px !important;
+  line-height: 1.3 !important;
+}
+
+.action-card-arrow {
+  font-size: 1.35rem !important;
+  color: #94a3b8 !important;
+  flex-shrink: 0 !important;
+  font-weight: 400 !important;
+  transition: all 0.18s ease !important;
+}
+
+.welcome-action-card:hover .action-card-arrow {
+  color: #dc2626 !important;
+  transform: translateX(3px) !important;
+}
+
+/* ==============================================================================
+   Pill Action Cards (matching exact uploaded screenshot)
+   ============================================================================== */
+.chat-welcome-container {
+  max-width: 980px !important;
+}
+
+.welcome-action-cards.pill-cards-wrap {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-wrap: nowrap !important;
+  gap: 0.95rem !important;
+  max-width: 980px !important;
+  width: auto !important;
+  margin: 1.75rem auto 1rem auto !important;
+}
+
+.welcome-action-card.pill-card {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.75rem !important;
+  padding: 0.55rem 1.25rem 0.55rem 0.65rem !important;
+  background: #ffffff !important;
+  border: 1px solid #eef2f6 !important;
+  border-radius: 9999px !important;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.02) !important;
+  cursor: pointer !important;
+  transition: all 0.22s ease !important;
+  text-align: left !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+}
+
+.welcome-action-card.pill-card:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 24px rgba(220, 38, 38, 0.1) !important;
+  border-color: #fca5a5 !important;
+}
+
+.action-card-badge.pill-badge {
+  width: 38px !important;
+  height: 38px !important;
+  min-width: 38px !important;
+  border-radius: 50% !important;
+  background: #fee2e2 !important;
+  border: 1px solid #fecdd3 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  box-shadow: none !important;
+}
+
+.pill-badge .action-card-icon {
+  width: 19px !important;
+  height: 19px !important;
+  color: #dc2626 !important;
+  stroke: #dc2626 !important;
+}
+
+.pill-card .action-card-title {
+  font-size: 0.95rem !important;
+  font-weight: 700 !important;
+  color: #0f172a !important;
+  white-space: nowrap !important;
+  letter-spacing: -0.01em !important;
+}
+
+.pill-card .action-card-arrow {
+  font-size: 1.25rem !important;
+  color: #64748b !important;
+  margin-left: 0.25rem !important;
+  font-weight: 400 !important;
+  transition: transform 0.18s ease, color 0.18s ease !important;
+}
+
+.pill-card:hover .action-card-arrow {
+  color: #dc2626 !important;
+  transform: translateX(2px) !important;
+}
+
+/* ==============================================================================
+   Refined Road & Sidebar Details matching exact uploaded crop
+   ============================================================================== */
+.sidebar-bottom-road {
+  position: relative !important;
+  width: 100% !important;
+  height: 220px !important;
+  margin-top: auto !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+}
+
+.sidebar-road-svg {
+  width: 100% !important;
+  height: 100% !important;
+  display: block !important;
+}
+
+.sidebar-red-conversations {
+  background: rgba(0, 0, 0, 0.18) !important;
+  border-radius: 14px !important;
+  padding: 0.85rem 1rem 0.65rem 1rem !important;
+  margin: 0.35rem 0.85rem 1.25rem 0.85rem !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.65rem !important;
+  backdrop-filter: blur(6px) !important;
+}
+
+.sidebar-red-conv-item {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 0.65rem !important;
+  padding: 0.5rem 0.65rem !important;
+  border-radius: 8px !important;
+  color: #ffffff !important;
+  cursor: pointer !important;
+  font-size: 0.85rem !important;
+  transition: all 0.15s ease !important;
+  position: relative !important;
+}
+
+.sidebar-red-conv-item:hover {
+  background: rgba(255, 255, 255, 0.14) !important;
+}
+
+.sidebar-red-conv-item.active {
+  background: rgba(255, 255, 255, 0.2) !important;
+}
+
+.red-conv-content {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+}
+
+.red-conv-title {
+  font-size: 0.88rem !important;
+  font-weight: 500 !important;
+  color: #ffffff !important;
+  line-height: 1.25 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.red-conv-time {
+  font-size: 0.74rem !important;
+  color: rgba(255, 255, 255, 0.75) !important;
+  margin-top: 2px !important;
+}
+
+.red-conv-delete-btn {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 26px !important;
+  height: 26px !important;
+  border-radius: 6px !important;
+  background: transparent !important;
+  border: none !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  cursor: pointer !important;
+  opacity: 0.6 !important;
+  transition: all 0.18s ease !important;
+  flex-shrink: 0 !important;
+}
+
+.sidebar-red-conv-item:hover .red-conv-delete-btn {
+  opacity: 1 !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+}
+
+.red-conv-delete-btn:hover {
+  background: rgba(239, 68, 68, 0.5) !important;
+  color: #ffffff !important;
+  transform: scale(1.1) !important;
+}
+
+.red-conv-delete-btn svg {
+  width: 14px !important;
+  height: 14px !important;
+}
+
+.sidebar-conv-actions-row {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+  margin-top: 0.35rem !important;
+  padding-top: 0.2rem !important;
+}
+
+.sidebar-clear-all-btn {
+  background: none !important;
+  border: none !important;
+  color: rgba(255, 255, 255, 0.75) !important;
+  font-size: 0.8rem !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  padding: 0.2rem 0.3rem !important;
+  transition: color 0.18s ease !important;
+}
+
+.sidebar-clear-all-btn:hover {
+  color: #fca5a5 !important;
+  text-decoration: underline !important;
+}
+
+.sidebar-view-all-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 0.4rem !important;
+  color: #ffffff !important;
+  font-size: 0.84rem !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  background: none !important;
+  border: none !important;
+}
+
+.sidebar-view-all-btn:hover {
+  text-decoration: underline !important;
+}
+
+.topbar-delete-chat-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.45rem !important;
+  padding: 0.4rem 0.85rem !important;
+  background: rgba(255, 255, 255, 0.88) !important;
+  border: 1px solid #fee2e2 !important;
+  border-radius: 9999px !important;
+  color: #dc2626 !important;
+  font-size: 0.82rem !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+  transition: all 0.18s ease !important;
+}
+
+.topbar-delete-chat-btn:hover {
+  background: #fee2e2 !important;
+  border-color: #fca5a5 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.12) !important;
+}
+
+.topbar-delete-chat-btn svg {
+  width: 14px !important;
+  height: 14px !important;
 }

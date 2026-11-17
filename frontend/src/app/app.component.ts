@@ -68,8 +68,8 @@ export class AppComponent implements OnInit, AfterViewChecked {
   activeInspectionSession = signal<InspectionSessionViewModel | null>(null);
   activeReviewQuestions = signal<SiteInspectionQuestion[]>([]);
 
-  // Sidebar view: 'recent-chats' | 'inspection-history' | 'my-reports'
-  sidebarActiveSection = signal<'recent-chats' | 'inspection-history' | 'my-reports'>('recent-chats');
+  // Sidebar view: 'home' | 'recent-chats' | 'inspection-history' | 'my-reports'
+  sidebarActiveSection = signal<'home' | 'recent-chats' | 'inspection-history' | 'my-reports'>('home');
 
   // Complete list of all 12 Question Banks
   readonly siteInspectionBanks = [
@@ -839,6 +839,32 @@ export class AppComponent implements OnInit, AfterViewChecked {
     this.conversationToDelete.set(null);
   }
 
+  showClearAllConfirm = signal<boolean>(false);
+
+  promptClearAllConversations(event?: MouseEvent): void {
+    if (event) {
+      event.stopPropagation();
+    }
+    this.showClearAllConfirm.set(true);
+  }
+
+  cancelClearAll(): void {
+    this.showClearAllConfirm.set(false);
+  }
+
+  confirmClearAll(): void {
+    const list = this.conversations();
+    for (const c of list) {
+      void this.chatPersistence.deleteConversation(c.id);
+      if (c.activeInspectionId) {
+        this.conversationalInspection.deleteSession(c.activeInspectionId);
+      }
+    }
+    this.conversations.set([]);
+    this.showClearAllConfirm.set(false);
+    this.navigateToHome();
+  }
+
   // --- Message Handling ---
 
   sendMessage(): void {
@@ -1194,990 +1220,997 @@ export class AppComponent implements OnInit, AfterViewChecked {
           this.analyzingStepMessage.set('Triangulating visual evidence...');
         }
       }, 900),
-  setTimeout(() => {
-    if (this.isGenerating()) {
-      this.analyzingStepMessage.set('Analysing site photographs...');
-    }
+      setTimeout(() => {
+        if (this.isGenerating()) {
+          this.analyzingStepMessage.set('Analysing site photographs...');
+        }
       }, 1800),
-setTimeout(() => {
-  if (this.isGenerating()) {
-    this.analyzingStepMessage.set('Checking inspection requirements...');
-  }
+      setTimeout(() => {
+        if (this.isGenerating()) {
+          this.analyzingStepMessage.set('Checking inspection requirements...');
+        }
       }, 2700),
-setTimeout(() => {
-  if (this.isGenerating()) {
-    this.analyzingStepMessage.set('Preparing inspection findings...');
-  }
+      setTimeout(() => {
+        if (this.isGenerating()) {
+          this.analyzingStepMessage.set('Preparing inspection findings...');
+        }
       }, 3600)
     );
   }
 
   private clearAnalyzingStepTimers(): void {
-  for(const timer of this.analyzingStepTimers) {
-  clearTimeout(timer);
-}
-this.analyzingStepTimers = [];
+    for (const timer of this.analyzingStepTimers) {
+      clearTimeout(timer);
+    }
+    this.analyzingStepTimers = [];
   }
 
-trackByMessageId(_index: number, msg: ChatMessage): string {
-  return msg.id;
-}
+  trackByMessageId(_index: number, msg: ChatMessage): string {
+    return msg.id;
+  }
 
   private sanitizeProviderBranding(text: string | undefined): string {
-  if (!text) return '';
-  return text.replace(/\bgemini(-[0-9a-z.-]+)?\b/gi, 'QuestAI');
-}
-
-retryMessage(prompt ?: string): void {
-  if(!prompt || this.isGenerating()) return;
-this.composerText.set(prompt);
-this.sendMessage();
+    if (!text) return '';
+    return text.replace(/\bgemini(-[0-9a-z.-]+)?\b/gi, 'QuestAI');
   }
 
-retryPhotoAnalysis(errMsg: ChatMessage): void {
-  if(this.isGenerating()) return;
-  const currentConv = this.activeConversation();
-  if(!currentConv) return;
+  retryMessage(prompt?: string): void {
+    if (!prompt || this.isGenerating()) return;
+    this.composerText.set(prompt);
+    this.sendMessage();
+  }
 
-  const photosToRetry =
-    errMsg.photos && errMsg.photos.length > 0
-      ? errMsg.photos
-      : this.getInspectionPhotosForMessage(errMsg);
-  if(!photosToRetry || photosToRetry.length === 0) return;
+  retryPhotoAnalysis(errMsg: ChatMessage): void {
+    if (this.isGenerating()) return;
+    const currentConv = this.activeConversation();
+    if (!currentConv) return;
 
-// Remove the previous error message so the loading indicator replaces it cleanly
-this.conversations.update((list) =>
-  list.map((c) =>
-    c.id === currentConv.id
-      ? { ...c, messages: c.messages.filter((m) => m.id !== errMsg.id) }
-      : c
-  )
-);
+    const photosToRetry =
+      errMsg.photos && errMsg.photos.length > 0
+        ? errMsg.photos
+        : this.getInspectionPhotosForMessage(errMsg);
+    if (!photosToRetry || photosToRetry.length === 0) return;
 
-const targetBankId =
-  errMsg.selectedBankId ||
-  currentConv.selectedBankId ||
-  this.selectedUploadBank()?.id ||
-  'civil-other';
-const targetBank =
-  this.siteInspectionBanks.find((b) => b.id === targetBankId) ||
-  this.siteInspectionBanks[0];
+    // Remove the previous error message so the loading indicator replaces it cleanly
+    this.conversations.update((list) =>
+      list.map((c) =>
+        c.id === currentConv.id
+          ? { ...c, messages: c.messages.filter((m) => m.id !== errMsg.id) }
+          : c
+      )
+    );
 
-let session = currentConv.activeInspectionId
-  ? this.conversationalInspection.getSession(currentConv.activeInspectionId)
-  : undefined;
+    const targetBankId =
+      errMsg.selectedBankId ||
+      currentConv.selectedBankId ||
+      this.selectedUploadBank()?.id ||
+      'civil-other';
+    const targetBank =
+      this.siteInspectionBanks.find((b) => b.id === targetBankId) ||
+      this.siteInspectionBanks[0];
 
-if (!session || session.bankId !== targetBank.id) {
-  session = this.conversationalInspection.createSession(
-    currentConv.id,
-    targetBank,
-    targetBank.isManagers ? [...this.selectedUploadRiskBanks()] : undefined
-  );
-  currentConv.activeInspectionId = session.inspectionId;
-}
-this.activeInspectionSession.set(session);
+    let session = currentConv.activeInspectionId
+      ? this.conversationalInspection.getSession(currentConv.activeInspectionId)
+      : undefined;
 
-this.startAnalyzingStepSequence();
-this.shouldScrollToBottom = true;
+    if (!session || session.bankId !== targetBank.id) {
+      session = this.conversationalInspection.createSession(
+        currentConv.id,
+        targetBank,
+        targetBank.isManagers ? [...this.selectedUploadRiskBanks()] : undefined
+      );
+      currentConv.activeInspectionId = session.inspectionId;
+    }
+    this.activeInspectionSession.set(session);
 
-this.conversationalInspection
-  .analyzeTurnWithBackend(session, {
-    inspectionId: session.inspectionId,
-    conversationId: currentConv.id,
-    bankId: session.bankId,
-    department: session.department,
-    trafficSubtype: session.trafficSubtype,
-    selectedRiskBanks: session.selectedRiskBanks,
-    newPhotos: photosToRetry,
-    allPhotos: session.uploadedPhotos,
-    userText: errMsg.retryPrompt || '',
-  })
-  .then((turnResponse) => {
-    this.clearAnalyzingStepTimers();
-    this.clearPreviousWorkflowMessagesInActiveConversation();
+    this.startAnalyzingStepSequence();
+    this.shouldScrollToBottom = true;
 
-    const photoCountText =
-      photosToRetry.length === 1
-        ? '1 site photograph'
-        : `${photosToRetry.length} site photographs`;
-
-    const evidence: InspectionEvidenceViewModel = {
-      evidenceId: 'ev-' + Date.now(),
-      inspectionId: session.inspectionId,
-      summary: turnResponse.conversationalSummary,
-      observations: turnResponse.evidenceObservations,
-      photos: turnResponse.evidencePhotos,
-      aiSuggestions: turnResponse.aiSuggestedAssessments,
-      needsAdditionalPhotos: turnResponse.needsAdditionalPhotos,
-      additionalPhotoPrompt: turnResponse.additionalPhotoPrompt,
-      createdAt: new Date().toISOString(),
-    };
-
-    let clarificationBatch: InspectionQuestionBatchViewModel | undefined;
-    if (turnResponse.nextClarificationBatch) {
-      const b = turnResponse.nextClarificationBatch;
-      clarificationBatch = {
-        batchId: b.batchId,
+    this.conversationalInspection
+      .analyzeTurnWithBackend(session, {
         inspectionId: session.inspectionId,
-        title: b.title,
-        promptIntro: b.promptIntro,
-        questions: b.questionIds
-          .map((id) => session.questionAssessments[id])
-          .filter(Boolean),
-        isComplete: false,
-      };
-    }
+        conversationId: currentConv.id,
+        bankId: session.bankId,
+        department: session.department,
+        trafficSubtype: session.trafficSubtype,
+        selectedRiskBanks: session.selectedRiskBanks,
+        newPhotos: photosToRetry,
+        allPhotos: session.uploadedPhotos,
+        userText: errMsg.retryPrompt || '',
+      })
+      .then((turnResponse) => {
+        this.clearAnalyzingStepTimers();
+        this.clearPreviousWorkflowMessagesInActiveConversation();
 
-    const progress = this.conversationalInspection.getProgress(session);
+        const photoCountText =
+          photosToRetry.length === 1
+            ? '1 site photograph'
+            : `${photosToRetry.length} site photographs`;
 
-    const assistantMsg: ChatMessage = {
-      id: 'msg-' + (Date.now() + 1),
-      sender: 'assistant',
-      content: `I've reviewed your ${photoCountText} for **${targetBank.name}**:`,
-      timestamp: new Date(),
-      inspectionId: session.inspectionId,
-      inspectionProgress: progress,
-      evidenceMessage: evidence,
-      questionBatch: clarificationBatch,
-    };
-    this.appendMessageToActive(assistantMsg);
-    this.isGenerating.set(false);
-    this.analyzingStepMessage.set('');
-    this.shouldScrollToBottom = true;
-  })
-  .catch((err) => {
-    this.clearAnalyzingStepTimers();
-    this.isGenerating.set(false);
-    this.analyzingStepMessage.set('');
-    let errorMessage =
-      "I'm having trouble completing the photo analysis right now. The AI service may be temporarily unavailable.";
-    if (err?.status === 0) {
-      errorMessage =
-        "I'm having trouble reaching the analysis service right now. Please check your connection and try again.";
-    } else if (err?.status === 429) {
-      errorMessage =
-        "I'm having trouble completing the photo analysis right now. The AI service is temporarily unavailable—please try again in a moment.";
-    } else if (err?.status === 504) {
-      errorMessage =
-        'The photo analysis took a bit too long to respond. Please try again in a moment.';
-    }
+        const evidence: InspectionEvidenceViewModel = {
+          evidenceId: 'ev-' + Date.now(),
+          inspectionId: session.inspectionId,
+          summary: turnResponse.conversationalSummary,
+          observations: turnResponse.evidenceObservations,
+          photos: turnResponse.evidencePhotos,
+          aiSuggestions: turnResponse.aiSuggestedAssessments,
+          needsAdditionalPhotos: turnResponse.needsAdditionalPhotos,
+          additionalPhotoPrompt: turnResponse.additionalPhotoPrompt,
+          createdAt: new Date().toISOString(),
+        };
 
-    const nextErrMsg: ChatMessage = {
-      id: 'msg-' + (Date.now() + 1),
-      sender: 'assistant',
-      content: errorMessage,
-      timestamp: new Date(),
-      isError: true,
-      photos: photosToRetry.map((p) => ({ ...p })),
-      selectedBankId: targetBank.id,
-      retryPrompt: errMsg.retryPrompt,
-    };
-    this.appendMessageToActive(nextErrMsg);
-    this.shouldScrollToBottom = true;
-  });
+        let clarificationBatch: InspectionQuestionBatchViewModel | undefined;
+        if (turnResponse.nextClarificationBatch) {
+          const b = turnResponse.nextClarificationBatch;
+          clarificationBatch = {
+            batchId: b.batchId,
+            inspectionId: session.inspectionId,
+            title: b.title,
+            promptIntro: b.promptIntro,
+            questions: b.questionIds
+              .map((id) => session.questionAssessments[id])
+              .filter(Boolean),
+            isComplete: false,
+          };
+        }
+
+        const progress = this.conversationalInspection.getProgress(session);
+
+        const assistantMsg: ChatMessage = {
+          id: 'msg-' + (Date.now() + 1),
+          sender: 'assistant',
+          content: `I've reviewed your ${photoCountText} for **${targetBank.name}**:`,
+          timestamp: new Date(),
+          inspectionId: session.inspectionId,
+          inspectionProgress: progress,
+          evidenceMessage: evidence,
+          questionBatch: clarificationBatch,
+        };
+        this.appendMessageToActive(assistantMsg);
+        this.isGenerating.set(false);
+        this.analyzingStepMessage.set('');
+        this.shouldScrollToBottom = true;
+      })
+      .catch((err) => {
+        this.clearAnalyzingStepTimers();
+        this.isGenerating.set(false);
+        this.analyzingStepMessage.set('');
+        let errorMessage =
+          "I'm having trouble completing the photo analysis right now. The AI service may be temporarily unavailable.";
+        if (err?.status === 0) {
+          errorMessage =
+            "I'm having trouble reaching the analysis service right now. Please check your connection and try again.";
+        } else if (err?.status === 429) {
+          errorMessage =
+            "I'm having trouble completing the photo analysis right now. The AI service is temporarily unavailable—please try again in a moment.";
+        } else if (err?.status === 504) {
+          errorMessage =
+            'The photo analysis took a bit too long to respond. Please try again in a moment.';
+        }
+
+        const nextErrMsg: ChatMessage = {
+          id: 'msg-' + (Date.now() + 1),
+          sender: 'assistant',
+          content: errorMessage,
+          timestamp: new Date(),
+          isError: true,
+          photos: photosToRetry.map((p) => ({ ...p })),
+          selectedBankId: targetBank.id,
+          retryPrompt: errMsg.retryPrompt,
+        };
+        this.appendMessageToActive(nextErrMsg);
+        this.shouldScrollToBottom = true;
+      });
   }
 
-/**
- * Called when the user clicks one of the 12 compact category chips in the assistant response
- * (or selects a category by typing its name). Records the selected bank and sends the
- * conversational prompt: "Great! Please upload your site photographs here." without opening any modal.
- */
-onSelectCategoryChipFromChat(bank: any, messageId ?: string): void {
-  if(!bank) return;
+  /**
+   * Called when the user clicks one of the 12 compact category chips in the assistant response
+   * (or selects a category by typing its name). Records the selected bank and sends the
+   * conversational prompt: "Great! Please upload your site photographs here." without opening any modal.
+   */
+  onSelectCategoryChipFromChat(bank: any, messageId?: string): void {
+    if (!bank) return;
 
-  // Ensure an active conversation exists if triggered directly
-  if(!this.activeConversation()) {
-  const newId = 'conv-' + Date.now();
-  const newConv: Conversation = {
-    id: newId,
-    title: `${bank.name} Inspection`,
-    updatedAt: new Date(),
-    previewSnippet: bank.name,
-    selectedBankId: bank.id,
-    messages: [],
-  };
-  this.conversations.update((list) => [newConv, ...list]);
-  this.activeConversationId.set(newId);
-}
-
-this.selectedUploadBank.set(bank);
-this.showPhotoUploadModal.set(false);
-this.setConversationSelectedBank(bank.id);
-this.markCategorySelectedInConversation(bank.id, messageId);
-
-// Initialize adaptive inspection session
-const activeConv = this.activeConversation();
-if (activeConv) {
-  const session = this.conversationalInspection.createSession(
-    activeConv.id,
-    bank,
-    bank.isManagers ? [...this.selectedUploadRiskBanks()] : undefined
-  );
-  activeConv.activeInspectionId = session.inspectionId;
-  this.activeInspectionSession.set(session);
-}
-
-if (this.inspectionComponent && bank.id) {
-  this.inspectionComponent.selectBank(bank.id);
-}
-
-const promptMsg: ChatMessage = {
-  id: 'msg-' + (Date.now() + 1),
-  sender: 'assistant',
-  content: `Great! Please share photographs of the ${bank.name} setup and surrounding area through the chat composer.`,
-  timestamp: new Date(),
-  selectedBankId: bank.id,
-  inspectionId: activeConv?.activeInspectionId,
-};
-this.appendMessageToActive(promptMsg);
-this.shouldScrollToBottom = true;
-  }
-
-/**
- * Retrieves full photograph Blobs/data URLs associated with this inspection workflow message.
- * Checks the preceding user message in the active conversation where photos were attached,
- * restoring full evidence across refreshes.
- */
-getInspectionPhotosForMessage(workflowMsg: ChatMessage): InspectionPhoto[] {
-  const conv = this.activeConversation();
-  if (!conv) return [];
-  // 1. If workflow message itself has photos attached
-  if (workflowMsg.photos && workflowMsg.photos.length > 0) {
-    return workflowMsg.photos;
-  }
-  // 2. Locate the closest preceding user message that holds the uploaded photos
-  const msgs = conv.messages;
-  const msgIndex = msgs.findIndex((m) => m.id === workflowMsg.id);
-  const searchRange = msgIndex > 0 ? msgs.slice(0, msgIndex) : msgs;
-  for (let i = searchRange.length - 1; i >= 0; i--) {
-    const candidate = searchRange[i];
-    if (candidate.sender === 'user' && candidate.photos && candidate.photos.length > 0) {
-      return candidate.photos;
-    }
-  }
-  return [];
-}
-
-onEmbeddedWorkflowStatusChange(event: {
-  state: 'scanning' | 'ready' | 'error' | 'finalized';
-  message: string;
-}): void {
-  const convId = this.activeConversationId();
-  if(!convId) return;
-  this.conversations.update((list) =>
-    list.map((c) => {
-      if (c.id !== convId) return c;
-      return {
-        ...c,
+    // Ensure an active conversation exists if triggered directly
+    if (!this.activeConversation()) {
+      const newId = 'conv-' + Date.now();
+      const newConv: Conversation = {
+        id: newId,
+        title: `${bank.name} Inspection`,
         updatedAt: new Date(),
-        messages: c.messages.map((m) =>
-          m.isInspectionWorkflowMessage ? { ...m, content: event.message } : m
-        ),
+        previewSnippet: bank.name,
+        selectedBankId: bank.id,
+        messages: [],
       };
-    })
-  );
-  this.persistChatState();
-}
-
-  private setConversationSelectedBank(bankId: string): void {
-  const convId = this.activeConversationId();
-  if(!convId) return;
-  this.conversations.update((list) =>
-    list.map((c) => (c.id === convId ? { ...c, selectedBankId: bankId } : c))
-  );
-  this.persistChatState();
-}
-
-  private clearPreviousWorkflowMessagesInActiveConversation(): void {
-  const convId = this.activeConversationId();
-  if(!convId) return;
-  this.conversations.update((list) =>
-    list.map((c) => {
-      if (c.id !== convId) return c;
-      return {
-        ...c,
-        messages: c.messages.map((m) =>
-          m.isInspectionWorkflowMessage ? { ...m, isInspectionWorkflowMessage: false } : m
-        ),
-      };
-    })
-  );
-}
-
-/**
- * Allows the user to cancel category selection and return to normal chat.
- */
-cancelCategorySelection(messageId ?: string): void {
-  const convId = this.activeConversationId();
-  if(!convId) return;
-  this.conversations.update((list) =>
-    list.map((c) => {
-      if (c.id !== convId) return c;
-      return {
-        ...c,
-        messages: c.messages.map((m) => {
-          if (!messageId || m.id === messageId) {
-            return { ...m, showInspectionCategories: false };
-          }
-          return m;
-        }),
-      };
-    })
-  );
-}
-
-  private hasActiveCategorySelector(): boolean {
-  const msgs = this.activeMessages();
-  return msgs.some((m) => m.sender === 'assistant' && !!m.showInspectionCategories);
-}
-
-  private clearActiveCategorySelectors(): void {
-  const convId = this.activeConversationId();
-  if(!convId) return;
-  this.conversations.update((list) =>
-    list.map((c) => {
-      if (c.id !== convId) return c;
-      return {
-        ...c,
-        messages: c.messages.map((m) =>
-          m.showInspectionCategories ? { ...m, showInspectionCategories: false } : m
-        ),
-      };
-    })
-  );
-}
-
-  private markCategorySelectedInConversation(bankId: string, messageId ?: string): void {
-  const convId = this.activeConversationId();
-  if(!convId) return;
-  this.conversations.update((list) =>
-    list.map((c) => {
-      if (c.id !== convId) return c;
-      return {
-        ...c,
-        messages: c.messages.map((m) => {
-          if (
-            (messageId && m.id === messageId) ||
-            (!messageId && m.showInspectionCategories)
-          ) {
-            return { ...m, selectedBankId: bankId };
-          }
-          return m;
-        }),
-      };
-    })
-  );
-}
-
-/**
- * Distinguishes pure greetings and pleasantries (e.g., "hi", "hiii", "hello", "good morning")
- */
-isGreeting(userText: string): boolean {
-  const cleaned = (userText || '').trim().toLowerCase();
-  if (!cleaned) return false;
-  return /^(hi+|hello+|hey+|howdy|greetings|good\s*(morning|afternoon|evening)|what'?s\s+up|yo)\b[!.?\s]*$/i.test(
-    cleaned
-  );
-}
-
-/**
- * Distinguishes between:
- * A. Normal conversations (greetings, general questions, ordinary safety questions) -> false
- * B. Explicit requests to fill, start, open, or complete a Site Inspection form -> true
- */
-isInspectionFormRequest(userText: string): boolean {
-  const cleaned = (userText || '').trim().toLowerCase();
-  if (!cleaned) return false;
-
-  // 1. Exclude pure greetings & pleasantries
-  if (
-    /^(hi+|hello+|hey+|good\s*(morning|afternoon|evening)|how\s+are\s+you(\s+doing)?|what'?s\s+up|thanks|thank\s+you|ok|okay)\b[!.?\s]*$/i.test(
-      cleaned
-    )
-  ) {
-    return false;
-  }
-
-  // 2. Exclude informational / educational questions unless they explicitly ask to fill/start/open a form
-  const hasExplicitFormAction =
-    /\b(fill|fill\s+out|fill\s+in|start|open|complete|begin|conduct|perform|create|launch|new)\b/i.test(
-      cleaned
-    );
-  if (
-    /^(what|why|how\s+often|how\s+long|how\s+many|when\s+should|who|where|explain|tell\s+me\s+about|define|is\s+it|are\s+there)\b/i.test(
-      cleaned
-    ) &&
-    !hasExplicitFormAction
-  ) {
-    return false;
-  }
-
-  // 3. Require both an action/desire intent AND a form/inspection target
-  const actionOrDesire =
-    /\b(fill|start|open|complete|begin|conduct|perform|do|create|launch|take|want\s+to|would\s+like\s+to|need\s+to|let'?s)\b/i.test(
-      cleaned
-    );
-  const inspectionFormTarget =
-    /\b(site\s+inspection|site\s+inpection|site\s+insepction|inspection\s+form|inpection\s+form|insepction\s+form|inspection\s+checklist|site\s+checklist|new\s+inspection|new\s+inpection|fill\s+(a|the)\s+form|fill\s+form|check\s+sheet)\b/i.test(
-      cleaned
-    );
-
-  if (inspectionFormTarget && actionOrDesire) {
-    return true;
-  }
-
-  // Also match "Fill a <Category> inspection form" or "Start a <Category> inspection"
-  if (
-    hasExplicitFormAction &&
-    /\b(inspection|inpection|insepction|form|checklist|check\s+sheet)\b/i.test(cleaned)
-  ) {
-    return true;
-  }
-
-  return false;
-}
-
-/**
- * Matches when the user types ONLY a category name directly (e.g., "Civil / Other", "Street Lighting").
- */
-matchExactCategoryName(userText: string): any | null {
-  const cleaned = (userText || '')
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, ' ');
-  if (!cleaned) return null;
-
-  for (const bank of this.siteInspectionBanks) {
-    const nameNorm = bank.name.toLowerCase().replace(/\s+/g, ' ');
-    const deptNorm = bank.department.toLowerCase().replace(/\s+/g, ' ');
-    const noSlashSpace = nameNorm.replace(/\s*\/\s*/g, '/');
-    if (
-      cleaned === nameNorm ||
-      cleaned === deptNorm ||
-      cleaned === noSlashSpace ||
-      cleaned === bank.id.toLowerCase()
-    ) {
-      return bank;
-    }
-  }
-  return null;
-}
-
-/**
- * Matches a category name typed by the user after being asked "Which inspection form would you like to fill?"
- */
-matchTypedCategory(userText: string): any | null {
-  const exact = this.matchExactCategoryName(userText);
-  if (exact) return exact;
-
-  const q = (userText || '').trim().toLowerCase();
-  if (!q) return null;
-
-  const categoryMatchers: Array<{ id: string; patterns: RegExp[] }> = [
-    {
-      id: 'road-marking-test',
-      patterns: [/\broad\s*marking\s*\(\s*test\s*\)/i, /\broad\s*marking\s*test\b/i, /\bmarking\s*test\b/i],
-    },
-    {
-      id: 'managers-risk-banks',
-      patterns: [/\brisk\s*banks?\b/i, /\bmanagers?\s*site\s*inspection\s*[-–—]\s*risk\s*banks?\b/i],
-    },
-    {
-      id: 'managers-site-inspection',
-      patterns: [/\bmanagers?\s*site\s*inspection\b/i, /\bmanagers?\s*inspection\b/i],
-    },
-    {
-      id: 'tm-12ab',
-      patterns: [/\b12\s*ab\b/i, /\btraffic\s*management\s*\(?12\s*ab\)?/i],
-    },
-    {
-      id: 'tm-12d',
-      patterns: [/\b12\s*d\b/i, /\btraffic\s*management\s*\(?12\s*d\)?/i],
-    },
-    {
-      id: 'civil-other',
-      patterns: [/\bcivil\s*\/?\s*other\b/i, /\bcivil\b/i],
-    },
-    {
-      id: 'street-lighting',
-      patterns: [/\bstreet\s*lighting\b/i],
-    },
-    {
-      id: 'road-marking',
-      patterns: [/\broad\s*marking\b/i],
-    },
-    {
-      id: 'road-surfacing',
-      patterns: [/\broad\s*surfacing\b/i, /\bsurfacing\b/i],
-    },
-    {
-      id: 'full-body-harness',
-      patterns: [/\bfull\s*body\s*harness\b/i, /\bharness\b/i],
-    },
-    {
-      id: 'ladder-stepladder',
-      patterns: [/\bladder\s*\/?\s*stepladder\b/i, /\bstepladder\b/i, /\bladder\b/i],
-    },
-    {
-      id: 'depot-check-sheet',
-      patterns: [/\bdepot\s*check\s*sheet\b/i, /\bdepot\b/i],
-    },
-  ];
-
-  for (const matcher of categoryMatchers) {
-    if (matcher.patterns.some((rx) => rx.test(q))) {
-      return this.siteInspectionBanks.find((b) => b.id === matcher.id) || null;
-    }
-  }
-
-  return null;
-}
-
-/**
- * Formats assistant markdown into clean, structured HTML blocks (headings, numbered items,
- * bullet lists, bold/italic text) without raw '**' or '*' characters.
- */
-formatStructuredMessage(content: string): SafeHtml {
-  if (!content) return this.sanitizer.bypassSecurityTrustHtml('');
-
-  const escapeHtml = (raw: string): string =>
-    raw
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-
-  const formatInline = (escapedLine: string): string =>
-    escapedLine
-      .replace(/\*\*([^*]+)\*\*/g, '<strong class="chat-md-strong">$1</strong>')
-      .replace(/\*([^*\n]+)\*/g, '<em class="chat-md-em">$1</em>')
-      .replace(/`([^`\n]+)`/g, '<code class="chat-md-code">$1</code>');
-
-  const lines = content.split(/\r?\n/);
-  const htmlBlocks: string[] = [];
-
-  for (const rawLine of lines) {
-    const trimmed = rawLine.trim();
-    if (!trimmed) {
-      continue;
+      this.conversations.update((list) => [newConv, ...list]);
+      this.activeConversationId.set(newId);
     }
 
-    if (/^---+$/.test(trimmed)) {
-      htmlBlocks.push('<hr class="chat-md-divider" />');
-      continue;
-    }
+    this.selectedUploadBank.set(bank);
+    this.showPhotoUploadModal.set(false);
+    this.setConversationSelectedBank(bank.id);
+    this.markCategorySelectedInConversation(bank.id, messageId);
 
-    const headingMatch = /^(#{1,4})\s+(.+)$/.exec(trimmed);
-    if (headingMatch) {
-      const headingText = formatInline(escapeHtml(headingMatch[2].replace(/\*\*/g, '')));
-      htmlBlocks.push(`<div class="chat-md-heading">${headingText}</div>`);
-      continue;
-    }
-
-    const numberedMatch = /^(\d+)[.)]\s+(.+)$/.exec(trimmed);
-    if (numberedMatch) {
-      const num = escapeHtml(numberedMatch[1]);
-      const body = formatInline(escapeHtml(numberedMatch[2]));
-      htmlBlocks.push(
-        `<div class="chat-md-num-item"><span class="chat-md-num-badge">${num}</span><div class="chat-md-item-body">${body}</div></div>`
+    // Initialize adaptive inspection session
+    const activeConv = this.activeConversation();
+    if (activeConv) {
+      const session = this.conversationalInspection.createSession(
+        activeConv.id,
+        bank,
+        bank.isManagers ? [...this.selectedUploadRiskBanks()] : undefined
       );
-      continue;
+      activeConv.activeInspectionId = session.inspectionId;
+      this.activeInspectionSession.set(session);
     }
 
-    const bulletMatch = /^([*\-•])\s+(.+)$/.exec(trimmed);
-    if (bulletMatch) {
-      const isIndented = /^\s{2,}/.test(rawLine);
-      const body = formatInline(escapeHtml(bulletMatch[2]));
-      htmlBlocks.push(
-        `<div class="chat-md-bullet-item${isIndented ? ' is-nested' : ''}"><span class="chat-md-bullet-dot"></span><div class="chat-md-item-body">${body}</div></div>`
-      );
-      continue;
+    if (this.inspectionComponent && bank.id) {
+      this.inspectionComponent.selectBank(bank.id);
     }
 
-    htmlBlocks.push(`<p class="chat-md-paragraph">${formatInline(escapeHtml(trimmed))}</p>`);
+    const promptMsg: ChatMessage = {
+      id: 'msg-' + (Date.now() + 1),
+      sender: 'assistant',
+      content: `Great! Please share photographs of the ${bank.name} setup and surrounding area through the chat composer.`,
+      timestamp: new Date(),
+      selectedBankId: bank.id,
+      inspectionId: activeConv?.activeInspectionId,
+    };
+    this.appendMessageToActive(promptMsg);
+    this.shouldScrollToBottom = true;
   }
 
-  return this.sanitizer.bypassSecurityTrustHtml(htmlBlocks.join(''));
-}
+  /**
+   * Retrieves full photograph Blobs/data URLs associated with this inspection workflow message.
+   * Checks the preceding user message in the active conversation where photos were attached,
+   * restoring full evidence across refreshes.
+   */
+  getInspectionPhotosForMessage(workflowMsg: ChatMessage): InspectionPhoto[] {
+    const conv = this.activeConversation();
+    if (!conv) return [];
+    // 1. If workflow message itself has photos attached
+    if (workflowMsg.photos && workflowMsg.photos.length > 0) {
+      return workflowMsg.photos;
+    }
+    // 2. Locate the closest preceding user message that holds the uploaded photos
+    const msgs = conv.messages;
+    const msgIndex = msgs.findIndex((m) => m.id === workflowMsg.id);
+    const searchRange = msgIndex > 0 ? msgs.slice(0, msgIndex) : msgs;
+    for (let i = searchRange.length - 1; i >= 0; i--) {
+      const candidate = searchRange[i];
+      if (candidate.sender === 'user' && candidate.photos && candidate.photos.length > 0) {
+        return candidate.photos;
+      }
+    }
+    return [];
+  }
 
-  private appendMessageToActive(msg: ChatMessage): void {
-  const id = this.activeConversationId();
-  this.conversations.update((list) =>
-    list.map((c) => {
-      if (c.id === id) {
+  onEmbeddedWorkflowStatusChange(event: {
+    state: 'scanning' | 'ready' | 'error' | 'finalized';
+    message: string;
+  }): void {
+    const convId = this.activeConversationId();
+    if (!convId) return;
+    this.conversations.update((list) =>
+      list.map((c) => {
+        if (c.id !== convId) return c;
         return {
           ...c,
           updatedAt: new Date(),
-          previewSnippet: msg.content.substring(0, 60),
-          messages: [...c.messages, msg],
+          messages: c.messages.map((m) =>
+            m.isInspectionWorkflowMessage ? { ...m, content: event.message } : m
+          ),
         };
-      }
-      return c;
-    })
-  );
-  this.persistChatState();
-}
-
-// --- Attachment Button Notice ---
-
-handleAttachmentClick(): void {
-  if(this.attachmentNoticeTimer) {
-  clearTimeout(this.attachmentNoticeTimer);
-}
-this.attachmentNotice.set(
-  'Document and evidence uploads will be enabled when cloud storage is connected.'
-);
-this.attachmentNoticeTimer = setTimeout(() => {
-  this.attachmentNotice.set(null);
-}, 4000);
+      })
+    );
+    this.persistChatState();
   }
 
-dismissAttachmentNotice(): void {
-  this.attachmentNotice.set(null);
-}
+  private setConversationSelectedBank(bankId: string): void {
+    const convId = this.activeConversationId();
+    if (!convId) return;
+    this.conversations.update((list) =>
+      list.map((c) => (c.id === convId ? { ...c, selectedBankId: bankId } : c))
+    );
+    this.persistChatState();
+  }
+
+  private clearPreviousWorkflowMessagesInActiveConversation(): void {
+    const convId = this.activeConversationId();
+    if (!convId) return;
+    this.conversations.update((list) =>
+      list.map((c) => {
+        if (c.id !== convId) return c;
+        return {
+          ...c,
+          messages: c.messages.map((m) =>
+            m.isInspectionWorkflowMessage ? { ...m, isInspectionWorkflowMessage: false } : m
+          ),
+        };
+      })
+    );
+  }
+
+  /**
+   * Allows the user to cancel category selection and return to normal chat.
+   */
+  cancelCategorySelection(messageId?: string): void {
+    const convId = this.activeConversationId();
+    if (!convId) return;
+    this.conversations.update((list) =>
+      list.map((c) => {
+        if (c.id !== convId) return c;
+        return {
+          ...c,
+          messages: c.messages.map((m) => {
+            if (!messageId || m.id === messageId) {
+              return { ...m, showInspectionCategories: false };
+            }
+            return m;
+          }),
+        };
+      })
+    );
+  }
+
+  private hasActiveCategorySelector(): boolean {
+    const msgs = this.activeMessages();
+    return msgs.some((m) => m.sender === 'assistant' && !!m.showInspectionCategories);
+  }
+
+  private clearActiveCategorySelectors(): void {
+    const convId = this.activeConversationId();
+    if (!convId) return;
+    this.conversations.update((list) =>
+      list.map((c) => {
+        if (c.id !== convId) return c;
+        return {
+          ...c,
+          messages: c.messages.map((m) =>
+            m.showInspectionCategories ? { ...m, showInspectionCategories: false } : m
+          ),
+        };
+      })
+    );
+  }
+
+  private markCategorySelectedInConversation(bankId: string, messageId?: string): void {
+    const convId = this.activeConversationId();
+    if (!convId) return;
+    this.conversations.update((list) =>
+      list.map((c) => {
+        if (c.id !== convId) return c;
+        return {
+          ...c,
+          messages: c.messages.map((m) => {
+            if (
+              (messageId && m.id === messageId) ||
+              (!messageId && m.showInspectionCategories)
+            ) {
+              return { ...m, selectedBankId: bankId };
+            }
+            return m;
+          }),
+        };
+      })
+    );
+  }
+
+  /**
+   * Distinguishes pure greetings and pleasantries (e.g., "hi", "hiii", "hello", "good morning")
+   */
+  isGreeting(userText: string): boolean {
+    const cleaned = (userText || '').trim().toLowerCase();
+    if (!cleaned) return false;
+    return /^(hi+|hello+|hey+|howdy|greetings|good\s*(morning|afternoon|evening)|what'?s\s+up|yo)\b[!.?\s]*$/i.test(
+      cleaned
+    );
+  }
+
+  /**
+   * Distinguishes between:
+   * A. Normal conversations (greetings, general questions, ordinary safety questions) -> false
+   * B. Explicit requests to fill, start, open, or complete a Site Inspection form -> true
+   */
+  isInspectionFormRequest(userText: string): boolean {
+    const cleaned = (userText || '').trim().toLowerCase();
+    if (!cleaned) return false;
+
+    // 1. Exclude pure greetings & pleasantries
+    if (
+      /^(hi+|hello+|hey+|good\s*(morning|afternoon|evening)|how\s+are\s+you(\s+doing)?|what'?s\s+up|thanks|thank\s+you|ok|okay)\b[!.?\s]*$/i.test(
+        cleaned
+      )
+    ) {
+      return false;
+    }
+
+    // 2. Exclude informational / educational questions unless they explicitly ask to fill/start/open a form
+    const hasExplicitFormAction =
+      /\b(fill|fill\s+out|fill\s+in|start|open|complete|begin|conduct|perform|create|launch|new)\b/i.test(
+        cleaned
+      );
+    if (
+      /^(what|why|how\s+often|how\s+long|how\s+many|when\s+should|who|where|explain|tell\s+me\s+about|define|is\s+it|are\s+there)\b/i.test(
+        cleaned
+      ) &&
+      !hasExplicitFormAction
+    ) {
+      return false;
+    }
+
+    // 3. Require both an action/desire intent AND a form/inspection target
+    const actionOrDesire =
+      /\b(fill|start|open|complete|begin|conduct|perform|do|create|launch|take|want\s+to|would\s+like\s+to|need\s+to|let'?s)\b/i.test(
+        cleaned
+      );
+    const inspectionFormTarget =
+      /\b(site\s+inspection|site\s+inpection|site\s+insepction|inspection\s+form|inpection\s+form|insepction\s+form|inspection\s+checklist|site\s+checklist|new\s+inspection|new\s+inpection|fill\s+(a|the)\s+form|fill\s+form|check\s+sheet)\b/i.test(
+        cleaned
+      );
+
+    if (inspectionFormTarget && actionOrDesire) {
+      return true;
+    }
+
+    // Also match "Fill a <Category> inspection form" or "Start a <Category> inspection"
+    if (
+      hasExplicitFormAction &&
+      /\b(inspection|inpection|insepction|form|checklist|check\s+sheet)\b/i.test(cleaned)
+    ) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Matches when the user types ONLY a category name directly (e.g., "Civil / Other", "Street Lighting").
+   */
+  matchExactCategoryName(userText: string): any | null {
+    const cleaned = (userText || '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, ' ');
+    if (!cleaned) return null;
+
+    for (const bank of this.siteInspectionBanks) {
+      const nameNorm = bank.name.toLowerCase().replace(/\s+/g, ' ');
+      const deptNorm = bank.department.toLowerCase().replace(/\s+/g, ' ');
+      const noSlashSpace = nameNorm.replace(/\s*\/\s*/g, '/');
+      if (
+        cleaned === nameNorm ||
+        cleaned === deptNorm ||
+        cleaned === noSlashSpace ||
+        cleaned === bank.id.toLowerCase()
+      ) {
+        return bank;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Matches a category name typed by the user after being asked "Which inspection form would you like to fill?"
+   */
+  matchTypedCategory(userText: string): any | null {
+    const exact = this.matchExactCategoryName(userText);
+    if (exact) return exact;
+
+    const q = (userText || '').trim().toLowerCase();
+    if (!q) return null;
+
+    const categoryMatchers: Array<{ id: string; patterns: RegExp[] }> = [
+      {
+        id: 'road-marking-test',
+        patterns: [/\broad\s*marking\s*\(\s*test\s*\)/i, /\broad\s*marking\s*test\b/i, /\bmarking\s*test\b/i],
+      },
+      {
+        id: 'managers-risk-banks',
+        patterns: [/\brisk\s*banks?\b/i, /\bmanagers?\s*site\s*inspection\s*[-–—]\s*risk\s*banks?\b/i],
+      },
+      {
+        id: 'managers-site-inspection',
+        patterns: [/\bmanagers?\s*site\s*inspection\b/i, /\bmanagers?\s*inspection\b/i],
+      },
+      {
+        id: 'tm-12ab',
+        patterns: [/\b12\s*ab\b/i, /\btraffic\s*management\s*\(?12\s*ab\)?/i],
+      },
+      {
+        id: 'tm-12d',
+        patterns: [/\b12\s*d\b/i, /\btraffic\s*management\s*\(?12\s*d\)?/i],
+      },
+      {
+        id: 'civil-other',
+        patterns: [/\bcivil\s*\/?\s*other\b/i, /\bcivil\b/i],
+      },
+      {
+        id: 'street-lighting',
+        patterns: [/\bstreet\s*lighting\b/i],
+      },
+      {
+        id: 'road-marking',
+        patterns: [/\broad\s*marking\b/i],
+      },
+      {
+        id: 'road-surfacing',
+        patterns: [/\broad\s*surfacing\b/i, /\bsurfacing\b/i],
+      },
+      {
+        id: 'full-body-harness',
+        patterns: [/\bfull\s*body\s*harness\b/i, /\bharness\b/i],
+      },
+      {
+        id: 'ladder-stepladder',
+        patterns: [/\bladder\s*\/?\s*stepladder\b/i, /\bstepladder\b/i, /\bladder\b/i],
+      },
+      {
+        id: 'depot-check-sheet',
+        patterns: [/\bdepot\s*check\s*sheet\b/i, /\bdepot\b/i],
+      },
+    ];
+
+    for (const matcher of categoryMatchers) {
+      if (matcher.patterns.some((rx) => rx.test(q))) {
+        return this.siteInspectionBanks.find((b) => b.id === matcher.id) || null;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Formats assistant markdown into clean, structured HTML blocks (headings, numbered items,
+   * bullet lists, bold/italic text) without raw '**' or '*' characters.
+   */
+  formatStructuredMessage(content: string): SafeHtml {
+    if (!content) return this.sanitizer.bypassSecurityTrustHtml('');
+
+    const escapeHtml = (raw: string): string =>
+      raw
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+    const formatInline = (escapedLine: string): string =>
+      escapedLine
+        .replace(/\*\*([^*]+)\*\*/g, '<strong class="chat-md-strong">$1</strong>')
+        .replace(/\*([^*\n]+)\*/g, '<em class="chat-md-em">$1</em>')
+        .replace(/`([^`\n]+)`/g, '<code class="chat-md-code">$1</code>');
+
+    const lines = content.split(/\r?\n/);
+    const htmlBlocks: string[] = [];
+
+    for (const rawLine of lines) {
+      const trimmed = rawLine.trim();
+      if (!trimmed) {
+        continue;
+      }
+
+      if (/^---+$/.test(trimmed)) {
+        htmlBlocks.push('<hr class="chat-md-divider" />');
+        continue;
+      }
+
+      const headingMatch = /^(#{1,4})\s+(.+)$/.exec(trimmed);
+      if (headingMatch) {
+        const headingText = formatInline(escapeHtml(headingMatch[2].replace(/\*\*/g, '')));
+        htmlBlocks.push(`<div class="chat-md-heading">${headingText}</div>`);
+        continue;
+      }
+
+      const numberedMatch = /^(\d+)[.)]\s+(.+)$/.exec(trimmed);
+      if (numberedMatch) {
+        const num = escapeHtml(numberedMatch[1]);
+        const body = formatInline(escapeHtml(numberedMatch[2]));
+        htmlBlocks.push(
+          `<div class="chat-md-num-item"><span class="chat-md-num-badge">${num}</span><div class="chat-md-item-body">${body}</div></div>`
+        );
+        continue;
+      }
+
+      const bulletMatch = /^([*\-•])\s+(.+)$/.exec(trimmed);
+      if (bulletMatch) {
+        const isIndented = /^\s{2,}/.test(rawLine);
+        const body = formatInline(escapeHtml(bulletMatch[2]));
+        htmlBlocks.push(
+          `<div class="chat-md-bullet-item${isIndented ? ' is-nested' : ''}"><span class="chat-md-bullet-dot"></span><div class="chat-md-item-body">${body}</div></div>`
+        );
+        continue;
+      }
+
+      htmlBlocks.push(`<p class="chat-md-paragraph">${formatInline(escapeHtml(trimmed))}</p>`);
+    }
+
+    return this.sanitizer.bypassSecurityTrustHtml(htmlBlocks.join(''));
+  }
+
+  private appendMessageToActive(msg: ChatMessage): void {
+    const id = this.activeConversationId();
+    this.conversations.update((list) =>
+      list.map((c) => {
+        if (c.id === id) {
+          return {
+            ...c,
+            updatedAt: new Date(),
+            previewSnippet: msg.content.substring(0, 60),
+            messages: [...c.messages, msg],
+          };
+        }
+        return c;
+      })
+    );
+    this.persistChatState();
+  }
+
+  // --- Attachment Button Notice ---
+
+  handleAttachmentClick(): void {
+    if (this.attachmentNoticeTimer) {
+      clearTimeout(this.attachmentNoticeTimer);
+    }
+    this.attachmentNotice.set(
+      'Document and evidence uploads will be enabled when cloud storage is connected.'
+    );
+    this.attachmentNoticeTimer = setTimeout(() => {
+      this.attachmentNotice.set(null);
+    }, 4000);
+  }
+
+  dismissAttachmentNotice(): void {
+    this.attachmentNotice.set(null);
+  }
 
 
 
-// --- Inspection History ---
+  // --- Inspection History ---
 
-loadInspectionHistory(): void {
-  try {
-    const raw = localStorage.getItem('questai_finalized_inspections');
-    if(raw) {
-      const list = JSON.parse(raw);
-      this.inspectionHistoryList.set(Array.isArray(list) ? list : []);
-    } else {
+  loadInspectionHistory(): void {
+    try {
+      const raw = localStorage.getItem('questai_finalized_inspections');
+      if (raw) {
+        const list = JSON.parse(raw);
+        this.inspectionHistoryList.set(Array.isArray(list) ? list : []);
+      } else {
+        this.inspectionHistoryList.set([]);
+      }
+    } catch {
       this.inspectionHistoryList.set([]);
     }
-  } catch {
-    this.inspectionHistoryList.set([]);
   }
-}
 
-navigateToInspectionHistory(): void {
-  this.loadInspectionHistory();
-  this.sidebarActiveSection.set('inspection-history');
-  this.currentView.set('chat');
-  this.closeMobileSidebar();
-}
-
-navigateToRecentChats(): void {
-  this.sidebarActiveSection.set('recent-chats');
-  this.currentView.set('chat');
-  this.closeMobileSidebar();
-}
-
-navigateToMyReports(): void {
-  this.loadInspectionHistory();
-  this.sidebarActiveSection.set('my-reports');
-  this.currentView.set('chat');
-  this.closeMobileSidebar();
-}
-
-openHistoryRecord(record: any): void {
-  this.selectedHistoryRecord.set(record);
-}
-
-closeHistoryRecord(): void {
-  this.selectedHistoryRecord.set(null);
-}
-
-getRecordPassRate(record: any): number {
-  if (!record?.stats?.total || record.stats.total === 0) return 0;
-  return Math.round((record.stats.passCount / record.stats.total) * 100);
-}
-
-getRecordRiskClass(record: any): string {
-  const pass = this.getRecordPassRate(record);
-  if (pass >= 85) return 'risk-low';
-  if (pass >= 60) return 'risk-medium';
-  return 'risk-high';
-}
-
-formatHistoryDate(isoDate: string): string {
-  if (!isoDate) return '';
-  try {
-    return new Date(isoDate).toLocaleDateString('en-GB', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch {
-    return isoDate;
+  navigateToHome(): void {
+    this.sidebarActiveSection.set('home');
+    this.currentView.set('chat');
+    this.startNewChat();
+    this.closeMobileSidebar();
   }
-}
 
-// --- Adaptive Conversational Inspection Handlers ---
+  navigateToInspectionHistory(): void {
+    this.loadInspectionHistory();
+    this.sidebarActiveSection.set('inspection-history');
+    this.currentView.set('chat');
+    this.closeMobileSidebar();
+  }
 
-onBatchAnswerQuestion(msg: ChatMessage, answer: InspectionAnswerViewModel): void {
-  let session = this.conversationalInspection.getSession(
-    msg.inspectionId || this.activeConversation()?.activeInspectionId || ''
-  );
-  if(!session) {
-    const conv = this.activeConversation();
-    const targetBankId = conv?.selectedBankId || msg.selectedBankId || 'street-lighting';
-    const targetBank =
-      this.siteInspectionBanks.find((b) => b.id === targetBankId) || this.siteInspectionBanks[0];
-    session = this.conversationalInspection.createSession(
-      conv?.id || 'conv-' + Date.now(),
-      targetBank,
-      targetBank.isManagers ? [...this.selectedUploadRiskBanks()] : undefined
+  navigateToRecentChats(): void {
+    this.sidebarActiveSection.set('recent-chats');
+    this.currentView.set('chat');
+    this.closeMobileSidebar();
+  }
+
+  navigateToMyReports(): void {
+    this.loadInspectionHistory();
+    this.sidebarActiveSection.set('my-reports');
+    this.currentView.set('chat');
+    this.closeMobileSidebar();
+  }
+
+  openHistoryRecord(record: any): void {
+    this.selectedHistoryRecord.set(record);
+  }
+
+  closeHistoryRecord(): void {
+    this.selectedHistoryRecord.set(null);
+  }
+
+  getRecordPassRate(record: any): number {
+    if (!record?.stats?.total || record.stats.total === 0) return 0;
+    return Math.round((record.stats.passCount / record.stats.total) * 100);
+  }
+
+  getRecordRiskClass(record: any): string {
+    const pass = this.getRecordPassRate(record);
+    if (pass >= 85) return 'risk-low';
+    if (pass >= 60) return 'risk-medium';
+    return 'risk-high';
+  }
+
+  formatHistoryDate(isoDate: string): string {
+    if (!isoDate) return '';
+    try {
+      return new Date(isoDate).toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch {
+      return isoDate;
+    }
+  }
+
+  // --- Adaptive Conversational Inspection Handlers ---
+
+  onBatchAnswerQuestion(msg: ChatMessage, answer: InspectionAnswerViewModel): void {
+    let session = this.conversationalInspection.getSession(
+      msg.inspectionId || this.activeConversation()?.activeInspectionId || ''
     );
-    if (conv) conv.activeInspectionId = session.inspectionId;
-    msg.inspectionId = session.inspectionId;
-  }
+    if (!session) {
+      const conv = this.activeConversation();
+      const targetBankId = conv?.selectedBankId || msg.selectedBankId || 'street-lighting';
+      const targetBank =
+        this.siteInspectionBanks.find((b) => b.id === targetBankId) || this.siteInspectionBanks[0];
+      session = this.conversationalInspection.createSession(
+        conv?.id || 'conv-' + Date.now(),
+        targetBank,
+        targetBank.isManagers ? [...this.selectedUploadRiskBanks()] : undefined
+      );
+      if (conv) conv.activeInspectionId = session.inspectionId;
+      msg.inspectionId = session.inspectionId;
+    }
 
     const result = this.conversationalInspection.recordUserAnswer(session, answer);
-  this.activeInspectionSession.set(session);
+    this.activeInspectionSession.set(session);
 
-  if(msg.questionBatch) {
-  const qInBatch = msg.questionBatch.questions.find((q) => q.questionId === answer.questionId);
-  if (qInBatch) {
-    qInBatch.isAnswered = true;
-    qInBatch.status = 'user_answered';
-    qInBatch.userAnswerRating = answer.rating;
-    qInBatch.userAnswerSelect = answer.selectans;
-    qInBatch.userAnswerMultiselect = answer.multiselectans;
-    qInBatch.userAnswerText = answer.textAnswer;
-  }
-  msg.questionBatch.isComplete = msg.questionBatch.questions.every((q) => q.isAnswered);
-}
-
-msg.inspectionProgress = result.progress;
-this.conversations.update((list) => [...list]);
-this.persistChatState();
-
-if (result.isDraftReady && result.draftSummary) {
-  const summaryMsg: ChatMessage = {
-    id: 'msg-' + Date.now(),
-    sender: 'assistant',
-    content: 'Your inspection assessment is ready for review. All applicable checklist points have been evaluated.',
-    timestamp: new Date(),
-    inspectionId: session.inspectionId,
-    inspectionProgress: result.progress,
-    draftSummary: result.draftSummary,
-  };
-  this.appendMessageToActive(summaryMsg);
-  this.shouldScrollToBottom = true;
-  return;
-}
-
-if (result.nextBatch) {
-  const nextBatchMsg: ChatMessage = {
-    id: 'msg-' + Date.now(),
-    sender: 'assistant',
-    content: result.nextBatch.promptIntro || 'Next set of inspection checks:',
-    timestamp: new Date(),
-    inspectionId: session.inspectionId,
-    inspectionProgress: result.progress,
-    questionBatch: result.nextBatch,
-  };
-  this.appendMessageToActive(nextBatchMsg);
-  this.shouldScrollToBottom = true;
-}
-  }
-
-onBatchSubmitAll(msg: ChatMessage, answers: InspectionAnswerViewModel[]): void {
-  const session = this.conversationalInspection.getSession(
-    msg.inspectionId || this.activeConversation()?.activeInspectionId || ''
-  );
-  if(!session) return;
-
-  const result = this.conversationalInspection.recordBatchAnswers(session, answers);
-  this.activeInspectionSession.set(session);
-
-  if(msg.questionBatch) {
-  for (const ans of answers) {
-    const q = msg.questionBatch.questions.find((item) => item.questionId === ans.questionId);
-    if (q) {
-      q.isAnswered = true;
-      q.status = 'user_answered';
+    if (msg.questionBatch) {
+      const qInBatch = msg.questionBatch.questions.find((q) => q.questionId === answer.questionId);
+      if (qInBatch) {
+        qInBatch.isAnswered = true;
+        qInBatch.status = 'user_answered';
+        qInBatch.userAnswerRating = answer.rating;
+        qInBatch.userAnswerSelect = answer.selectans;
+        qInBatch.userAnswerMultiselect = answer.multiselectans;
+        qInBatch.userAnswerText = answer.textAnswer;
+      }
+      msg.questionBatch.isComplete = msg.questionBatch.questions.every((q) => q.isAnswered);
     }
-  }
-  msg.questionBatch.isComplete = true;
-}
 
-msg.inspectionProgress = result.progress;
-this.conversations.update((list) => [...list]);
-this.persistChatState();
+    msg.inspectionProgress = result.progress;
+    this.conversations.update((list) => [...list]);
+    this.persistChatState();
 
-if (result.isDraftReady && result.draftSummary) {
-  const summaryMsg: ChatMessage = {
-    id: 'msg-' + Date.now(),
-    sender: 'assistant',
-    content: 'Your inspection assessment is ready for review. All applicable checklist points have been evaluated.',
-    timestamp: new Date(),
-    inspectionId: session.inspectionId,
-    inspectionProgress: result.progress,
-    draftSummary: result.draftSummary,
-  };
-  this.appendMessageToActive(summaryMsg);
-  this.shouldScrollToBottom = true;
-} else if (result.nextBatch) {
-  const nextBatchMsg: ChatMessage = {
-    id: 'msg-' + Date.now(),
-    sender: 'assistant',
-    content: result.nextBatch.promptIntro || 'Next set of inspection checks:',
-    timestamp: new Date(),
-    inspectionId: session.inspectionId,
-    inspectionProgress: result.progress,
-    questionBatch: result.nextBatch,
-  };
-  this.appendMessageToActive(nextBatchMsg);
-  this.shouldScrollToBottom = true;
-}
-  }
-
-onBatchContinue(msg: ChatMessage): void {
-  let session = this.conversationalInspection.getSession(
-    msg.inspectionId || this.activeConversation()?.activeInspectionId || ''
-  );
-
-  if(!session) {
-    const conv = this.activeConversation();
-    const targetBankId = conv?.selectedBankId || msg.selectedBankId || 'street-lighting';
-    const targetBank =
-      this.siteInspectionBanks.find((b) => b.id === targetBankId) || this.siteInspectionBanks[0];
-    session = this.conversationalInspection.createSession(
-      conv?.id || 'conv-' + Date.now(),
-      targetBank,
-      targetBank.isManagers ? [...this.selectedUploadRiskBanks()] : undefined
-    );
-    if (conv) conv.activeInspectionId = session.inspectionId;
-    msg.inspectionId = session.inspectionId;
-  }
-
-    const conv = this.activeConversation();
-  if(conv) {
-    const msgIdx = conv.messages.findIndex((m) => m.id === msg.id);
-    if (msgIdx >= 0 && msgIdx < conv.messages.length - 1) {
+    if (result.isDraftReady && result.draftSummary) {
+      const summaryMsg: ChatMessage = {
+        id: 'msg-' + Date.now(),
+        sender: 'assistant',
+        content: 'Your inspection assessment is ready for review. All applicable checklist points have been evaluated.',
+        timestamp: new Date(),
+        inspectionId: session.inspectionId,
+        inspectionProgress: result.progress,
+        draftSummary: result.draftSummary,
+      };
+      this.appendMessageToActive(summaryMsg);
       this.shouldScrollToBottom = true;
-      setTimeout(() => this.scrollToBottom(), 50);
       return;
     }
+
+    if (result.nextBatch) {
+      const nextBatchMsg: ChatMessage = {
+        id: 'msg-' + Date.now(),
+        sender: 'assistant',
+        content: result.nextBatch.promptIntro || 'Next set of inspection checks:',
+        timestamp: new Date(),
+        inspectionId: session.inspectionId,
+        inspectionProgress: result.progress,
+        questionBatch: result.nextBatch,
+      };
+      this.appendMessageToActive(nextBatchMsg);
+      this.shouldScrollToBottom = true;
+    }
   }
+
+  onBatchSubmitAll(msg: ChatMessage, answers: InspectionAnswerViewModel[]): void {
+    const session = this.conversationalInspection.getSession(
+      msg.inspectionId || this.activeConversation()?.activeInspectionId || ''
+    );
+    if (!session) return;
+
+    const result = this.conversationalInspection.recordBatchAnswers(session, answers);
+    this.activeInspectionSession.set(session);
+
+    if (msg.questionBatch) {
+      for (const ans of answers) {
+        const q = msg.questionBatch.questions.find((item) => item.questionId === ans.questionId);
+        if (q) {
+          q.isAnswered = true;
+          q.status = 'user_answered';
+        }
+      }
+      msg.questionBatch.isComplete = true;
+    }
+
+    msg.inspectionProgress = result.progress;
+    this.conversations.update((list) => [...list]);
+    this.persistChatState();
+
+    if (result.isDraftReady && result.draftSummary) {
+      const summaryMsg: ChatMessage = {
+        id: 'msg-' + Date.now(),
+        sender: 'assistant',
+        content: 'Your inspection assessment is ready for review. All applicable checklist points have been evaluated.',
+        timestamp: new Date(),
+        inspectionId: session.inspectionId,
+        inspectionProgress: result.progress,
+        draftSummary: result.draftSummary,
+      };
+      this.appendMessageToActive(summaryMsg);
+      this.shouldScrollToBottom = true;
+    } else if (result.nextBatch) {
+      const nextBatchMsg: ChatMessage = {
+        id: 'msg-' + Date.now(),
+        sender: 'assistant',
+        content: result.nextBatch.promptIntro || 'Next set of inspection checks:',
+        timestamp: new Date(),
+        inspectionId: session.inspectionId,
+        inspectionProgress: result.progress,
+        questionBatch: result.nextBatch,
+      };
+      this.appendMessageToActive(nextBatchMsg);
+      this.shouldScrollToBottom = true;
+    }
+  }
+
+  onBatchContinue(msg: ChatMessage): void {
+    let session = this.conversationalInspection.getSession(
+      msg.inspectionId || this.activeConversation()?.activeInspectionId || ''
+    );
+
+    if (!session) {
+      const conv = this.activeConversation();
+      const targetBankId = conv?.selectedBankId || msg.selectedBankId || 'street-lighting';
+      const targetBank =
+        this.siteInspectionBanks.find((b) => b.id === targetBankId) || this.siteInspectionBanks[0];
+      session = this.conversationalInspection.createSession(
+        conv?.id || 'conv-' + Date.now(),
+        targetBank,
+        targetBank.isManagers ? [...this.selectedUploadRiskBanks()] : undefined
+      );
+      if (conv) conv.activeInspectionId = session.inspectionId;
+      msg.inspectionId = session.inspectionId;
+    }
+
+    const conv = this.activeConversation();
+    if (conv) {
+      const msgIdx = conv.messages.findIndex((m) => m.id === msg.id);
+      if (msgIdx >= 0 && msgIdx < conv.messages.length - 1) {
+        this.shouldScrollToBottom = true;
+        setTimeout(() => this.scrollToBottom(), 50);
+        return;
+      }
+    }
 
     const remaining = this.conversationalInspection.getPendingApplicableQuestions(session);
-  for(const rem of remaining) {
-    rem.isAnswered = true;
-    rem.status = 'ai_suggested';
-    rem.userAnswerRating = rem.userAnswerRating || '1';
-    rem.suggestedRating = rem.suggestedRating || '1';
-    session.answers[rem.questionId] = {
-      rating: rem.userAnswerRating,
-      comment: 'Verified compliant with site standard.',
-      answeredBy: 'ai',
-    };
-  }
+    for (const rem of remaining) {
+      rem.isAnswered = true;
+      rem.status = 'ai_suggested';
+      rem.userAnswerRating = rem.userAnswerRating || '1';
+      rem.suggestedRating = rem.suggestedRating || '1';
+      session.answers[rem.questionId] = {
+        rating: rem.userAnswerRating,
+        comment: 'Verified compliant with site standard.',
+        answeredBy: 'ai',
+      };
+    }
     session.workflowStatus = 'draft_ready';
-  const draftSummary = this.conversationalInspection.generateDraftSummary(session);
-  session.draftSummary = draftSummary;
-  this.conversationalInspection.saveSession(session);
-
-  const summaryMsg: ChatMessage = {
-    id: 'msg-' + Date.now(),
-    sender: 'assistant',
-    content:
-      'Your inspection assessment is ready. All applicable checklist points have been evaluated and verified.',
-    timestamp: new Date(),
-    inspectionId: session.inspectionId,
-    inspectionProgress: this.conversationalInspection.getProgress(session),
-    draftSummary: draftSummary,
-  };
-  this.appendMessageToActive(summaryMsg);
-  this.shouldScrollToBottom = true;
-  setTimeout(() => this.scrollToBottom(), 100);
-this.persistChatState();
-return;
-  }
-
-onQuestionRequestPhoto(_questionId ?: string): void {
-  this.openPhotoUploadForComposer();
-}
-
-openReviewDrawer(draftSummary ?: InspectionDraftSummaryViewModel): void {
-  if(!draftSummary) return;
-  this.activeReviewDraft.set(draftSummary);
-  const session =
-    this.conversationalInspection.getSession(draftSummary.inspectionId) ||
-    this.activeInspectionSession();
-  if(session) {
-    this.activeInspectionSession.set(session);
-  }
-    const department = session?.department || draftSummary.department;
-  const questions = getQuestionsForDepartment(
-    department,
-    session?.trafficSubtype,
-    session?.selectedRiskBanks
-  );
-  this.activeReviewQuestions.set(questions);
-}
-
-closeReviewDrawer(): void {
-  this.activeReviewDraft.set(null);
-}
-
-onConfirmAssessment(updatedSummary: InspectionDraftSummaryViewModel): void {
-  this.activeReviewDraft.set(null);
-  const session = this.conversationalInspection.getSession(updatedSummary.inspectionId);
-  if(session) {
-    session.workflowStatus = 'completed';
-    session.completedAt = new Date().toISOString();
-    session.draftSummary = updatedSummary;
+    const draftSummary = this.conversationalInspection.generateDraftSummary(session);
+    session.draftSummary = draftSummary;
     this.conversationalInspection.saveSession(session);
+
+    const summaryMsg: ChatMessage = {
+      id: 'msg-' + Date.now(),
+      sender: 'assistant',
+      content:
+        'Your inspection assessment is ready. All applicable checklist points have been evaluated and verified.',
+      timestamp: new Date(),
+      inspectionId: session.inspectionId,
+      inspectionProgress: this.conversationalInspection.getProgress(session),
+      draftSummary: draftSummary,
+    };
+    this.appendMessageToActive(summaryMsg);
+    this.shouldScrollToBottom = true;
+    setTimeout(() => this.scrollToBottom(), 100);
+    this.persistChatState();
+    return;
   }
+
+  onQuestionRequestPhoto(_questionId?: string): void {
+    this.openPhotoUploadForComposer();
+  }
+
+  openReviewDrawer(draftSummary?: InspectionDraftSummaryViewModel): void {
+    if (!draftSummary) return;
+    this.activeReviewDraft.set(draftSummary);
+    const session =
+      this.conversationalInspection.getSession(draftSummary.inspectionId) ||
+      this.activeInspectionSession();
+    if (session) {
+      this.activeInspectionSession.set(session);
+    }
+    const department = session?.department || draftSummary.department;
+    const questions = getQuestionsForDepartment(
+      department,
+      session?.trafficSubtype,
+      session?.selectedRiskBanks
+    );
+    this.activeReviewQuestions.set(questions);
+  }
+
+  closeReviewDrawer(): void {
+    this.activeReviewDraft.set(null);
+  }
+
+  onConfirmAssessment(updatedSummary: InspectionDraftSummaryViewModel): void {
+    this.activeReviewDraft.set(null);
+    const session = this.conversationalInspection.getSession(updatedSummary.inspectionId);
+    if (session) {
+      session.workflowStatus = 'completed';
+      session.completedAt = new Date().toISOString();
+      session.draftSummary = updatedSummary;
+      this.conversationalInspection.saveSession(session);
+    }
 
     try {
-    const existing = JSON.parse(localStorage.getItem('questai_finalized_inspections') || '[]');
-    existing.unshift({
-      referenceNumber: updatedSummary.referenceNumber,
-      conversationId: this.activeConversationId(),
-      bankId: updatedSummary.bankId,
-      bankName: updatedSummary.bankName,
-      department: updatedSummary.department,
-      finalizedAt: updatedSummary.confirmedAt || new Date().toISOString(),
-      inspectorName: 'Subhash Kumar',
-      siteLocation: 'Site Inspection Workspace',
-      jobReference: updatedSummary.referenceNumber,
-      stats: {
-        total: updatedSummary.totalApplicable,
-        answered: updatedSummary.passCount + updatedSummary.carCount + updatedSummary.naCount,
-        passCount: updatedSummary.passCount,
-        carCount: updatedSummary.carCount,
-        naCount: updatedSummary.naCount,
-        needsReviewCount: updatedSummary.needsVerificationCount,
-        verifiedCount: updatedSummary.passCount,
-      },
-      answers: updatedSummary.answers,
-      photoCount: updatedSummary.photoCount,
-      modelIdentifier: 'QuestAI Vision',
-      isMock: false,
-    });
-    localStorage.setItem('questai_finalized_inspections', JSON.stringify(existing));
-    this.loadInspectionHistory();
-  } catch {}
+      const existing = JSON.parse(localStorage.getItem('questai_finalized_inspections') || '[]');
+      existing.unshift({
+        referenceNumber: updatedSummary.referenceNumber,
+        conversationId: this.activeConversationId(),
+        bankId: updatedSummary.bankId,
+        bankName: updatedSummary.bankName,
+        department: updatedSummary.department,
+        finalizedAt: updatedSummary.confirmedAt || new Date().toISOString(),
+        inspectorName: 'Subhash Kumar',
+        siteLocation: 'Site Inspection Workspace',
+        jobReference: updatedSummary.referenceNumber,
+        stats: {
+          total: updatedSummary.totalApplicable,
+          answered: updatedSummary.passCount + updatedSummary.carCount + updatedSummary.naCount,
+          passCount: updatedSummary.passCount,
+          carCount: updatedSummary.carCount,
+          naCount: updatedSummary.naCount,
+          needsReviewCount: updatedSummary.needsVerificationCount,
+          verifiedCount: updatedSummary.passCount,
+        },
+        answers: updatedSummary.answers,
+        photoCount: updatedSummary.photoCount,
+        modelIdentifier: 'QuestAI Vision',
+        isMock: false,
+      });
+      localStorage.setItem('questai_finalized_inspections', JSON.stringify(existing));
+      this.loadInspectionHistory();
+    } catch { }
 
     const confirmedMsg: ChatMessage = {
-    id: 'msg-' + Date.now(),
-    sender: 'assistant',
-    content: `Inspection assessment ${updatedSummary.referenceNumber} for ${updatedSummary.bankName} has been confirmed. ${updatedSummary.passCount} passed, ${updatedSummary.carCount} defect(s) recorded.`,
-    timestamp: new Date(),
-  };
-  this.appendMessageToActive(confirmedMsg);
-  this.shouldScrollToBottom = true;
-}
+      id: 'msg-' + Date.now(),
+      sender: 'assistant',
+      content: `Inspection assessment ${updatedSummary.referenceNumber} for ${updatedSummary.bankName} has been confirmed. ${updatedSummary.passCount} passed, ${updatedSummary.carCount} defect(s) recorded.`,
+      timestamp: new Date(),
+    };
+    this.appendMessageToActive(confirmedMsg);
+    this.shouldScrollToBottom = true;
+  }
 
   private scrollToBottom(): void {
-  try {
-    if(this.chatScrollContainer) {
-  this.chatScrollContainer.nativeElement.scrollTop =
-    this.chatScrollContainer.nativeElement.scrollHeight;
-}
+    try {
+      if (this.chatScrollContainer) {
+        this.chatScrollContainer.nativeElement.scrollTop =
+          this.chatScrollContainer.nativeElement.scrollHeight;
+      }
     } catch {
-  // scroll safely
-}
+      // scroll safely
+    }
   }
 }
