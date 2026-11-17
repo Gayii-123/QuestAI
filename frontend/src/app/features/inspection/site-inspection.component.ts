@@ -1011,10 +1011,10 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
   private formatPhotoAnalysisError(err: any): string {
     const rawBackendMessage = String(
       err?.error?.error?.message ||
-      (Array.isArray(err?.error?.error?.details) && err.error.error.details.join('; ')) ||
-      err?.error?.message ||
-      err?.message ||
-      ''
+        (Array.isArray(err?.error?.error?.details) && err.error.error.details.join('; ')) ||
+        err?.error?.message ||
+        err?.message ||
+        ''
     );
 
     const isQuotaOrRateLimit =

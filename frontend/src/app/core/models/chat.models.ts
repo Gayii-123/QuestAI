@@ -35,6 +35,7 @@ export interface ChatMessage {
   isError?: boolean;
   retryPrompt?: string;
   showInspectionCategories?: boolean;
+  showInlinePhotoUpload?: boolean;
   suggestedBankId?: string;
   selectedBankId?: string;
 
