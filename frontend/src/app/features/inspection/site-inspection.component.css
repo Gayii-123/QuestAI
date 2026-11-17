@@ -770,73 +770,54 @@
   animation-delay: 0.56s;
 }
 
-  <<<<<<< Updated upstream 0%,
+@keyframes claudeDotPulse {
+  0%,
   80%,
   100% {
-    transform: scale(0.75);
-    opacity: 0.4;
+    transform: scale(0.72);
+    opacity: 0.45;
+  }
+  40% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+}
 
-    @keyframes claudeTriangulateOrbit {
+@keyframes claudeTriangulateOrbit {
+  0%,
+  100% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(14deg) scale(1.04);
+  }
+}
 
-      0%,
-      100% {
-        transform: rotate(0deg) scale(1);
-      }
+/* Activity text: subtle fade + shimmer transition, single line, vertically aligned */
+.claude-activity-text {
+  font-size: 0.92rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  display: inline-block;
+  background: linear-gradient(90deg, #64748b 0%, #1e293b 45%, #94a3b8 55%, #64748b 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: #475569;
+  animation: claudeTextFade 0.35s ease-out, claudeTextShimmer 2.4s linear infinite;
+}
 
-      50% {
-        transform: rotate(14deg) scale(1.04);
-      }
-    }
-
-    =======@keyframes claudeDotPulse {
-
-      0%,
-      80%,
-      100% {
-        transform: scale(0.75);
-        opacity: 0.4;
-        transform: scale(0.72);
-        opacity: 0.45;
-      }
-
-      >>>>>>>Stashed changes 40% {
-        transform: scale(1.15);
-        transform: scale(1.22);
-        opacity: 1;
-      }
-    }
-
-    /* Activity text: subtle fade transition, single line, vertically aligned */
-    /* Activity text: subtle fade + shimmer transition, single line, vertically aligned */
-    .claude-activity-text {
-      font-size: 0.875rem;
-      font-size: 0.92rem;
-      font-weight: 500;
-      color: #374151;
-      letter-spacing: -0.01em;
-      display: inline-block;
-      animation: claudeTextFade 0.35s ease-out;
-      background: linear-gradient(90deg, #64748b 0%, #1e293b 45%, #94a3b8 55%, #64748b 100%);
-      background-size: 200% auto;
-      -webkit-background-clip: text;
-      background-clip: text;
-      -webkit-text-fill-color: transparent;
-      color: #475569;
-      animation: claudeTextFade 0.35s ease-out, claudeTextShimmer 2.4s linear infinite;
-    }
-
-    @keyframes claudeTextFade {
-      from {
-        opacity: 0;
-        transform: translateY(1px);
-        transform: translateY(2px);
-      }
-
-      <<<<<<< Updated upstream=======>>>>>>>Stashed changes to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
+@keyframes claudeTextFade {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 
     /* Understated, purely visual chevron */
     @keyframes claudeTextShimmer {

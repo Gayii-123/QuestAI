@@ -942,8 +942,9 @@ export class AppComponent implements OnInit, AfterViewChecked {
       }
       this.activeInspectionSession.set(session);
 
-      // Display Claude-style sequential activity messages corresponding to actual backend request
-      this.startAnalyzingStepSequence();
+      // Display "Reviewing your photographs..." state corresponding to actual backend request
+      this.isGenerating.set(true);
+      this.analyzingStepMessage.set('Reviewing your photographs...');
       this.shouldScrollToBottom = true;
 
       this.conversationalInspection
@@ -959,7 +960,6 @@ export class AppComponent implements OnInit, AfterViewChecked {
           userText: text,
         })
         .then((turnResponse) => {
-          this.clearAnalyzingStepTimers();
           this.clearPreviousWorkflowMessagesInActiveConversation();
 
           const photoCountText =
@@ -1008,19 +1008,19 @@ export class AppComponent implements OnInit, AfterViewChecked {
           this.shouldScrollToBottom = true;
         })
         .catch((err) => {
-          this.clearAnalyzingStepTimers();
           this.isGenerating.set(false);
           this.analyzingStepMessage.set('');
           let errorMessage =
-            "I'm having trouble completing the photo analysis right now. The AI service may be temporarily unavailable.";
-          if (err?.status === 0) {
+            'Unable to complete photo analysis right now. Please verify your connection or try again.';
+          if (err?.status === 0 || err?.status === 429) {
             errorMessage =
-              "I'm having trouble reaching the analysis service right now. Please check your connection and try again.";
-          } else if (err?.status === 429) {
-            errorMessage =
-              "I'm having trouble completing the photo analysis right now. The AI service is temporarily unavailable—please try again in a moment.";
+              'The AI photo analysis service is temporarily unavailable due to Cloud Functions connectivity or rate limits. You can still complete your Site Inspection by selecting a category or uploading photographs.';
           } else if (err?.status === 504) {
-            errorMessage = 'The photo analysis took a bit too long to respond. Please try again in a moment.';
+            errorMessage = 'The photo analysis request timed out. Please try again.';
+          } else if (err?.error?.message) {
+            errorMessage = this.sanitizeProviderBranding(err.error.message);
+          } else if (err?.message) {
+            errorMessage = this.sanitizeProviderBranding(err.message);
           }
 
           const errMsg: ChatMessage = {
@@ -1029,8 +1029,6 @@ export class AppComponent implements OnInit, AfterViewChecked {
             content: errorMessage,
             timestamp: new Date(),
             isError: true,
-            photos: photosToSend.map((p) => ({ ...p })),
-            selectedBankId: targetBank.id,
             retryPrompt: text,
           };
           this.appendMessageToActive(errMsg);
@@ -1208,47 +1206,6 @@ export class AppComponent implements OnInit, AfterViewChecked {
     });
   }
 
-  private analyzingStepTimers: ReturnType<typeof setTimeout>[] = [];
-
-  private startAnalyzingStepSequence(): void {
-    this.clearAnalyzingStepTimers();
-    this.isGenerating.set(true);
-    this.analyzingStepMessage.set('Reviewing uploaded photographs...');
-    this.analyzingStepTimers.push(
-      setTimeout(() => {
-        if (this.isGenerating()) {
-          this.analyzingStepMessage.set('Triangulating visual evidence...');
-        }
-      }, 900),
-      setTimeout(() => {
-        if (this.isGenerating()) {
-          this.analyzingStepMessage.set('Analysing site photographs...');
-        }
-      }, 1800),
-      setTimeout(() => {
-        if (this.isGenerating()) {
-          this.analyzingStepMessage.set('Checking inspection requirements...');
-        }
-      }, 2700),
-      setTimeout(() => {
-        if (this.isGenerating()) {
-          this.analyzingStepMessage.set('Preparing inspection findings...');
-        }
-      }, 3600)
-    );
-  }
-
-  private clearAnalyzingStepTimers(): void {
-    for (const timer of this.analyzingStepTimers) {
-      clearTimeout(timer);
-    }
-    this.analyzingStepTimers = [];
-  }
-
-  trackByMessageId(_index: number, msg: ChatMessage): string {
-    return msg.id;
-  }
-
   private sanitizeProviderBranding(text: string | undefined): string {
     if (!text) return '';
     return text.replace(/\bgemini(-[0-9a-z.-]+)?\b/gi, 'QuestAI');
@@ -1258,149 +1215,6 @@ export class AppComponent implements OnInit, AfterViewChecked {
     if (!prompt || this.isGenerating()) return;
     this.composerText.set(prompt);
     this.sendMessage();
-  }
-
-  retryPhotoAnalysis(errMsg: ChatMessage): void {
-    if (this.isGenerating()) return;
-    const currentConv = this.activeConversation();
-    if (!currentConv) return;
-
-    const photosToRetry =
-      errMsg.photos && errMsg.photos.length > 0
-        ? errMsg.photos
-        : this.getInspectionPhotosForMessage(errMsg);
-    if (!photosToRetry || photosToRetry.length === 0) return;
-
-    // Remove the previous error message so the loading indicator replaces it cleanly
-    this.conversations.update((list) =>
-      list.map((c) =>
-        c.id === currentConv.id
-          ? { ...c, messages: c.messages.filter((m) => m.id !== errMsg.id) }
-          : c
-      )
-    );
-
-    const targetBankId =
-      errMsg.selectedBankId ||
-      currentConv.selectedBankId ||
-      this.selectedUploadBank()?.id ||
-      'civil-other';
-    const targetBank =
-      this.siteInspectionBanks.find((b) => b.id === targetBankId) ||
-      this.siteInspectionBanks[0];
-
-    let session = currentConv.activeInspectionId
-      ? this.conversationalInspection.getSession(currentConv.activeInspectionId)
-      : undefined;
-
-    if (!session || session.bankId !== targetBank.id) {
-      session = this.conversationalInspection.createSession(
-        currentConv.id,
-        targetBank,
-        targetBank.isManagers ? [...this.selectedUploadRiskBanks()] : undefined
-      );
-      currentConv.activeInspectionId = session.inspectionId;
-    }
-    this.activeInspectionSession.set(session);
-
-    this.startAnalyzingStepSequence();
-    this.shouldScrollToBottom = true;
-
-    this.conversationalInspection
-      .analyzeTurnWithBackend(session, {
-        inspectionId: session.inspectionId,
-        conversationId: currentConv.id,
-        bankId: session.bankId,
-        department: session.department,
-        trafficSubtype: session.trafficSubtype,
-        selectedRiskBanks: session.selectedRiskBanks,
-        newPhotos: photosToRetry,
-        allPhotos: session.uploadedPhotos,
-        userText: errMsg.retryPrompt || '',
-      })
-      .then((turnResponse) => {
-        this.clearAnalyzingStepTimers();
-        this.clearPreviousWorkflowMessagesInActiveConversation();
-
-        const photoCountText =
-          photosToRetry.length === 1
-            ? '1 site photograph'
-            : `${photosToRetry.length} site photographs`;
-
-        const evidence: InspectionEvidenceViewModel = {
-          evidenceId: 'ev-' + Date.now(),
-          inspectionId: session.inspectionId,
-          summary: turnResponse.conversationalSummary,
-          observations: turnResponse.evidenceObservations,
-          photos: turnResponse.evidencePhotos,
-          aiSuggestions: turnResponse.aiSuggestedAssessments,
-          needsAdditionalPhotos: turnResponse.needsAdditionalPhotos,
-          additionalPhotoPrompt: turnResponse.additionalPhotoPrompt,
-          createdAt: new Date().toISOString(),
-        };
-
-        let clarificationBatch: InspectionQuestionBatchViewModel | undefined;
-        if (turnResponse.nextClarificationBatch) {
-          const b = turnResponse.nextClarificationBatch;
-          clarificationBatch = {
-            batchId: b.batchId,
-            inspectionId: session.inspectionId,
-            title: b.title,
-            promptIntro: b.promptIntro,
-            questions: b.questionIds
-              .map((id) => session.questionAssessments[id])
-              .filter(Boolean),
-            isComplete: false,
-          };
-        }
-
-        const progress = this.conversationalInspection.getProgress(session);
-
-        const assistantMsg: ChatMessage = {
-          id: 'msg-' + (Date.now() + 1),
-          sender: 'assistant',
-          content: `I've reviewed your ${photoCountText} for **${targetBank.name}**:`,
-          timestamp: new Date(),
-          inspectionId: session.inspectionId,
-          inspectionProgress: progress,
-          evidenceMessage: evidence,
-          questionBatch: clarificationBatch,
-        };
-        this.appendMessageToActive(assistantMsg);
-        this.isGenerating.set(false);
-        this.analyzingStepMessage.set('');
-        this.shouldScrollToBottom = true;
-      })
-      .catch((err) => {
-        this.clearAnalyzingStepTimers();
-        this.isGenerating.set(false);
-        this.analyzingStepMessage.set('');
-        let errorMessage =
-          "I'm having trouble completing the photo analysis right now. The AI service may be temporarily unavailable.";
-        if (err?.status === 0) {
-          errorMessage =
-            "I'm having trouble reaching the analysis service right now. Please check your connection and try again.";
-        } else if (err?.status === 429) {
-          errorMessage =
-            "I'm having trouble completing the photo analysis right now. The AI service is temporarily unavailable—please try again in a moment.";
-        } else if (err?.status === 504) {
-          errorMessage =
-            'The photo analysis took a bit too long to respond. Please try again in a moment.';
-        }
-
-        const nextErrMsg: ChatMessage = {
-          id: 'msg-' + (Date.now() + 1),
-          sender: 'assistant',
-          content: errorMessage,
-          timestamp: new Date(),
-          isError: true,
-          photos: photosToRetry.map((p) => ({ ...p })),
-          selectedBankId: targetBank.id,
-          retryPrompt: errMsg.retryPrompt,
-        };
-        this.appendMessageToActive(nextErrMsg);
-        this.shouldScrollToBottom = true;
-      });
   }
 
   /**
@@ -1879,6 +1693,13 @@ export class AppComponent implements OnInit, AfterViewChecked {
     } catch {
       this.inspectionHistoryList.set([]);
     }
+  }
+
+  navigateToHome(): void {
+    this.sidebarActiveSection.set('home');
+    this.currentView.set('chat');
+    this.startNewChat();
+    this.closeMobileSidebar();
   }
 
   navigateToInspectionHistory(): void {
