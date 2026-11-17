@@ -16,7 +16,6 @@ import { Subject, of, throwError } from 'rxjs';
 import { AppComponent } from '../../app.component';
 import { verifySiteInspectionSchema } from '../../core/models/site-inspection.schema.spec';
 import {
-  isLegacyMockAnswerEntry,
   isLegacyMockString,
   AiInspectionFillService,
 } from '../../core/services/ai-inspection-fill.service';
@@ -27,7 +26,6 @@ import {
   PhotoInspectionResult,
 } from '../../core/services/api.service';
 import { ChatPersistenceService } from '../../core/services/chat-persistence.service';
-import { QuestionAnswer } from './site-inspection.models';
 import { SiteInspectionComponent } from './site-inspection.component';
 
 // Polyfill in-memory localStorage for Node testing environments

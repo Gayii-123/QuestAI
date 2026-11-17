@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, timeout } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 export interface HealthResponse {
@@ -241,7 +241,9 @@ export class ApiService {
    * Multimodal inspection evaluation of site photographs (POST /ai/inspect-photos or /questAiInspectPhotos)
    */
   analyzeInspectionPhotos(payload: PhotoInspectionRequest): Observable<PhotoInspectionResponseWrapper> {
-    return this.http.post<PhotoInspectionResponseWrapper>(this.getEndpointUrl('inspectPhotos'), payload);
+    return this.http
+      .post<PhotoInspectionResponseWrapper>(this.getEndpointUrl('inspectPhotos'), payload)
+      .pipe(timeout(35000));
   }
 
   /**

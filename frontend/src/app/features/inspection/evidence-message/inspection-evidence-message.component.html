@@ -1,0 +1,72 @@
+<div class="evidence-clean-flow" *ngIf="evidence">
+  <!-- Factual Observations -->
+  <div class="evidence-body" *ngIf="evidence.observations && evidence.observations.length > 0">
+    <ul class="evidence-bullet-list">
+      <li *ngFor="let obs of evidence.observations" class="evidence-bullet-item">
+        <span class="bullet-marker">•</span>
+        <span class="obs-content">{{ obs }}</span>
+      </li>
+    </ul>
+  </div>
+
+  <!-- Thumbnails of Reviewed Photographs -->
+  <div class="evidence-photos-row" *ngIf="evidence.photos && evidence.photos.length > 0">
+    <div
+      *ngFor="let photo of evidence.photos"
+      class="photo-mini-chip"
+      (click)="onPhotoClick(photo)"
+      [title]="'View ' + photo.name"
+      role="button"
+      tabindex="0"
+    >
+      <img [src]="photo.url" [alt]="photo.name" class="mini-thumb-img" />
+      <span class="mini-thumb-name">{{ photo.name }}</span>
+    </div>
+  </div>
+
+  <!-- Evidence-Supported AI Suggested Findings -->
+  <div class="ai-suggestions-list" *ngIf="evidence.aiSuggestions && evidence.aiSuggestions.length > 0">
+    <div class="suggestions-header">
+      <span class="suggestions-icon">🔍</span>
+      <span class="suggestions-title">Evaluated from Photographs ({{ evidence.aiSuggestions.length }} Checks)</span>
+    </div>
+    <div *ngFor="let s of (showAllSuggestions ? evidence.aiSuggestions : (evidence.aiSuggestions | slice:0:2))" class="ai-suggestion-card">
+      <div class="suggestion-top">
+        <span class="suggestion-qtext">{{ s.qtext }}</span>
+        <span
+          class="suggestion-pill"
+          [class.pill-pass]="s.suggestedRating === '1'"
+          [class.pill-car]="s.suggestedRating === '-1'"
+          [class.pill-na]="s.suggestedRating === '0'"
+        >
+          <span *ngIf="s.suggestedRating === '1'">✓ Pass</span>
+          <span *ngIf="s.suggestedRating === '-1'">⚠ Action Required</span>
+          <span *ngIf="s.suggestedRating === '0'">– N/A</span>
+        </span>
+      </div>
+      <div class="suggestion-evidence" *ngIf="s.evidenceObserved">
+        {{ s.evidenceObserved }}
+      </div>
+    </div>
+    <div class="suggestions-expand-row" *ngIf="evidence.aiSuggestions.length > 2">
+      <button type="button" class="btn-toggle-suggestions" (click)="toggleSuggestions()">
+        {{ showAllSuggestions ? 'Hide details' : '+ Show all ' + evidence.aiSuggestions.length + ' evaluated checks' }}
+      </button>
+    </div>
+    <div class="suggestions-disclaimer">
+      * All items evaluated and recorded automatically from photographic evidence.
+    </div>
+  </div>
+
+  <!-- Additional Photo Request Callout (if needed) -->
+  <div class="photo-request-banner" *ngIf="evidence.needsAdditionalPhotos">
+    <div class="request-left">
+      <span class="camera-emoji">📸</span>
+      <span class="request-text">{{ evidence.additionalPhotoPrompt || 'Additional photograph recommended for closer inspection.' }}</span>
+    </div>
+    <button type="button" class="btn-request-upload" (click)="onAddMorePhotosClick()">
+      + Upload Photo
+    </button>
+  </div>
+</div>
+

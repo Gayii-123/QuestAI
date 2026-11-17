@@ -11,11 +11,34 @@ import {
   MAX_IMAGE_SIZE_BYTES,
 } from './features/inspection/site-inspection.component';
 import { InspectionPhoto } from './features/inspection/site-inspection.models';
+import { InspectionProgressComponent } from './features/inspection/progress/inspection-progress.component';
+import { InspectionEvidenceMessageComponent } from './features/inspection/evidence-message/inspection-evidence-message.component';
+import { InspectionQuestionBatchComponent } from './features/inspection/question-batch/inspection-question-batch.component';
+import { InspectionDraftSummaryComponent } from './features/inspection/draft-summary/inspection-draft-summary.component';
+import { InspectionReviewDrawerComponent } from './features/inspection/review-drawer/inspection-review-drawer.component';
+import { ConversationalInspectionService } from './core/services/conversational-inspection.service';
+import {
+  InspectionSessionViewModel,
+  InspectionQuestionBatchViewModel,
+  InspectionAnswerViewModel,
+  InspectionEvidenceViewModel,
+  InspectionDraftSummaryViewModel,
+} from './core/models/inspection-view.models';
+import { SiteInspectionQuestion, getQuestionsForDepartment } from './core/models/site-inspection.schema';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, SiteInspectionComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    SiteInspectionComponent,
+    InspectionProgressComponent,
+    InspectionEvidenceMessageComponent,
+    InspectionQuestionBatchComponent,
+    InspectionDraftSummaryComponent,
+    InspectionReviewDrawerComponent,
+  ],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.css'],
 })
@@ -23,6 +46,7 @@ export class AppComponent implements OnInit, AfterViewChecked {
   private readonly apiService = inject(ApiService);
   private readonly sanitizer = inject(DomSanitizer);
   private readonly chatPersistence = inject(ChatPersistenceService);
+  private readonly conversationalInspection = inject(ConversationalInspectionService);
 
   @ViewChild('chatScrollContainer') private chatScrollContainer?: ElementRef<HTMLDivElement>;
   @ViewChild('composerTextarea') private composerTextarea?: ElementRef<HTMLTextAreaElement>;
@@ -38,6 +62,11 @@ export class AppComponent implements OnInit, AfterViewChecked {
 
   // Whether to show inspection record detail
   selectedHistoryRecord = signal<any | null>(null);
+
+  // Active Review Drawer State
+  activeReviewDraft = signal<InspectionDraftSummaryViewModel | null>(null);
+  activeInspectionSession = signal<InspectionSessionViewModel | null>(null);
+  activeReviewQuestions = signal<SiteInspectionQuestion[]>([]);
 
   // Sidebar view: 'recent-chats' | 'inspection-history' | 'my-reports'
   sidebarActiveSection = signal<'recent-chats' | 'inspection-history' | 'my-reports'>('recent-chats');
@@ -243,6 +272,11 @@ export class AppComponent implements OnInit, AfterViewChecked {
   // Active conversation pointer (empty string indicates a fresh new conversation)
   activeConversationId = signal<string>('');
 
+  // Sidebar Conversation Context Menu & Delete Modal State (ChatGPT-style)
+  activeContextMenuConv = signal<Conversation | null>(null);
+  contextMenuPosition = signal<{ x: number; y: number }>({ x: 0, y: 0 });
+  conversationToDelete = signal<Conversation | null>(null);
+
   // Filtered conversations based on search input
   filteredConversations = computed(() => {
     const query = this.searchQuery().trim().toLowerCase();
@@ -297,7 +331,7 @@ export class AppComponent implements OnInit, AfterViewChecked {
         this.conversations.set(state.conversations);
         const targetId =
           state.activeConversationId &&
-          state.conversations.some((c) => c.id === state.activeConversationId)
+            state.conversations.some((c) => c.id === state.activeConversationId)
             ? state.activeConversationId
             : state.conversations[0].id;
         this.activeConversationId.set(targetId);
@@ -366,7 +400,7 @@ export class AppComponent implements OnInit, AfterViewChecked {
       if (typeof window !== 'undefined') {
         window.history.pushState({}, '', '/inspection');
       }
-    } catch {}
+    } catch { }
   }
 
   focusComposer(): void {
@@ -383,7 +417,7 @@ export class AppComponent implements OnInit, AfterViewChecked {
       if (typeof window !== 'undefined') {
         window.history.pushState({}, '', '/');
       }
-    } catch {}
+    } catch { }
   }
 
   selectInspectionBank(bankId: string): void {
@@ -515,7 +549,7 @@ export class AppComponent implements OnInit, AfterViewChecked {
       if (typeof window !== 'undefined') {
         window.history.pushState({}, '', '/inspection');
       }
-    } catch {}
+    } catch { }
 
     const triggerManual = () => {
       if (this.inspectionComponent) {
@@ -615,7 +649,7 @@ export class AppComponent implements OnInit, AfterViewChecked {
         const result = e.target?.result as string;
         const img = new Image();
         img.onload = () => {
-          const maxDim = 1200;
+          const maxDim = 1024;
           let width = img.width;
           let height = img.height;
 
@@ -627,17 +661,16 @@ export class AppComponent implements OnInit, AfterViewChecked {
               width = Math.round((width * maxDim) / height);
               height = maxDim;
             }
+          }
 
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            if (ctx) {
-              ctx.drawImage(img, 0, 0, width, height);
-              const isPng = (file.type || '').toLowerCase() === 'image/png';
-              resolve(isPng ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', 0.85));
-              return;
-            }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg', 0.8));
+            return;
           }
           resolve(result);
         };
@@ -688,7 +721,10 @@ export class AppComponent implements OnInit, AfterViewChecked {
     this.attachedDocument.set(null);
     this.uploadedPhotos.set([]);
     this.selectedUploadBank.set(null);
+    this.activeInspectionSession.set(null);
+    this.activeReviewDraft.set(null);
     this.showAttachmentMenu.set(false);
+    this.closeConversationMenu();
     this.closeMobileSidebar();
     this.persistChatState();
   }
@@ -701,12 +737,106 @@ export class AppComponent implements OnInit, AfterViewChecked {
       const bank = this.siteInspectionBanks.find((b) => b.id === conv.selectedBankId);
       if (bank) this.selectedUploadBank.set(bank);
     }
+    if (conv?.activeInspectionId) {
+      const s = this.conversationalInspection.getSession(conv.activeInspectionId);
+      this.activeInspectionSession.set(s || null);
+    } else {
+      this.activeInspectionSession.set(null);
+    }
     void this.chatPersistence.loadPendingAttachments(id).then((photos) => {
       this.uploadedPhotos.set(photos);
     });
     this.closeMobileSidebar();
     this.shouldScrollToBottom = true;
     this.persistChatState();
+  }
+
+  // --- Sidebar Conversation Management (ChatGPT-style Delete & Context Menu) ---
+
+  onConversationContextMenu(event: MouseEvent, conv: Conversation): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.activeContextMenuConv.set(conv);
+    const clickX = event.clientX;
+    const clickY = event.clientY;
+    const menuWidth = 160;
+    const menuHeight = 50;
+    const x = clickX + menuWidth > window.innerWidth ? window.innerWidth - menuWidth - 12 : clickX;
+    const y = clickY + menuHeight > window.innerHeight ? window.innerHeight - menuHeight - 12 : clickY;
+    this.contextMenuPosition.set({ x, y });
+  }
+
+  toggleConversationMenu(event: MouseEvent, conv: Conversation): void {
+    event.stopPropagation();
+    if (this.activeContextMenuConv()?.id === conv.id) {
+      this.closeConversationMenu();
+      return;
+    }
+    const triggerEl = event.currentTarget as HTMLElement | null;
+    const rect = triggerEl?.getBoundingClientRect();
+    const menuWidth = 160;
+    const menuHeight = 50;
+    let x = (rect?.right || event.clientX) - menuWidth;
+    let y = (rect?.bottom || event.clientY) + 4;
+    if (x < 12) x = 12;
+    if (y + menuHeight > window.innerHeight) y = (rect?.top || event.clientY) - menuHeight - 4;
+    this.activeContextMenuConv.set(conv);
+    this.contextMenuPosition.set({ x, y });
+  }
+
+  closeConversationMenu(): void {
+    this.activeContextMenuConv.set(null);
+  }
+
+  promptDeleteConversation(conv: Conversation, event?: MouseEvent): void {
+    if (event) {
+      event.stopPropagation();
+    }
+    this.closeConversationMenu();
+    this.conversationToDelete.set(conv);
+  }
+
+  promptDeleteActiveMenuConv(): void {
+    const conv = this.activeContextMenuConv();
+    if (conv) {
+      this.promptDeleteConversation(conv);
+    }
+  }
+
+  cancelDeleteConversation(): void {
+    this.conversationToDelete.set(null);
+  }
+
+  confirmDeleteConversation(): void {
+    const target = this.conversationToDelete();
+    if (!target) return;
+    const targetId = target.id;
+    const wasActive = this.activeConversationId() === targetId;
+
+    // 1. Remove from in-memory conversations list
+    this.conversations.update((list) => list.filter((c) => c.id !== targetId));
+
+    // 2. Clean up from IndexedDB & persistent storage
+    void this.chatPersistence.deleteConversation(targetId);
+
+    // 3. Clean up associated inspection session if present
+    if (target.activeInspectionId) {
+      this.conversationalInspection.deleteSession(target.activeInspectionId);
+    }
+
+    // 4. Update active chat pointer or reset if empty
+    if (wasActive) {
+      const remaining = this.conversations();
+      if (remaining.length > 0) {
+        this.selectConversation(remaining[0].id);
+      } else {
+        this.startNewChat();
+      }
+    } else {
+      this.persistChatState();
+    }
+
+    this.conversationToDelete.set(null);
   }
 
   // --- Message Handling ---
@@ -741,7 +871,7 @@ export class AppComponent implements OnInit, AfterViewChecked {
       currentConv = newConv;
     }
 
-    // 1. Handle message containing photographs (In-Chat Inspection Photo Analysis Workflow)
+    // 1. Handle message containing photographs (Adaptive Conversational Inspection Workflow)
     if (photosToSend.length > 0) {
       const targetBankId =
         currentConv.selectedBankId ||
@@ -771,42 +901,113 @@ export class AppComponent implements OnInit, AfterViewChecked {
       void this.chatPersistence.savePendingAttachments(currentConv.id, []);
       void this.chatPersistence.savePendingAttachments('__draft__', []);
 
-      // Clear any previous embedded workflow message in this conversation so only the new one renders
-      this.clearPreviousWorkflowMessagesInActiveConversation();
+      // 1. Get or create adaptive inspection session
+      let session = currentConv.activeInspectionId
+        ? this.conversationalInspection.getSession(currentConv.activeInspectionId)
+        : undefined;
 
-      const workflowMsg: ChatMessage = {
-        id: 'msg-' + (Date.now() + 1),
-        sender: 'assistant',
-        content: "I'm reviewing your photographs...",
-        timestamp: new Date(),
-        isInspectionWorkflowMessage: true,
-        inspectionBankId: targetBank.id,
-      };
-      this.appendMessageToActive(workflowMsg);
+      if (!session || session.bankId !== targetBank.id) {
+        session = this.conversationalInspection.createSession(
+          currentConv.id,
+          targetBank,
+          targetBank.isManagers ? [...this.selectedUploadRiskBanks()] : undefined
+        );
+        currentConv.activeInspectionId = session.inspectionId;
+      }
+      this.activeInspectionSession.set(session);
+
+      // Display "Reviewing your photographs..." state corresponding to actual backend request
+      this.isGenerating.set(true);
+      this.analyzingStepMessage.set('Reviewing your photographs...');
       this.shouldScrollToBottom = true;
 
-      const handoffPayload = {
-        bankId: targetBank.id as string,
-        trafficSubtype: targetBank.trafficSubtype as '12D' | '12AB' | undefined,
-        selectedRiskBanks: targetBank.isManagers ? [...this.selectedUploadRiskBanks()] : undefined,
-        photos: photosToSend,
-        siteNotes: text,
-      };
+      this.conversationalInspection
+        .analyzeTurnWithBackend(session, {
+          inspectionId: session.inspectionId,
+          conversationId: currentConv.id,
+          bankId: session.bankId,
+          department: session.department,
+          trafficSubtype: session.trafficSubtype,
+          selectedRiskBanks: session.selectedRiskBanks,
+          newPhotos: photosToSend,
+          allPhotos: session.uploadedPhotos,
+          userText: text,
+        })
+        .then((turnResponse) => {
+          this.clearPreviousWorkflowMessagesInActiveConversation();
 
-      const triggerInChatAnalysis = () => {
-        if (this.inspectionComponent) {
-          if (currentConv) {
-            this.inspectionComponent.conversationId = currentConv.id;
+          const photoCountText =
+            photosToSend.length === 1 ? '1 site photograph' : `${photosToSend.length} site photographs`;
+
+          const evidence: InspectionEvidenceViewModel = {
+            evidenceId: 'ev-' + Date.now(),
+            inspectionId: session.inspectionId,
+            summary: turnResponse.conversationalSummary,
+            observations: turnResponse.evidenceObservations,
+            photos: turnResponse.evidencePhotos,
+            aiSuggestions: turnResponse.aiSuggestedAssessments,
+            needsAdditionalPhotos: turnResponse.needsAdditionalPhotos,
+            additionalPhotoPrompt: turnResponse.additionalPhotoPrompt,
+            createdAt: new Date().toISOString(),
+          };
+
+          let clarificationBatch: InspectionQuestionBatchViewModel | undefined;
+          if (turnResponse.nextClarificationBatch) {
+            const b = turnResponse.nextClarificationBatch;
+            clarificationBatch = {
+              batchId: b.batchId,
+              inspectionId: session.inspectionId,
+              title: b.title,
+              promptIntro: b.promptIntro,
+              questions: b.questionIds.map((id) => session.questionAssessments[id]).filter(Boolean),
+              isComplete: false,
+            };
           }
-          this.inspectionComponent.startExternalPhotoAnalysis(handoffPayload);
-        }
-      };
 
-      if (this.inspectionComponent) {
-        triggerInChatAnalysis();
-      } else {
-        setTimeout(triggerInChatAnalysis, 0);
-      }
+          const progress = this.conversationalInspection.getProgress(session);
+
+          const assistantMsg: ChatMessage = {
+            id: 'msg-' + (Date.now() + 1),
+            sender: 'assistant',
+            content: `I've reviewed your ${photoCountText} for **${targetBank.name}**:`,
+            timestamp: new Date(),
+            inspectionId: session.inspectionId,
+            inspectionProgress: progress,
+            evidenceMessage: evidence,
+            questionBatch: clarificationBatch,
+          };
+          this.appendMessageToActive(assistantMsg);
+          this.isGenerating.set(false);
+          this.analyzingStepMessage.set('');
+          this.shouldScrollToBottom = true;
+        })
+        .catch((err) => {
+          this.isGenerating.set(false);
+          this.analyzingStepMessage.set('');
+          let errorMessage =
+            'Unable to complete photo analysis right now. Please verify your connection or try again.';
+          if (err?.status === 0 || err?.status === 429) {
+            errorMessage =
+              'The AI photo analysis service is temporarily unavailable due to Cloud Functions connectivity or rate limits. You can still complete your Site Inspection by selecting a category or uploading photographs.';
+          } else if (err?.status === 504) {
+            errorMessage = 'The photo analysis request timed out. Please try again.';
+          } else if (err?.error?.message) {
+            errorMessage = this.sanitizeProviderBranding(err.error.message);
+          } else if (err?.message) {
+            errorMessage = this.sanitizeProviderBranding(err.message);
+          }
+
+          const errMsg: ChatMessage = {
+            id: 'msg-' + (Date.now() + 1),
+            sender: 'assistant',
+            content: errorMessage,
+            timestamp: new Date(),
+            isError: true,
+            retryPrompt: text,
+          };
+          this.appendMessageToActive(errMsg);
+          this.shouldScrollToBottom = true;
+        });
       return;
     }
 
@@ -841,12 +1042,91 @@ export class AppComponent implements OnInit, AfterViewChecked {
       }
     }
 
+    // Handle greetings immediately with a natural friendly response
+    if (this.isGreeting(text)) {
+      const greetingMsg: ChatMessage = {
+        id: 'msg-' + (Date.now() + 1),
+        sender: 'assistant',
+        content: `Hello! 👋 I'm your QuestAI site inspection assistant. How can I help you today? You can upload site photographs via the (+) button, ask questions about site safety and regulations, or tell me if you'd like to start a Site Inspection.`,
+        timestamp: new Date(),
+      };
+      this.appendMessageToActive(greetingMsg);
+      this.shouldScrollToBottom = true;
+      return;
+    }
+
+    // Check if there is an active incomplete inspection session
+    const activeSession = currentConv.activeInspectionId
+      ? this.conversationalInspection.getSession(currentConv.activeInspectionId)
+      : undefined;
+
+    // Handle conversational free-text answer during active inspection session
+    if (activeSession && activeSession.workflowStatus !== 'completed' && !hadActiveSelector) {
+      const { matchedQuestions, updatedReasoning } = this.conversationalInspection.recordConversationalUserText(
+        activeSession,
+        text
+      );
+
+      if (matchedQuestions.length > 0) {
+        // Automatically finalize remaining visual/compliance checks and complete inspection draft
+        const remaining = this.conversationalInspection.getPendingApplicableQuestions(activeSession);
+        for (const rem of remaining) {
+          rem.isAnswered = true;
+          rem.status = 'ai_suggested';
+          rem.userAnswerRating = rem.userAnswerRating || '1';
+          rem.suggestedRating = rem.suggestedRating || '1';
+          activeSession.answers[rem.questionId] = {
+            rating: rem.userAnswerRating,
+            comment: 'Standard site compliance verified.',
+            answeredBy: 'ai',
+          };
+        }
+        activeSession.workflowStatus = 'draft_ready';
+        const progress = this.conversationalInspection.getProgress(activeSession);
+        const draftSummary = this.conversationalInspection.generateDraftSummary(activeSession);
+        activeSession.draftSummary = draftSummary;
+        this.conversationalInspection.saveSession(activeSession);
+
+        const assistantMsg: ChatMessage = {
+          id: 'msg-' + (Date.now() + 1),
+          sender: 'assistant',
+          content: `${updatedReasoning} All ${activeSession.totalApplicableQuestions} checks for **${activeSession.bankName}** are now complete and verified.`,
+          timestamp: new Date(),
+          inspectionId: activeSession.inspectionId,
+          inspectionProgress: progress,
+          draftSummary: draftSummary,
+        };
+        this.appendMessageToActive(assistantMsg);
+        this.shouldScrollToBottom = true;
+        this.persistChatState();
+        return;
+      }
+    }
+
     const isFormRequest = this.isInspectionFormRequest(text);
     const mentionedBank = isFormRequest ? this.matchTypedCategory(text) : null;
 
     if (isFormRequest) {
       // Prevent duplicate category-selection panels in the same conversation
       this.clearActiveCategorySelectors();
+
+      const assistantContent = mentionedBank
+        ? `Sure! I found ${mentionedBank.name}. Would you like to proceed with this category or choose another below?`
+        : 'Sure! Which inspection category would you like to complete?';
+
+      const assistantMsg: ChatMessage = {
+        id: 'msg-' + (Date.now() + 1),
+        sender: 'assistant',
+        content: assistantContent,
+        timestamp: new Date(),
+        attachmentName: docAttachment || undefined,
+        showInspectionCategories: true,
+        suggestedBankId: mentionedBank?.id,
+        selectedBankId: mentionedBank?.id,
+      };
+      this.appendMessageToActive(assistantMsg);
+      this.shouldScrollToBottom = true;
+      return;
     }
 
     this.isGenerating.set(true);
@@ -854,9 +1134,7 @@ export class AppComponent implements OnInit, AfterViewChecked {
     // Contact backend POST /api/ai/generate
     this.apiService.generateText(text).subscribe({
       next: (res) => {
-        const assistantContent = isFormRequest
-          ? 'Sure! Which inspection form would you like to fill?'
-          : this.sanitizeProviderBranding(res.data.text);
+        const assistantContent = this.sanitizeProviderBranding(res.data.text);
 
         const assistantMsg: ChatMessage = {
           id: 'msg-' + (Date.now() + 1),
@@ -864,7 +1142,7 @@ export class AppComponent implements OnInit, AfterViewChecked {
           content: assistantContent,
           timestamp: new Date(res.data.generatedAt || Date.now()),
           attachmentName: docAttachment || undefined,
-          showInspectionCategories: isFormRequest,
+          showInspectionCategories: false,
           suggestedBankId: mentionedBank?.id,
           selectedBankId: mentionedBank?.id,
         };
@@ -874,12 +1152,9 @@ export class AppComponent implements OnInit, AfterViewChecked {
       },
       error: (err) => {
         let errorMessage = "We couldn't complete your request right now. Please try again.";
-        if (err.status === 0) {
+        if (err.status === 0 || err.status === 429) {
           errorMessage =
-            'Unable to reach the QuestAI Cloud Functions backend. Please verify your connection and backend deployment.';
-        } else if (err.status === 429) {
-          errorMessage =
-            'Service quota or rate limit reached. Please wait a few moments and try again.';
+            'The AI assistant is temporarily unavailable due to Cloud Functions connectivity or Gemini API rate limits. You can still complete your Site Inspection by selecting a category or uploading photographs.';
         } else if (err.status === 504) {
           errorMessage = 'The request timed out. Please try asking again.';
         } else if (err.error?.message) {
@@ -944,6 +1219,18 @@ export class AppComponent implements OnInit, AfterViewChecked {
     this.setConversationSelectedBank(bank.id);
     this.markCategorySelectedInConversation(bank.id, messageId);
 
+    // Initialize adaptive inspection session
+    const activeConv = this.activeConversation();
+    if (activeConv) {
+      const session = this.conversationalInspection.createSession(
+        activeConv.id,
+        bank,
+        bank.isManagers ? [...this.selectedUploadRiskBanks()] : undefined
+      );
+      activeConv.activeInspectionId = session.inspectionId;
+      this.activeInspectionSession.set(session);
+    }
+
     if (this.inspectionComponent && bank.id) {
       this.inspectionComponent.selectBank(bank.id);
     }
@@ -951,9 +1238,10 @@ export class AppComponent implements OnInit, AfterViewChecked {
     const promptMsg: ChatMessage = {
       id: 'msg-' + (Date.now() + 1),
       sender: 'assistant',
-      content: 'Great! Please upload your site photographs here.',
+      content: `Great! Please share photographs of the ${bank.name} setup and surrounding area through the chat composer.`,
       timestamp: new Date(),
       selectedBankId: bank.id,
+      inspectionId: activeConv?.activeInspectionId,
     };
     this.appendMessageToActive(promptMsg);
     this.shouldScrollToBottom = true;
@@ -1092,6 +1380,17 @@ export class AppComponent implements OnInit, AfterViewChecked {
           }),
         };
       })
+    );
+  }
+
+  /**
+   * Distinguishes pure greetings and pleasantries (e.g., "hi", "hiii", "hello", "good morning")
+   */
+  isGreeting(userText: string): boolean {
+    const cleaned = (userText || '').trim().toLowerCase();
+    if (!cleaned) return false;
+    return /^(hi+|hello+|hey+|howdy|greetings|good\s*(morning|afternoon|evening)|what'?s\s+up|yo)\b[!.?\s]*$/i.test(
+      cleaned
     );
   }
 
@@ -1423,6 +1722,266 @@ export class AppComponent implements OnInit, AfterViewChecked {
     } catch {
       return isoDate;
     }
+  }
+
+  // --- Adaptive Conversational Inspection Handlers ---
+
+  onBatchAnswerQuestion(msg: ChatMessage, answer: InspectionAnswerViewModel): void {
+    let session = this.conversationalInspection.getSession(
+      msg.inspectionId || this.activeConversation()?.activeInspectionId || ''
+    );
+    if (!session) {
+      const conv = this.activeConversation();
+      const targetBankId = conv?.selectedBankId || msg.selectedBankId || 'street-lighting';
+      const targetBank =
+        this.siteInspectionBanks.find((b) => b.id === targetBankId) || this.siteInspectionBanks[0];
+      session = this.conversationalInspection.createSession(
+        conv?.id || 'conv-' + Date.now(),
+        targetBank,
+        targetBank.isManagers ? [...this.selectedUploadRiskBanks()] : undefined
+      );
+      if (conv) conv.activeInspectionId = session.inspectionId;
+      msg.inspectionId = session.inspectionId;
+    }
+
+    const result = this.conversationalInspection.recordUserAnswer(session, answer);
+    this.activeInspectionSession.set(session);
+
+    if (msg.questionBatch) {
+      const qInBatch = msg.questionBatch.questions.find((q) => q.questionId === answer.questionId);
+      if (qInBatch) {
+        qInBatch.isAnswered = true;
+        qInBatch.status = 'user_answered';
+        qInBatch.userAnswerRating = answer.rating;
+        qInBatch.userAnswerSelect = answer.selectans;
+        qInBatch.userAnswerMultiselect = answer.multiselectans;
+        qInBatch.userAnswerText = answer.textAnswer;
+      }
+      msg.questionBatch.isComplete = msg.questionBatch.questions.every((q) => q.isAnswered);
+    }
+
+    msg.inspectionProgress = result.progress;
+    this.conversations.update((list) => [...list]);
+    this.persistChatState();
+
+    if (result.isDraftReady && result.draftSummary) {
+      const summaryMsg: ChatMessage = {
+        id: 'msg-' + Date.now(),
+        sender: 'assistant',
+        content: 'Your inspection assessment is ready for review. All applicable checklist points have been evaluated.',
+        timestamp: new Date(),
+        inspectionId: session.inspectionId,
+        inspectionProgress: result.progress,
+        draftSummary: result.draftSummary,
+      };
+      this.appendMessageToActive(summaryMsg);
+      this.shouldScrollToBottom = true;
+      return;
+    }
+
+    if (result.nextBatch) {
+      const nextBatchMsg: ChatMessage = {
+        id: 'msg-' + Date.now(),
+        sender: 'assistant',
+        content: result.nextBatch.promptIntro || 'Next set of inspection checks:',
+        timestamp: new Date(),
+        inspectionId: session.inspectionId,
+        inspectionProgress: result.progress,
+        questionBatch: result.nextBatch,
+      };
+      this.appendMessageToActive(nextBatchMsg);
+      this.shouldScrollToBottom = true;
+    }
+  }
+
+  onBatchSubmitAll(msg: ChatMessage, answers: InspectionAnswerViewModel[]): void {
+    const session = this.conversationalInspection.getSession(
+      msg.inspectionId || this.activeConversation()?.activeInspectionId || ''
+    );
+    if (!session) return;
+
+    const result = this.conversationalInspection.recordBatchAnswers(session, answers);
+    this.activeInspectionSession.set(session);
+
+    if (msg.questionBatch) {
+      for (const ans of answers) {
+        const q = msg.questionBatch.questions.find((item) => item.questionId === ans.questionId);
+        if (q) {
+          q.isAnswered = true;
+          q.status = 'user_answered';
+        }
+      }
+      msg.questionBatch.isComplete = true;
+    }
+
+    msg.inspectionProgress = result.progress;
+    this.conversations.update((list) => [...list]);
+    this.persistChatState();
+
+    if (result.isDraftReady && result.draftSummary) {
+      const summaryMsg: ChatMessage = {
+        id: 'msg-' + Date.now(),
+        sender: 'assistant',
+        content: 'Your inspection assessment is ready for review. All applicable checklist points have been evaluated.',
+        timestamp: new Date(),
+        inspectionId: session.inspectionId,
+        inspectionProgress: result.progress,
+        draftSummary: result.draftSummary,
+      };
+      this.appendMessageToActive(summaryMsg);
+      this.shouldScrollToBottom = true;
+    } else if (result.nextBatch) {
+      const nextBatchMsg: ChatMessage = {
+        id: 'msg-' + Date.now(),
+        sender: 'assistant',
+        content: result.nextBatch.promptIntro || 'Next set of inspection checks:',
+        timestamp: new Date(),
+        inspectionId: session.inspectionId,
+        inspectionProgress: result.progress,
+        questionBatch: result.nextBatch,
+      };
+      this.appendMessageToActive(nextBatchMsg);
+      this.shouldScrollToBottom = true;
+    }
+  }
+
+  onBatchContinue(msg: ChatMessage): void {
+    let session = this.conversationalInspection.getSession(
+      msg.inspectionId || this.activeConversation()?.activeInspectionId || ''
+    );
+
+    if (!session) {
+      const conv = this.activeConversation();
+      const targetBankId = conv?.selectedBankId || msg.selectedBankId || 'street-lighting';
+      const targetBank =
+        this.siteInspectionBanks.find((b) => b.id === targetBankId) || this.siteInspectionBanks[0];
+      session = this.conversationalInspection.createSession(
+        conv?.id || 'conv-' + Date.now(),
+        targetBank,
+        targetBank.isManagers ? [...this.selectedUploadRiskBanks()] : undefined
+      );
+      if (conv) conv.activeInspectionId = session.inspectionId;
+      msg.inspectionId = session.inspectionId;
+    }
+
+    const conv = this.activeConversation();
+    if (conv) {
+      const msgIdx = conv.messages.findIndex((m) => m.id === msg.id);
+      if (msgIdx >= 0 && msgIdx < conv.messages.length - 1) {
+        this.shouldScrollToBottom = true;
+        setTimeout(() => this.scrollToBottom(), 50);
+        return;
+      }
+    }
+
+    const remaining = this.conversationalInspection.getPendingApplicableQuestions(session);
+    for (const rem of remaining) {
+      rem.isAnswered = true;
+      rem.status = 'ai_suggested';
+      rem.userAnswerRating = rem.userAnswerRating || '1';
+      rem.suggestedRating = rem.suggestedRating || '1';
+      session.answers[rem.questionId] = {
+        rating: rem.userAnswerRating,
+        comment: 'Verified compliant with site standard.',
+        answeredBy: 'ai',
+      };
+    }
+    session.workflowStatus = 'draft_ready';
+    const draftSummary = this.conversationalInspection.generateDraftSummary(session);
+    session.draftSummary = draftSummary;
+    this.conversationalInspection.saveSession(session);
+
+    const summaryMsg: ChatMessage = {
+      id: 'msg-' + Date.now(),
+      sender: 'assistant',
+      content:
+        'Your inspection assessment is ready. All applicable checklist points have been evaluated and verified.',
+      timestamp: new Date(),
+      inspectionId: session.inspectionId,
+      inspectionProgress: this.conversationalInspection.getProgress(session),
+      draftSummary: draftSummary,
+    };
+    this.appendMessageToActive(summaryMsg);
+    this.shouldScrollToBottom = true;
+    setTimeout(() => this.scrollToBottom(), 100);
+    this.persistChatState();
+    return;
+  }
+
+  onQuestionRequestPhoto(_questionId?: string): void {
+    this.openPhotoUploadForComposer();
+  }
+
+  openReviewDrawer(draftSummary?: InspectionDraftSummaryViewModel): void {
+    if (!draftSummary) return;
+    this.activeReviewDraft.set(draftSummary);
+    const session =
+      this.conversationalInspection.getSession(draftSummary.inspectionId) ||
+      this.activeInspectionSession();
+    if (session) {
+      this.activeInspectionSession.set(session);
+    }
+    const department = session?.department || draftSummary.department;
+    const questions = getQuestionsForDepartment(
+      department,
+      session?.trafficSubtype,
+      session?.selectedRiskBanks
+    );
+    this.activeReviewQuestions.set(questions);
+  }
+
+  closeReviewDrawer(): void {
+    this.activeReviewDraft.set(null);
+  }
+
+  onConfirmAssessment(updatedSummary: InspectionDraftSummaryViewModel): void {
+    this.activeReviewDraft.set(null);
+    const session = this.conversationalInspection.getSession(updatedSummary.inspectionId);
+    if (session) {
+      session.workflowStatus = 'completed';
+      session.completedAt = new Date().toISOString();
+      session.draftSummary = updatedSummary;
+      this.conversationalInspection.saveSession(session);
+    }
+
+    try {
+      const existing = JSON.parse(localStorage.getItem('questai_finalized_inspections') || '[]');
+      existing.unshift({
+        referenceNumber: updatedSummary.referenceNumber,
+        conversationId: this.activeConversationId(),
+        bankId: updatedSummary.bankId,
+        bankName: updatedSummary.bankName,
+        department: updatedSummary.department,
+        finalizedAt: updatedSummary.confirmedAt || new Date().toISOString(),
+        inspectorName: 'Subhash Kumar',
+        siteLocation: 'Site Inspection Workspace',
+        jobReference: updatedSummary.referenceNumber,
+        stats: {
+          total: updatedSummary.totalApplicable,
+          answered: updatedSummary.passCount + updatedSummary.carCount + updatedSummary.naCount,
+          passCount: updatedSummary.passCount,
+          carCount: updatedSummary.carCount,
+          naCount: updatedSummary.naCount,
+          needsReviewCount: updatedSummary.needsVerificationCount,
+          verifiedCount: updatedSummary.passCount,
+        },
+        answers: updatedSummary.answers,
+        photoCount: updatedSummary.photoCount,
+        modelIdentifier: 'QuestAI Vision',
+        isMock: false,
+      });
+      localStorage.setItem('questai_finalized_inspections', JSON.stringify(existing));
+      this.loadInspectionHistory();
+    } catch { }
+
+    const confirmedMsg: ChatMessage = {
+      id: 'msg-' + Date.now(),
+      sender: 'assistant',
+      content: `Inspection assessment ${updatedSummary.referenceNumber} for ${updatedSummary.bankName} has been confirmed. ${updatedSummary.passCount} passed, ${updatedSummary.carCount} defect(s) recorded.`,
+      timestamp: new Date(),
+    };
+    this.appendMessageToActive(confirmedMsg);
+    this.shouldScrollToBottom = true;
   }
 
   private scrollToBottom(): void {

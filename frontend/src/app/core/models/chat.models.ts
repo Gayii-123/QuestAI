@@ -1,4 +1,10 @@
 import { InspectionPhoto } from '../../features/inspection/site-inspection.models';
+import {
+  InspectionEvidenceViewModel,
+  InspectionQuestionBatchViewModel,
+  InspectionProgressViewModel,
+  InspectionDraftSummaryViewModel,
+} from './inspection-view.models';
 
 export interface InspectionFindingPreview {
   id?: string;
@@ -31,8 +37,19 @@ export interface ChatMessage {
   showInspectionCategories?: boolean;
   suggestedBankId?: string;
   selectedBankId?: string;
+
+  // Legacy full-component embed flag (preserved for backwards-compatibility & tests)
   isInspectionWorkflowMessage?: boolean;
   inspectionBankId?: string;
+
+  // New Adaptive Grouped Conversation Properties
+  inspectionId?: string;
+  evidenceMessage?: InspectionEvidenceViewModel;
+  questionBatch?: InspectionQuestionBatchViewModel;
+  inspectionProgress?: InspectionProgressViewModel;
+  draftSummary?: InspectionDraftSummaryViewModel;
+  isAdditionalPhotoRequest?: boolean;
+  targetQuestionId?: string;
 }
 
 export interface Conversation {
@@ -42,6 +59,7 @@ export interface Conversation {
   previewSnippet: string;
   messages: ChatMessage[];
   selectedBankId?: string;
+  activeInspectionId?: string;
 }
 
 export interface SuggestionPrompt {

@@ -95,6 +95,27 @@ export class ChatPersistenceService {
     });
   }
 
+  async deleteConversation(id: string): Promise<void> {
+    this.memoryConversations.delete(id);
+    this.memoryPending.delete(id);
+    const db = await this.getDb();
+    if (!db) return;
+
+    await new Promise<void>((resolve) => {
+      try {
+        const tx = db.transaction([STORE_CONVERSATIONS, STORE_PENDING_ATTACHMENTS], 'readwrite');
+        const convStore = tx.objectStore(STORE_CONVERSATIONS);
+        const pendingStore = tx.objectStore(STORE_PENDING_ATTACHMENTS);
+        convStore.delete(id);
+        pendingStore.delete(id);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+      } catch {
+        resolve();
+      }
+    });
+  }
+
   async savePendingAttachments(convKey: string, photos: InspectionPhoto[]): Promise<void> {
     const key = convKey || '__draft__';
     const copy = photos.map((p) => ({ ...p }));
@@ -213,10 +234,14 @@ export class ChatPersistenceService {
   private deserializeConversation(raw: any): Conversation {
     const messages: ChatMessage[] = Array.isArray(raw?.messages)
       ? raw.messages.map((m: any) => ({
-          ...m,
-          timestamp: new Date(m?.timestamp || Date.now()),
-          photos: Array.isArray(m?.photos) ? m.photos : undefined,
-        }))
+        ...m,
+        timestamp: new Date(m?.timestamp || Date.now()),
+        photos: Array.isArray(m?.photos) ? m.photos : undefined,
+        evidenceMessage: m?.evidenceMessage ? { ...m.evidenceMessage } : undefined,
+        questionBatch: m?.questionBatch ? { ...m.questionBatch } : undefined,
+        inspectionProgress: m?.inspectionProgress ? { ...m.inspectionProgress } : undefined,
+        draftSummary: m?.draftSummary ? { ...m.draftSummary } : undefined,
+      }))
       : [];
     return {
       id: String(raw?.id || ''),
@@ -224,6 +249,7 @@ export class ChatPersistenceService {
       updatedAt: new Date(raw?.updatedAt || Date.now()),
       previewSnippet: String(raw?.previewSnippet || ''),
       selectedBankId: raw?.selectedBankId,
+      activeInspectionId: raw?.activeInspectionId,
       messages,
     };
   }
