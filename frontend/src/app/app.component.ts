@@ -68,8 +68,8 @@ export class AppComponent implements OnInit, AfterViewChecked {
   activeInspectionSession = signal<InspectionSessionViewModel | null>(null);
   activeReviewQuestions = signal<SiteInspectionQuestion[]>([]);
 
-  // Sidebar view: 'recent-chats' | 'inspection-history' | 'my-reports'
-  sidebarActiveSection = signal<'recent-chats' | 'inspection-history' | 'my-reports'>('recent-chats');
+  // Sidebar view: 'home' | 'recent-chats' | 'inspection-history' | 'my-reports'
+  sidebarActiveSection = signal<'home' | 'recent-chats' | 'inspection-history' | 'my-reports'>('home');
 
   // Complete list of all 12 Question Banks
   readonly siteInspectionBanks = [
@@ -837,6 +837,32 @@ export class AppComponent implements OnInit, AfterViewChecked {
     }
 
     this.conversationToDelete.set(null);
+  }
+
+  showClearAllConfirm = signal<boolean>(false);
+
+  promptClearAllConversations(event?: MouseEvent): void {
+    if (event) {
+      event.stopPropagation();
+    }
+    this.showClearAllConfirm.set(true);
+  }
+
+  cancelClearAll(): void {
+    this.showClearAllConfirm.set(false);
+  }
+
+  confirmClearAll(): void {
+    const list = this.conversations();
+    for (const c of list) {
+      void this.chatPersistence.deleteConversation(c.id);
+      if (c.activeInspectionId) {
+        this.conversationalInspection.deleteSession(c.activeInspectionId);
+      }
+    }
+    this.conversations.set([]);
+    this.showClearAllConfirm.set(false);
+    this.navigateToHome();
   }
 
   // --- Message Handling ---
@@ -1667,6 +1693,13 @@ export class AppComponent implements OnInit, AfterViewChecked {
     } catch {
       this.inspectionHistoryList.set([]);
     }
+  }
+
+  navigateToHome(): void {
+    this.sidebarActiveSection.set('home');
+    this.currentView.set('chat');
+    this.startNewChat();
+    this.closeMobileSidebar();
   }
 
   navigateToInspectionHistory(): void {
