@@ -2197,7 +2197,7 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
 
         const img = new Image();
         img.onload = () => {
-          const maxDim = 1200;
+          const maxDim = 1024;
           let width = img.width;
           let height = img.height;
 
@@ -2209,26 +2209,23 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
               width = Math.round((width * maxDim) / height);
               height = maxDim;
             }
+          }
 
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            if (ctx) {
-              ctx.drawImage(img, 0, 0, width, height);
-              const targetMime = originalMime === 'image/png' ? 'image/png' : 'image/jpeg';
-              const optimizedUrl =
-                targetMime === 'image/png'
-                  ? canvas.toDataURL('image/png')
-                  : canvas.toDataURL('image/jpeg', 0.85);
-              resolve({
-                dataUrl: optimizedUrl,
-                mimeType: targetMime,
-                byteLength: this.estimateDataUrlBytes(optimizedUrl),
-                normalizedName: this.ensureSupportedExtension(file.name, targetMime),
-              });
-              return;
-            }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const targetMime = 'image/jpeg';
+            const optimizedUrl = canvas.toDataURL('image/jpeg', 0.8);
+            resolve({
+              dataUrl: optimizedUrl,
+              mimeType: targetMime,
+              byteLength: this.estimateDataUrlBytes(optimizedUrl),
+              normalizedName: this.ensureSupportedExtension(file.name, targetMime),
+            });
+            return;
           }
           resolve({
             dataUrl: result,
