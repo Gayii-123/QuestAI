@@ -4697,14 +4697,14 @@
 }
 
 .sidebar-red-conversations {
-  background: rgba(0, 0, 0, 0.18) !important;
-  border-radius: 14px !important;
-  padding: 0.85rem 1rem 0.65rem 1rem !important;
-  margin: 0.35rem 0.85rem 1.25rem 0.85rem !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  padding: 0.25rem 0.25rem 0.25rem 0.75rem !important;
+  margin: 0.15rem 0 0.5rem 0 !important;
   display: flex !important;
   flex-direction: column !important;
-  gap: 0.65rem !important;
-  backdrop-filter: blur(6px) !important;
+  gap: 0.4rem !important;
+  backdrop-filter: none !important;
 }
 
 .sidebar-red-conv-item {
@@ -5154,11 +5154,15 @@
 }
 
 /* Delete trash icon in conv items */
-.sidebar-conv-delete-btn {
+.sidebar-conv-delete-btn,
+.red-conv-delete-btn {
   color: #9ca3af !important;
+  background: transparent !important;
 }
 
-.sidebar-conv-delete-btn:hover {
+.sidebar-conv-delete-btn:hover,
+.red-conv-delete-btn:hover {
+  background: #fee2e2 !important;
   color: #e11d48 !important;
 }
 
@@ -5203,14 +5207,38 @@
 
 .btn-composer-send {
   background: #e11d48 !important;
+  color: #ffffff !important;
   border-radius: 9999px !important;
   width: 38px !important;
   height: 38px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  border: none !important;
+}
+
+.btn-composer-send svg {
+  stroke: #ffffff !important;
+  color: #ffffff !important;
+  width: 17px !important;
+  height: 17px !important;
+  margin-left: 2px !important;
   flex-shrink: 0 !important;
 }
 
 .btn-composer-send:hover:not(:disabled) {
   background: #be123c !important;
+}
+
+.btn-composer-send:disabled {
+  background: #e11d48 !important;
+  opacity: 0.75 !important;
+}
+
+.btn-composer-send:disabled svg {
+  stroke: #ffffff !important;
+  color: #ffffff !important;
 }
 
 /* Helper note */

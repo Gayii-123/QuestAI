@@ -327,10 +327,23 @@ export class AppComponent implements OnInit, AfterViewChecked, OnDestroy {
   private shouldScrollToBottom = false;
 
   ngOnInit(): void {
-    // Clean up any stale legacy mock pending pre-fill
+    // Clean up any stale legacy mock pending pre-fill and mock inspection history
     try {
       if (typeof localStorage !== 'undefined') {
         localStorage.removeItem('questai_pending_ai_fill');
+        const raw = localStorage.getItem('questai_finalized_inspections');
+        if (raw) {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list)) {
+            const cleaned = list.filter((item: any) =>
+              item &&
+              !item.isMock &&
+              item.jobReference !== 'WO-2026-8842' &&
+              item.inspectorName !== 'Subhash Kumar'
+            );
+            localStorage.setItem('questai_finalized_inspections', JSON.stringify(cleaned));
+          }
+        }
       }
       if (typeof window !== 'undefined' && window.location.pathname.includes('inspection')) {
         this.currentView.set('inspection');
@@ -1974,10 +1987,40 @@ export class AppComponent implements OnInit, AfterViewChecked, OnDestroy {
       const raw = localStorage.getItem('questai_finalized_inspections');
       if (raw) {
         const list = JSON.parse(raw);
-        this.inspectionHistoryList.set(Array.isArray(list) ? list : []);
+        if (Array.isArray(list)) {
+          const valid = list.filter((item: any) =>
+            item &&
+            !item.isMock &&
+            item.jobReference !== 'WO-2026-8842' &&
+            item.inspectorName !== 'Subhash Kumar'
+          );
+          this.inspectionHistoryList.set(valid);
+          if (valid.length !== list.length) {
+            localStorage.setItem('questai_finalized_inspections', JSON.stringify(valid));
+          }
+        } else {
+          this.inspectionHistoryList.set([]);
+        }
       } else {
         this.inspectionHistoryList.set([]);
       }
+    } catch {
+      this.inspectionHistoryList.set([]);
+    }
+  }
+
+  deleteInspectionRecord(rec: any, event: Event): void {
+    event.stopPropagation();
+    try {
+      const existing = JSON.parse(localStorage.getItem('questai_finalized_inspections') || '[]');
+      if (Array.isArray(existing)) {
+        const filtered = existing.filter((item: any) =>
+          item.referenceNumber !== rec.referenceNumber &&
+          item.finalizedAt !== rec.finalizedAt
+        );
+        localStorage.setItem('questai_finalized_inspections', JSON.stringify(filtered));
+      }
+      this.loadInspectionHistory();
     } catch {
       this.inspectionHistoryList.set([]);
     }
@@ -2560,13 +2603,13 @@ export class AppComponent implements OnInit, AfterViewChecked, OnDestroy {
       const photos = session?.uploadedPhotos ? [...session.uploadedPhotos] : [];
       const questions = session
         ? Object.values(session.questionAssessments).map((q) => ({
-            id: q.questionId,
-            qnum: q.qnum,
-            headername: q.headername,
-            qtext: q.qtext,
-            isDynamicObservation: q.isDynamicObservation,
-            supportingPhotoIds: q.supportingPhotoIds,
-          }))
+          id: q.questionId,
+          qnum: q.qnum,
+          headername: q.headername,
+          qtext: q.qtext,
+          isDynamicObservation: q.isDynamicObservation,
+          supportingPhotoIds: q.supportingPhotoIds,
+        }))
         : [];
 
       const record = {
@@ -2632,7 +2675,7 @@ export class AppComponent implements OnInit, AfterViewChecked, OnDestroy {
           answers: summary.answers || session?.answers || {},
         })
         .subscribe({
-          error: () => {},
+          error: () => { },
         });
     } catch { }
   }

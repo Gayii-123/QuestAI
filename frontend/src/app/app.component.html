@@ -215,9 +215,10 @@
           <span class="sidebar-nav-label">Inspection History</span>
         </button>
 
-        <!-- Sub-list of Inspection History (shown when inspection-history is active) -->
-        <div class="sidebar-red-conversations" *ngIf="sidebarActiveSection() === 'inspection-history'">
-          <div *ngFor="let rec of inspectionHistoryList().slice(0, 10)" class="sidebar-red-conv-item"
+        <!-- Sub-list of Inspection History (shown ONLY when inspection-history is active AND inspections exist) -->
+        <div class="sidebar-red-conversations"
+          *ngIf="sidebarActiveSection() === 'inspection-history' && inspectionHistoryList().length > 0">
+          <div *ngFor="let rec of inspectionHistoryList().slice(0, 4)" class="sidebar-red-conv-item"
             (click)="openHistoryRecord(rec)">
             <svg class="red-conv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -227,8 +228,15 @@
               <span class="red-conv-title">{{ rec.bankName }}</span>
               <span class="red-conv-time">{{ rec.referenceNumber }}</span>
             </div>
+            <!-- Delete History Item Button -->
+            <button class="red-conv-delete-btn" (click)="deleteInspectionRecord(rec, $event)" type="button"
+              title="Delete inspection" aria-label="Delete inspection">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+            </button>
           </div>
-          <div *ngIf="inspectionHistoryList().length === 0" class="red-empty-text">No inspections recorded yet</div>
         </div>
 
         <!-- 4. My Reports Button -->
@@ -243,9 +251,10 @@
           <span class="sidebar-nav-label">My Reports</span>
         </button>
 
-        <!-- Sub-list of My Reports (shown when my-reports is active) -->
-        <div class="sidebar-red-conversations" *ngIf="sidebarActiveSection() === 'my-reports'">
-          <div *ngFor="let rec of inspectionHistoryList().slice(0, 10)" class="sidebar-red-conv-item"
+        <!-- Sub-list of My Reports (shown ONLY when my-reports is active AND reports exist) -->
+        <div class="sidebar-red-conversations"
+          *ngIf="sidebarActiveSection() === 'my-reports' && inspectionHistoryList().length > 0">
+          <div *ngFor="let rec of inspectionHistoryList().slice(0, 4)" class="sidebar-red-conv-item"
             (click)="openHistoryRecord(rec)">
             <svg class="red-conv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="20 6 9 17 4 12"></polyline>
@@ -254,8 +263,15 @@
               <span class="red-conv-title">{{ rec.bankName }}</span>
               <span class="red-conv-time">Ref: {{ rec.referenceNumber }}</span>
             </div>
+            <!-- Delete Report Item Button -->
+            <button class="red-conv-delete-btn" (click)="deleteInspectionRecord(rec, $event)" type="button"
+              title="Delete report" aria-label="Delete report">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+            </button>
           </div>
-          <div *ngIf="inspectionHistoryList().length === 0" class="red-empty-text">No reports generated yet</div>
         </div>
       </div>
 
@@ -270,7 +286,8 @@
     </aside>
 
     <!-- Main Chat Workspace -->
-    <main class="chat-main" *ngIf="currentView() === 'chat'" [class.empty-state]="!hasMessages()" [class.has-messages]="hasMessages()">
+    <main class="chat-main" *ngIf="currentView() === 'chat'" [class.empty-state]="!hasMessages()"
+      [class.has-messages]="hasMessages()">
       <!-- Canvas Top Header (Transparent, matching mockup) -->
       <div class="canvas-top-header">
         <button class="btn-icon mobile-toggle-btn" (click)="toggleSidebar()" aria-label="Toggle Sidebar"
@@ -336,24 +353,15 @@
                   [class.error-text]="msg.isError">
                   {{ msg.content }}</p>
 
-                <!-- Assistant Structured Response (No raw ** or * markdown; suppressed when asking single question card) -->
-                <div *ngIf="msg.sender !== 'user' && !msg.isError && msg.content && !msg.singleQuestion" class="bubble-structured-content"
+                <!-- Assistant Structured Response (No raw ** or * markdown) -->
+                <div *ngIf="msg.sender !== 'user' && !msg.isError" class="bubble-structured-content"
                   [innerHTML]="formatStructuredMessage(msg.content)"></div>
 
-                <!-- 1. Compact Inspection Progress Badge (suppressed when asking single question card) -->
-                <app-inspection-progress *ngIf="msg.inspectionProgress && !msg.singleQuestion"
+                <!-- 1. Compact Inspection Progress Badge -->
+                <app-inspection-progress *ngIf="msg.inspectionProgress"
                   [progress]="msg.inspectionProgress"></app-inspection-progress>
 
-                <!-- Single Interactive Clarification Question Card (Screenshot 5 Style) -->
-                <app-inspection-single-question-card *ngIf="msg.singleQuestion"
-                  [question]="msg.singleQuestion"
-                  [questionNumber]="msg.singleQuestionIndex"
-                  [totalQuestions]="msg.singleQuestionTotal"
-                  (answer)="onSingleQuestionAnswer(msg, $event)"
-                  (skip)="onSingleQuestionSkip(msg, $event)"
-                  (dismiss)="onSingleQuestionSkip(msg, $event)"></app-inspection-single-question-card>
-
-                <!-- 2. Assistant Evidence Observations (Displayed only when explicitly requested) -->
+                <!-- 2. Assistant Evidence Observations -->
                 <app-inspection-evidence-message *ngIf="msg.evidenceMessage" [evidence]="msg.evidenceMessage"
                   (requestMorePhotos)="openPhotoUploadForComposer()"></app-inspection-evidence-message>
 
@@ -365,8 +373,7 @@
 
                 <!-- 4. Final Structured Draft Summary Card -->
                 <app-inspection-draft-summary *ngIf="msg.draftSummary" [summary]="msg.draftSummary"
-                  (openReview)="openReviewDrawer(msg.draftSummary)"
-                  (downloadPdf)="downloadReportPdf(msg.draftSummary)"></app-inspection-draft-summary>
+                  (openReview)="openReviewDrawer(msg.draftSummary)"></app-inspection-draft-summary>
 
                 <!-- Legacy In-Chat Inspection Form (Kept strictly for backwards compatibility with prior persisted workflow messages) -->
                 <div
@@ -391,38 +398,6 @@
                     title="Cancel category selection">
                     Cancel
                   </button>
-                </div>
-
-                <!-- Direct Inline Photo Upload Card (Displayed when category is chosen) -->
-                <div *ngIf="msg.showInlinePhotoUpload && !msg.isError" class="chat-direct-upload-wrap">
-                  <input #directUploadInput type="file" multiple accept="image/*"
-                    (change)="onDirectPhotosSelected($event, msg)" style="display: none" />
-                  
-                  <div class="direct-upload-card"
-                    (click)="directUploadInput.click()"
-                    (dragover)="onDirectPhotoDragOver($event)"
-                    (drop)="onDirectPhotoDrop($event, msg)">
-                    
-                    <div class="direct-upload-icon-circle">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="direct-camera-svg">
-                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-                        <circle cx="12" cy="13" r="4"></circle>
-                      </svg>
-                    </div>
-
-                    <div class="direct-upload-text">
-                      <span class="direct-upload-title">Upload Site Photographs</span>
-                      <span class="direct-upload-sub">Click here or drag &amp; drop photos from your device</span>
-                    </div>
-
-                    <button type="button" class="btn-direct-choose" (click)="$event.stopPropagation(); directUploadInput.click()">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="choose-icon">
-                        <line x1="12" y1="5" x2="12" y2="19"></line>
-                        <line x1="5" y1="12" x2="19" y2="12"></line>
-                      </svg>
-                      <span>Choose Photos</span>
-                    </button>
-                  </div>
                 </div>
 
                 <!-- Retry action if message failed -->
@@ -615,7 +590,7 @@
             <button class="btn-composer-send" (click)="sendMessage()"
               [disabled]="isGenerating() || (!composerText().trim() && uploadedPhotos().length === 0)" type="button"
               title="Send Message">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5">
                 <line x1="22" y1="2" x2="11" y2="13"></line>
                 <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
               </svg>
@@ -766,175 +741,63 @@
     </div>
   </div>
 
-  <!-- Official Marlborough Highways / Quest Site Inspection Report Modal (Matches 10-screen format) -->
+  <!-- Inspection History Record Detail Modal -->
   <div *ngIf="selectedHistoryRecord()" class="modal-backdrop" (click)="closeHistoryRecord()">
-    <div class="modal-window official-report-modal" (click)="$event.stopPropagation()">
-      <!-- Top Red Header Bar (Screenshot 1) -->
-      <div class="official-report-topbar">
-        <h3 class="official-topbar-title">
-          Site Inspection Report under Job no : {{ selectedHistoryRecord()?.jobNo || selectedHistoryRecord()?.jobReference || 'LBN-0029' }} Ref no: {{ selectedHistoryRecord()?.referenceNumber }}
-        </h3>
-        <div class="official-topbar-actions">
-          <button type="button" class="official-action-pill" title="Evaluate">
-            <svg class="official-pill-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a6 6 0 0 1 6 6c0 2.22-1.21 4.16-3 5.2V17a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-3.8c-1.79-1.04-3-2.98-3-5.2a6 6 0 0 1 6-6z"></path><path d="M9 21h6"></path></svg>
-            Evaluate
-          </button>
-          <button type="button" class="official-action-pill" title="Rate">
-            <svg class="official-pill-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-            Rate
-          </button>
-          <button type="button" class="official-action-pill print-btn" (click)="downloadReportPdf(selectedHistoryRecord())" title="Print PDF Report">
-            <svg class="official-pill-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
-            Print
-          </button>
-          <button type="button" class="official-close-btn" (click)="closeHistoryRecord()" aria-label="Close">✕</button>
+    <div class="modal-window history-detail-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="modal-badge-row">
+            <span class="modal-badge">Inspection Record</span>
+            <span class="modal-bank-tag">{{ selectedHistoryRecord()?.bankName }}</span>
+          </div>
+          <h2 class="modal-title">{{ selectedHistoryRecord()?.referenceNumber }}</h2>
         </div>
+        <button class="btn-modal-close" (click)="closeHistoryRecord()" aria-label="Close">X</button>
       </div>
-
-      <!-- Report Body Document -->
-      <div class="official-report-scroll-body">
-        <!-- Title & Marlborough Logo -->
-        <div class="official-brand-header">
-          <h2 class="official-brand-title">Site Inspection Report</h2>
-          <div class="official-marlborough-logo">
-            <svg class="official-m-svg" viewBox="0 0 120 90" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 78 L52 14 L76 56 L64 56 L52 34 L25 78 Z" fill="#88132B"/>
-              <path d="M46 78 L70 36 L108 78 L95 78 L70 50 L58 78 Z" fill="#A82038"/>
-            </svg>
-          </div>
+      <div class="modal-body history-modal-body">
+        <div class="history-record-meta">
+          <div class="history-meta-item"><span class="history-meta-label">Inspector</span><span
+              class="history-meta-value">{{ selectedHistoryRecord()?.inspectorName || 'N/A' }}</span></div>
+          <div class="history-meta-item"><span class="history-meta-label">Site Location</span><span
+              class="history-meta-value">{{ selectedHistoryRecord()?.siteLocation || 'N/A' }}</span></div>
+          <div class="history-meta-item"><span class="history-meta-label">Job Reference</span><span
+              class="history-meta-value">{{ selectedHistoryRecord()?.jobReference || 'N/A' }}</span></div>
+          <div class="history-meta-item"><span class="history-meta-label">Finalized At</span><span
+              class="history-meta-value">{{ formatHistoryDate(selectedHistoryRecord()?.finalizedAt) }}</span></div>
         </div>
-
-        <!-- 4-Column Metadata Table (Screenshot 1 & 4) -->
-        <table class="official-meta-table">
-          <tbody>
-            <tr>
-              <td class="official-meta-lbl">Ref No</td>
-              <td class="official-meta-val"><strong>{{ selectedHistoryRecord()?.referenceNumber }}</strong></td>
-              <td class="official-meta-lbl">Inspection Date</td>
-              <td class="official-meta-val">{{ formatHistoryDate(selectedHistoryRecord()?.finalizedAt) }}</td>
-            </tr>
-            <tr>
-              <td class="official-meta-lbl">Job No</td>
-              <td class="official-meta-val">{{ selectedHistoryRecord()?.jobNo || selectedHistoryRecord()?.jobReference || 'LBN-0029' }}</td>
-              <td class="official-meta-lbl">Report Date</td>
-              <td class="official-meta-val">{{ formatHistoryDate(selectedHistoryRecord()?.finalizedAt) }}</td>
-            </tr>
-            <tr>
-              <td class="official-meta-lbl">Location</td>
-              <td class="official-meta-val">{{ selectedHistoryRecord()?.siteLocation || 'Romford Road' }}</td>
-              <td class="official-meta-lbl">Depot</td>
-              <td class="official-meta-val">{{ selectedHistoryRecord()?.depot || 'N/A' }}</td>
-            </tr>
-            <tr>
-              <td class="official-meta-lbl">Department</td>
-              <td class="official-meta-val">{{ selectedHistoryRecord()?.department || 'Civil' }}</td>
-              <td class="official-meta-lbl">Reported By</td>
-              <td class="official-meta-val">{{ selectedHistoryRecord()?.inspectorName || 'Dan Kennett' }}</td>
-            </tr>
-            <tr>
-              <td class="official-meta-lbl">Supervisor</td>
-              <td class="official-meta-val">{{ selectedHistoryRecord()?.supervisorName || 'Dan Kennett' }}</td>
-              <td class="official-meta-lbl">Foreman</td>
-              <td class="official-meta-val">{{ selectedHistoryRecord()?.foremanName || 'Bekim Aliaj' }}</td>
-            </tr>
-            <tr>
-              <td class="official-meta-lbl">Contract</td>
-              <td class="official-meta-val">{{ selectedHistoryRecord()?.contract || '140-Newham' }}</td>
-              <td class="official-meta-lbl">Operatives</td>
-              <td class="official-meta-val">{{ selectedHistoryRecord()?.operatives || '1. Dan Kennett, 2. Bekim Aliaj' }}</td>
-            </tr>
-            <tr>
-              <td class="official-meta-lbl">Job Description</td>
-              <td class="official-meta-val">{{ selectedHistoryRecord()?.jobDescription || 'Highway safety & compliance inspection' }}</td>
-              <td class="official-meta-lbl">Total Score</td>
-              <td class="official-meta-val"><strong class="score-highlight">{{ selectedHistoryRecord()?.totalScore || selectedHistoryRecord()?.stats?.passCount || 50 }}</strong></td>
-            </tr>
-          </tbody>
-        </table>
-
-        <!-- Site Photographs Gallery (Screenshot 2 & 3) -->
-        <div class="official-section-title" *ngIf="selectedHistoryRecord()?.photos?.length > 0">
-          <span>Site Photographs</span>
-          <span class="official-section-count">{{ selectedHistoryRecord()?.photos?.length }} Images</span>
+        <div class="history-stats-row">
+          <div class="history-stat-card stat-pass"><span class="stat-num">{{ selectedHistoryRecord()?.stats?.passCount
+              ||
+              0 }}</span><span class="stat-lbl">Pass</span></div>
+          <div class="history-stat-card stat-car"><span class="stat-num">{{ selectedHistoryRecord()?.stats?.carCount ||
+              0
+              }}</span><span class="stat-lbl">CAR</span></div>
+          <div class="history-stat-card stat-na"><span class="stat-num">{{ selectedHistoryRecord()?.stats?.naCount || 0
+              }}</span><span class="stat-lbl">N/A</span></div>
+          <div class="history-stat-card stat-total"><span class="stat-num">{{ selectedHistoryRecord()?.stats?.total || 0
+              }}</span><span class="stat-lbl">Total</span></div>
         </div>
-        <div class="official-photos-grid" *ngIf="selectedHistoryRecord()?.photos?.length > 0">
-          <div *ngFor="let photo of selectedHistoryRecord()?.photos; let idx = index" class="official-photo-card">
-            <img [src]="photo.url" [alt]="photo.name || 'Site Photo ' + (idx + 1)" (error)="$any($event.target).closest('.official-photo-card').style.display = 'none'" />
-            <span class="official-photo-lbl">{{ photo.name || 'Photo ' + (idx + 1) }}</span>
-          </div>
-        </div>
-
-        <!-- Inspection Report Table (Screenshot 4, 5, 6, 7) -->
-        <div class="official-section-title">
-          <span>Inspection Report</span>
-          <span class="official-section-count">{{ selectedHistoryRecord()?.stats?.total || 0 }} Checks Evaluated</span>
-        </div>
-
-        <div class="official-report-tables-wrap">
-          <div *ngFor="let group of getHistoryQuestionGroups(selectedHistoryRecord())" class="official-group-block">
-            <h4 class="official-group-title">{{ group.headername }}</h4>
-            <table class="official-checklist-table">
-              <thead>
-                <tr>
-                  <th style="width: 6%;">SL</th>
-                  <th style="width: 58%;">Item / Question</th>
-                  <th style="width: 26%;">Meets Legislative & Company Requirements</th>
-                  <th style="width: 10%; text-align: center;">Rating</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let q of group.questions; let sIdx = index">
-                  <td class="official-sl-col">{{ sIdx + 1 < 10 ? '0' + (sIdx + 1) : sIdx + 1 }}</td>
-                  <td class="official-item-col">
-                    <span *ngIf="q.isDynamicObservation" class="official-dyn-badge">⚠️ AI Observed Abnormality</span>
-                    <div class="official-q-text">{{ q.qtext }}</div>
-                    
-                    <!-- Embedded Photos row under question text (Only on defects or dynamic abnormalities) -->
-                    <div class="official-q-photos" *ngIf="getHistorySupportingPhotos(selectedHistoryRecord(), q.supportingPhotoIds || selectedHistoryRecord()?.answers?.[q.id]?.photoIds, q).length > 0">
-                      <img *ngFor="let p of getHistorySupportingPhotos(selectedHistoryRecord(), q.supportingPhotoIds || selectedHistoryRecord()?.answers?.[q.id]?.photoIds, q)"
-                        [src]="p.url" [alt]="p.name || 'Site photo'" class="official-inline-thumb"
-                        (error)="$any($event.target).style.display = 'none'" />
-                    </div>
-
-                    <!-- Evidence & CAR Note -->
-                    <div class="official-evidence-note" *ngIf="selectedHistoryRecord()?.answers?.[q.id]?.comment">
-                      {{ selectedHistoryRecord()?.answers?.[q.id]?.comment }}
-                    </div>
-                    <div class="official-car-plan" *ngIf="selectedHistoryRecord()?.answers?.[q.id]?.carActionPlan">
-                      Action: {{ selectedHistoryRecord()?.answers?.[q.id]?.carActionPlan }}
-                    </div>
-                  </td>
-                  <td class="official-status-col"
-                    [class.status-yes]="selectedHistoryRecord()?.answers?.[q.id]?.rating === '1'"
-                    [class.status-car]="selectedHistoryRecord()?.answers?.[q.id]?.rating === '-1'"
-                    [class.status-na]="selectedHistoryRecord()?.answers?.[q.id]?.rating === '0'">
-                    {{ getHistoryRequirementStatus(selectedHistoryRecord()?.answers?.[q.id]?.rating) }}
-                  </td>
-                  <td class="official-rating-col"
-                    [class.rating-green]="selectedHistoryRecord()?.answers?.[q.id]?.rating === '1'"
-                    [class.rating-red]="selectedHistoryRecord()?.answers?.[q.id]?.rating === '-1'"
-                    [class.rating-gray]="selectedHistoryRecord()?.answers?.[q.id]?.rating === '0'">
-                    {{ selectedHistoryRecord()?.answers?.[q.id]?.rating || '0' }}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+        <div class="history-answers-section">
+          <h4 class="history-answers-title">Form Answers</h4>
+          <div class="history-answers-list" *ngIf="selectedHistoryRecord()?.answers">
+            <ng-container *ngFor="let entry of (selectedHistoryRecord()?.answers | keyvalue)">
+              <div class="history-answer-row"
+                *ngIf="$any(entry.value)?.rating || $any(entry.value)?.selectans || $any(entry.value)?.comment">
+                <div class="history-answer-rating" [class.rating-pass]="$any(entry.value)?.rating === '1'"
+                  [class.rating-car]="$any(entry.value)?.rating === '-1'"
+                  [class.rating-na]="$any(entry.value)?.rating === '0'">{{ $any(entry.value)?.rating === '1' ? 'Pass' :
+                  $any(entry.value)?.rating === '-1' ? 'CAR' : $any(entry.value)?.rating === '0' ? 'N/A' : '' }}</div>
+                <div class="history-answer-detail"><span class="history-qid">{{ entry.key }}</span><span
+                    class="history-comment" *ngIf="$any(entry.value)?.comment">{{ $any(entry.value)?.comment
+                    }}</span><span class="history-select" *ngIf="$any(entry.value)?.selectans">{{
+                    $any(entry.value)?.selectans }}</span></div>
+              </div>
+            </ng-container>
           </div>
         </div>
       </div>
-
-      <!-- Modal Footer -->
-      <div class="modal-footer official-modal-footer">
-        <button class="btn-modal-download-pdf" (click)="downloadReportPdf(selectedHistoryRecord())" type="button">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="modal-pdf-icon">
-            <polyline points="6 9 6 2 18 2 18 9"></polyline>
-            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
-            <rect x="6" y="14" width="12" height="8"></rect>
-          </svg>
-          Download PDF Report
-        </button>
-        <button class="btn-modal-cancel" (click)="closeHistoryRecord()" type="button">Close</button>
-      </div>
+      <div class="modal-footer"><button class="btn-modal-cancel" (click)="closeHistoryRecord()"
+          type="button">Close</button></div>
     </div>
   </div>
 
@@ -942,8 +805,7 @@
   <app-inspection-review-drawer *ngIf="activeReviewDraft()" [draftSummary]="activeReviewDraft()!"
     [session]="activeInspectionSession() || undefined" [canonicalQuestions]="activeReviewQuestions()"
     (closeDrawer)="closeReviewDrawer()"
-    (confirmAssessment)="onConfirmAssessment($event)"
-    (downloadPdf)="downloadReportPdf($event)"></app-inspection-review-drawer>
+    (confirmAssessment)="onConfirmAssessment($event)"></app-inspection-review-drawer>
 
   <!-- ChatGPT-Style Sidebar Context Menu -->
   <div *ngIf="activeContextMenuConv()" class="chat-context-menu-backdrop" (click)="closeConversationMenu()">
