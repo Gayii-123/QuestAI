@@ -19,6 +19,8 @@ import { InspectionDraftSummaryComponent } from './features/inspection/draft-sum
 import { InspectionReviewDrawerComponent } from './features/inspection/review-drawer/inspection-review-drawer.component';
 import { ConversationalInspectionService } from './core/services/conversational-inspection.service';
 import { PdfExportService, InspectionPdfData } from './core/services/pdf-export.service';
+import { LoginComponent } from './features/auth/login.component';
+import { AuthService } from './core/services/auth.service';
 import {
   InspectionSessionViewModel,
   InspectionQuestionBatchViewModel,
