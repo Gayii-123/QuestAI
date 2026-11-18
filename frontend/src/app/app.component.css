@@ -3825,6 +3825,267 @@
   flex-shrink: 0;
 }
 
+/* Official Report Live Summary Metrics Bar */
+.official-summary-stats-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 22px;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.official-stat-pill {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 12px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  min-width: 90px;
+}
+
+.official-stat-pill .stat-lbl {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.official-stat-pill .stat-num {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.2;
+}
+
+.official-stat-pill.stat-pass .stat-num {
+  color: #16a34a;
+}
+
+.official-stat-pill.stat-car .stat-num {
+  color: #dc2626;
+}
+
+.official-stat-pill.stat-na .stat-num {
+  color: #64748b;
+}
+
+.official-stat-pill.stat-unresolved .stat-num {
+  color: #d97706;
+}
+
+.official-stat-pill.stat-score {
+  background: #f0fdf4;
+  border-color: #86efac;
+}
+
+.official-stat-pill.stat-score .stat-num {
+  color: #15803d;
+}
+
+/* Row Editing Highlight */
+.official-checklist-table tr.row-is-editing {
+  background-color: #fdfbf7;
+}
+
+/* Status View Mode (Badge + Edit Button) */
+.official-status-view {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.official-status-badge {
+  font-weight: 600;
+}
+
+.official-status-badge.status-yes {
+  color: #16a34a;
+}
+
+.official-status-badge.status-car {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.official-status-badge.status-na {
+  color: #64748b;
+}
+
+.official-status-badge.status-pending {
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.btn-row-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-row-edit:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+  border-color: #94a3b8;
+}
+
+.btn-row-edit .edit-icon {
+  width: 12px;
+  height: 12px;
+}
+
+.official-saved-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #15803d;
+  background: #dcfce7;
+  border-radius: 9999px;
+  animation: fadeIn 0.2s ease-in;
+}
+
+/* Inline Edit Controls */
+.official-edit-controls-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.official-rate-choice-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.btn-rate-choice {
+  padding: 4px 8px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  border-radius: 4px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.btn-rate-choice:hover {
+  background: #f8fafc;
+}
+
+.btn-rate-choice.rate-pass.active {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: #ffffff;
+}
+
+.btn-rate-choice.rate-car.active {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #ffffff;
+}
+
+.btn-rate-choice.rate-na.active {
+  background: #64748b;
+  border-color: #64748b;
+  color: #ffffff;
+}
+
+.btn-rate-choice.rate-pending.active {
+  background: #94a3b8;
+  border-color: #94a3b8;
+  color: #ffffff;
+}
+
+.official-row-action-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.btn-row-save {
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #ffffff;
+  background: #88132B;
+  border: 1px solid #88132B;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.btn-row-save:hover {
+  opacity: 0.9;
+}
+
+.btn-row-cancel {
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn-row-cancel:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+/* CAR Action Plan Input */
+.official-car-editor-box {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+}
+
+.official-car-label {
+  display: block;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #b91c1c;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.official-car-input {
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 0.82rem;
+  border: 1px solid #fca5a5;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #0f172a;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.official-car-input:focus {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.15);
+}
+
 /* ==============================================================================
    SIDEBAR FIX â€” override all issues
    ============================================================================== */
