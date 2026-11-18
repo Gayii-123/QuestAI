@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed, ViewChild, ElementRef, AfterViewChecked } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, signal, computed, ViewChild, ElementRef, AfterViewChecked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
@@ -42,11 +42,23 @@ import { SiteInspectionQuestion, getQuestionsForDepartment } from './core/models
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.css'],
 })
-export class AppComponent implements OnInit, AfterViewChecked {
+export class AppComponent implements OnInit, AfterViewChecked, OnDestroy {
   private readonly apiService = inject(ApiService);
   private readonly sanitizer = inject(DomSanitizer);
   private readonly chatPersistence = inject(ChatPersistenceService);
   private readonly conversationalInspection = inject(ConversationalInspectionService);
+
+  // Rotating welcome heading animation
+  readonly welcomePhrases = [
+    'How can Quest AI help you?',
+    'What do you want to do today?',
+    "What's on your mind today?",
+    'What would you like to explore?',
+  ];
+  welcomePhraseIndex = signal(0);
+  isHeadingFading = signal(false);
+  welcomeHeading = computed(() => this.welcomePhrases[this.welcomePhraseIndex()]);
+  private welcomeInterval: ReturnType<typeof setInterval> | null = null;
 
   @ViewChild('chatScrollContainer') private chatScrollContainer?: ElementRef<HTMLDivElement>;
   @ViewChild('composerTextarea') private composerTextarea?: ElementRef<HTMLTextAreaElement>;
@@ -302,6 +314,9 @@ export class AppComponent implements OnInit, AfterViewChecked {
     return active ? active.messages : [];
   });
 
+  // True when the active conversation has at least one message
+  hasMessages = computed<boolean>(() => this.activeMessages().length > 0);
+
   private shouldScrollToBottom = false;
 
   ngOnInit(): void {
@@ -322,6 +337,21 @@ export class AppComponent implements OnInit, AfterViewChecked {
 
     // Load inspection history from localStorage
     this.loadInspectionHistory();
+
+    // Cycle heading phrases with a smooth fade animation every 3.5s
+    this.welcomeInterval = setInterval(() => {
+      this.isHeadingFading.set(true);
+      setTimeout(() => {
+        this.welcomePhraseIndex.update((i) => (i + 1) % this.welcomePhrases.length);
+        this.isHeadingFading.set(false);
+      }, 300);
+    }, 3500);
+  }
+
+  ngOnDestroy(): void {
+    if (this.welcomeInterval) {
+      clearInterval(this.welcomeInterval);
+    }
   }
 
   async restorePersistedChatState(): Promise<void> {
