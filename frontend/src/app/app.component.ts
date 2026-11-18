@@ -17,6 +17,8 @@ import { InspectionQuestionBatchComponent } from './features/inspection/question
 import { InspectionDraftSummaryComponent } from './features/inspection/draft-summary/inspection-draft-summary.component';
 import { InspectionReviewDrawerComponent } from './features/inspection/review-drawer/inspection-review-drawer.component';
 import { ConversationalInspectionService } from './core/services/conversational-inspection.service';
+import { LoginComponent } from './features/auth/login.component';
+import { AuthService } from './core/services/auth.service';
 import {
   InspectionSessionViewModel,
   InspectionQuestionBatchViewModel,
@@ -32,6 +34,7 @@ import { SiteInspectionQuestion, getQuestionsForDepartment } from './core/models
   imports: [
     CommonModule,
     FormsModule,
+    LoginComponent,
     SiteInspectionComponent,
     InspectionProgressComponent,
     InspectionEvidenceMessageComponent,
@@ -43,6 +46,7 @@ import { SiteInspectionQuestion, getQuestionsForDepartment } from './core/models
   styleUrls: ['./app.component.css'],
 })
 export class AppComponent implements OnInit, AfterViewChecked, OnDestroy {
+  readonly authService = inject(AuthService);
   private readonly apiService = inject(ApiService);
   private readonly sanitizer = inject(DomSanitizer);
   private readonly chatPersistence = inject(ChatPersistenceService);
@@ -253,14 +257,24 @@ export class AppComponent implements OnInit, AfterViewChecked, OnDestroy {
   analyzingStepMessage = signal<string>('');
   isDragOver = signal<boolean>(false);
 
+  // Authenticated Quest Inspector User Profile & Signals
+  readonly userDisplayName = computed(() => this.authService.userProfile()?.displayName || 'Inspector');
+  readonly userRole = computed(
+    () => this.authService.userProfile()?.jobTitle || this.authService.userProfile()?.role || 'Site Inspector'
+  );
+  readonly userContractor = computed(
+    () => this.authService.userProfile()?.contractorname || 'Quest'
+  );
+  readonly userInitials = computed(() => {
+    const name = this.userDisplayName().trim();
+    if (!name) return 'IN';
+    const parts = name.split(/\s+/);
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    return name.slice(0, 2).toUpperCase();
+  });
+
   // User name for personalized greeting
-  readonly userName = signal<string>('Subhash');
-
-  // Notifications Popover state
-  showNotifications = signal<boolean>(false);
-
-  // Settings / Diagnostics Modal state
-  showSettingsModal = signal<boolean>(false);
+  readonly userName = computed(() => this.userDisplayName());
 
   // Mobile sidebar drawer state
   mobileSidebarOpen = signal<boolean>(false);
@@ -279,6 +293,10 @@ export class AppComponent implements OnInit, AfterViewChecked, OnDestroy {
 
   // Assistant typing / responding state
   isGenerating = signal<boolean>(false);
+
+  // Claude-Style Thinking Words & Constellation Animation
+  thinkingWords = signal<string>('Triangulating');
+  private thinkingTimers: ReturnType<typeof setTimeout>[] = [];
 
   // Attachment upload feedback toast state
   attachmentNotice = signal<string | null>(null);
@@ -358,6 +376,48 @@ export class AppComponent implements OnInit, AfterViewChecked, OnDestroy {
     if (this.welcomeInterval) {
       clearInterval(this.welcomeInterval);
     }
+    this.clearThinkingAnimation();
+  }
+
+  /**
+   * Starts cycling dynamic reasoning words for the Claude-inspired thinking indicator
+   */
+  startThinkingAnimation(isPhotoAnalysis: boolean = false): void {
+    this.clearThinkingAnimation();
+    this.thinkingWords.set('Triangulating');
+
+    const photoStages = [
+      { delay: 1400, word: 'Reviewing photographs' },
+      { delay: 2900, word: 'Examining visual evidence' },
+      { delay: 4600, word: 'Checking inspection criteria' },
+      { delay: 6400, word: 'Evaluating safety compliance' },
+      { delay: 8200, word: 'Synthesizing report' },
+    ];
+
+    const textStages = [
+      { delay: 1300, word: 'Thinking' },
+      { delay: 2700, word: 'Analyzing requirements' },
+      { delay: 4300, word: 'Synthesizing response' },
+      { delay: 5900, word: 'Formulating findings' },
+    ];
+
+    const stages = isPhotoAnalysis ? photoStages : textStages;
+    for (const stage of stages) {
+      const timer = setTimeout(() => {
+        if (this.isGenerating()) {
+          this.thinkingWords.set(stage.word);
+        }
+      }, stage.delay);
+      this.thinkingTimers.push(timer);
+    }
+  }
+
+  clearThinkingAnimation(): void {
+    for (const t of this.thinkingTimers) {
+      clearTimeout(t);
+    }
+    this.thinkingTimers = [];
+    this.thinkingWords.set('Triangulating');
   }
 
   async restorePersistedChatState(): Promise<void> {
@@ -414,7 +474,6 @@ export class AppComponent implements OnInit, AfterViewChecked, OnDestroy {
   // --- View Switching & Navigation Controls ---
 
   navigateToInspection(bankId?: string): void {
-    this.closeHomeInspectionDropdown();
     this.currentView.set('inspection');
     this.sidebarActiveSection.set('recent-chats');
     this.closeMobileSidebar();
@@ -447,7 +506,6 @@ export class AppComponent implements OnInit, AfterViewChecked, OnDestroy {
   }
 
   navigateToChat(): void {
-    this.closeHomeInspectionDropdown();
     this.currentView.set('chat');
     this.sidebarActiveSection.set('recent-chats');
     this.closeMobileSidebar();
@@ -537,12 +595,6 @@ export class AppComponent implements OnInit, AfterViewChecked, OnDestroy {
 
   closeHomeInspectionDropdown(): void {
     this.showHomeInspectionDropdown.set(false);
-  }
-
-  onBankClick(bank: any, event?: Event): void {
-    if (event) event.stopPropagation();
-    this.closeHomeInspectionDropdown();
-    this.selectInspectionBank(bank.id);
   }
 
   onSelectBankForPhotoUpload(bank: any): void {
@@ -759,7 +811,6 @@ export class AppComponent implements OnInit, AfterViewChecked, OnDestroy {
   }
 
   startNewChat(): void {
-    this.sidebarActiveNav.set('new-chat');
     this.navigateToChat();
     this.activeConversationId.set('');
     this.composerText.set('');
@@ -775,7 +826,6 @@ export class AppComponent implements OnInit, AfterViewChecked, OnDestroy {
   }
 
   selectConversation(id: string): void {
-    this.sidebarActiveNav.set('');
     this.navigateToChat();
     this.activeConversationId.set(id);
     const conv = this.conversations().find((c) => c.id === id);
@@ -988,8 +1038,9 @@ export class AppComponent implements OnInit, AfterViewChecked, OnDestroy {
       }
       this.activeInspectionSession.set(session);
 
-      // Display "Reviewing your photographs..." state corresponding to actual backend request
+      // Display Claude-style thinking & photo analysis state
       this.isGenerating.set(true);
+      this.startThinkingAnimation(true);
       this.analyzingStepMessage.set('Reviewing your photographs...');
       this.shouldScrollToBottom = true;
 
@@ -1050,11 +1101,13 @@ export class AppComponent implements OnInit, AfterViewChecked, OnDestroy {
           };
           this.appendMessageToActive(assistantMsg);
           this.isGenerating.set(false);
+          this.clearThinkingAnimation();
           this.analyzingStepMessage.set('');
           this.shouldScrollToBottom = true;
         })
         .catch((err) => {
           this.isGenerating.set(false);
+          this.clearThinkingAnimation();
           this.analyzingStepMessage.set('');
           let errorMessage =
             'Unable to complete photo analysis right now. Please verify your connection or try again.';
@@ -1202,6 +1255,7 @@ export class AppComponent implements OnInit, AfterViewChecked, OnDestroy {
     }
 
     this.isGenerating.set(true);
+    this.startThinkingAnimation(false);
 
     // Contact backend POST /api/ai/generate
     this.apiService.generateText(text).subscribe({
@@ -1220,6 +1274,7 @@ export class AppComponent implements OnInit, AfterViewChecked, OnDestroy {
         };
         this.appendMessageToActive(assistantMsg);
         this.isGenerating.set(false);
+        this.clearThinkingAnimation();
         this.shouldScrollToBottom = true;
       },
       error: (err) => {
@@ -1247,6 +1302,7 @@ export class AppComponent implements OnInit, AfterViewChecked, OnDestroy {
         };
         this.appendMessageToActive(errorMsg);
         this.isGenerating.set(false);
+        this.clearThinkingAnimation();
         this.shouldScrollToBottom = true;
       },
     });
@@ -1746,6 +1802,16 @@ export class AppComponent implements OnInit, AfterViewChecked, OnDestroy {
     this.currentView.set('chat');
     this.startNewChat();
     this.closeMobileSidebar();
+  }
+
+  async logout(): Promise<void> {
+    await this.authService.logout();
+    this.conversations.set([]);
+    this.activeConversationId.set('');
+  }
+
+  onLoginSuccess(): void {
+    void this.restorePersistedChatState();
   }
 
   navigateToInspectionHistory(): void {

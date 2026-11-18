@@ -1,4 +1,23 @@
-<div class="chat-app-layout red-theme-layout">
+<!-- Session Restoration / Auth Check Splash Screen -->
+<div *ngIf="authService.isAuthChecking()" class="auth-splash-screen" role="status" aria-live="polite">
+  <div class="auth-splash-card">
+    <div class="auth-splash-badge">Q</div>
+    <div class="claude-dots" aria-hidden="true">
+      <span class="claude-dot dot-1"></span>
+      <span class="claude-dot dot-2"></span>
+      <span class="claude-dot dot-3"></span>
+    </div>
+    <span class="auth-splash-text">Verifying Quest session...</span>
+  </div>
+</div>
+
+<!-- Claude-Inspired Dedicated Login Page -->
+<app-login *ngIf="!authService.isAuthChecking() && !authService.isAuthenticated()"
+  (loginSuccess)="onLoginSuccess()">
+</app-login>
+
+<!-- Authenticated QuestAI Application Workspace -->
+<div *ngIf="!authService.isAuthChecking() && authService.isAuthenticated()" class="chat-app-layout red-theme-layout">
   <!-- Modern Highway Bridge, Road & Ambient Waves Canvas Background (Soft, Light & Airy) -->
   <div class="ambient-waves-layer" aria-hidden="true">
     <svg class="highway-scene-svg" viewBox="0 0 1600 900" preserveAspectRatio="none" fill="none">
@@ -259,6 +278,24 @@
         </div>
       </div>
 
+      <!-- Authenticated Quest Inspector User Card in Sidebar -->
+      <div class="sidebar-user-section">
+        <div class="sidebar-user-avatar" [title]="userDisplayName()">
+          <span>{{ userInitials() }}</span>
+        </div>
+        <div class="sidebar-user-details">
+          <span class="sidebar-user-name" [title]="userDisplayName()">{{ userDisplayName() }}</span>
+          <span class="sidebar-user-role" [title]="userRole()">{{ userRole() }}</span>
+        </div>
+        <button class="btn-sidebar-logout" (click)="logout()" type="button" title="Sign Out of QuestAI" aria-label="Sign Out">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+        </button>
+      </div>
+
       <!-- Bottom Highway Road Curve in Sidebar (matching mockup) -->
       <div class="sidebar-bottom-road" aria-hidden="true">
         <svg class="sidebar-road-svg" viewBox="0 0 260 140" fill="none" preserveAspectRatio="none">
@@ -282,6 +319,24 @@
           </svg>
         </button>
         <div class="canvas-top-spacer"></div>
+        <!-- Authenticated User Profile & Sign Out in Canvas Topbar -->
+        <div class="topbar-user-pill">
+          <div class="topbar-user-avatar">
+            <span>{{ userInitials() }}</span>
+          </div>
+          <div class="topbar-user-meta">
+            <span class="topbar-user-name">{{ userDisplayName() }}</span>
+            <span class="topbar-user-contractor">{{ userContractor() }}</span>
+          </div>
+          <button class="btn-topbar-logout" (click)="logout()" type="button" title="Sign Out of QuestAI">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="logout-icon">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+            <span>Sign Out</span>
+          </button>
+        </div>
         <!-- Delete Chat Action Button when viewing active chat -->
         <button *ngIf="activeConversation() && hasMessages()" class="topbar-delete-chat-btn"
           (click)="promptDeleteConversation(activeConversation()!, $event)" type="button" title="Delete current chat"
@@ -444,15 +499,32 @@
             </div>
           </div>
 
-          <!-- Typing Indicator -->
-          <div *ngIf="isGenerating()" class="message-row assistant-row">
+          <!-- Claude-Style AI Thinking / Photo Analysis Indicator -->
+          <div *ngIf="isGenerating()" class="message-row assistant-row claude-thinking-row">
             <div class="avatar-assistant">
               <span>Q</span>
             </div>
-            <div class="message-bubble generating-bubble">
-              <span class="typing-dot"></span>
-              <span class="typing-dot"></span>
-              <span class="typing-dot"></span>
+            <div class="claude-indicator-container" role="status" aria-live="polite">
+              <div class="claude-indicator-pill">
+                <!-- Three terracotta-coral dots in Claude's triangular/orbital constellation -->
+                <div class="claude-dots" aria-hidden="true">
+                  <span class="claude-dot dot-1"></span>
+                  <span class="claude-dot dot-2"></span>
+                  <span class="claude-dot dot-3"></span>
+                </div>
+
+                <!-- Active thought / activity text with shimmer and keyframe fade -->
+                <span class="claude-activity-text" [attr.data-word]="thinkingWords()">
+                  {{ thinkingWords() }}
+                </span>
+
+                <!-- Understated right chevron icon -->
+                <svg class="claude-chevron" viewBox="0 0 16 16" width="14" height="14" fill="none"
+                  stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                  aria-hidden="true">
+                  <polyline points="6 4 10 8 6 12"></polyline>
+                </svg>
+              </div>
             </div>
           </div>
         </div>
