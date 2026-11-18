@@ -1,5 +1,4 @@
-<div class="inspection-workflow-container" [class.embedded-in-chat]="embeddedInChat"
-  [class.is-scanning-step]="activeStep() === 'ai-scanning'">
+<div class="inspection-workflow-container">
   <!-- Toast Feedback Notification -->
   <div *ngIf="toastMessage()" class="workflow-toast" role="status">
     <svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -14,7 +13,7 @@
   <!-- ========================================================================= -->
   <!-- STEP 1: CATEGORY SELECTION                                                -->
   <!-- ========================================================================= -->
-  <section *ngIf="activeStep() === 'category-select' && !embeddedInChat" class="step-view step-category-select">
+  <section *ngIf="activeStep() === 'category-select'" class="step-view step-category-select">
     <div class="step-header-card">
       <div class="step-badge-row">
         <span class="step-pill">Step 1 of 4</span>
@@ -191,7 +190,7 @@
 
     <!-- Step 2 Actions Footer -->
     <div class="step-footer-bar">
-      <button *ngIf="!embeddedInChat" class="btn-step-outline" (click)="backToCategorySelect()" type="button">
+      <button class="btn-step-outline" (click)="backToCategorySelect()" type="button">
         ← Back to Categories
       </button>
 
@@ -222,14 +221,14 @@
     <!-- Single-Line Claude-Inspired Inline Activity Indicator -->
     <div *ngIf="isScanning() && !scanError()" class="claude-indicator-container" role="status" aria-live="polite">
       <div class="claude-indicator-pill">
-        <!-- Three pulsing orange dots with subtle warm glow -->
+        <!-- Three pulsing terracotta-orange dots in Claude's triangular formation -->
         <div class="claude-dots" aria-hidden="true">
           <span class="claude-dot dot-1"></span>
           <span class="claude-dot dot-2"></span>
           <span class="claude-dot dot-3"></span>
         </div>
 
-        <!-- Single active sentence with subtle fade transition -->
+        <!-- Single active sentence with subtle fade and shimmer transition -->
         <span class="claude-activity-text" *ngFor="let msg of [scanningStatusMessage()]">
           {{ msg }}
         </span>
@@ -271,7 +270,7 @@
         <div class="review-title-row">
           <h1 class="review-title">AI Inspection Results</h1>
           <span class="review-bank-chip">{{ currentBank().icon }} {{ currentBank().name }}</span>
-          <span *ngIf="aiPreFillApplied()" class="review-ai-badge">✨ AI suggestions are ready for your review</span>
+          <span *ngIf="aiPreFillApplied()" class="review-ai-badge">✨ Gemini Evaluated</span>
           <span *ngIf="aiPreFillSummary()?.overallSiteRisk as risk" class="review-risk-badge" [class]="'risk-' + risk">
             Site Risk: {{ risk | uppercase }}
           </span>
@@ -282,7 +281,7 @@
           <span *ngIf="lastAnalyzedTimestamp()">{{ lastAnalyzedTimestamp() | date:'shortTime' }}</span>
         </p>
         <p *ngIf="aiPreFillSummary()?.summary" class="review-ai-summary-text">
-          <strong>Photo Analysis Summary:</strong> {{ aiPreFillSummary()?.summary }}
+          <strong>Gemini Visual Summary:</strong> {{ aiPreFillSummary()?.summary }}
         </p>
       </div>
 
@@ -431,7 +430,7 @@
               [class.suggestion-accepted]="getAnswer(q.id).aiSuggestionStatus === 'accepted'">
               <div class="obs-header">
                 <span class="obs-sparkle">✨</span>
-                <strong>AI Suggestion:</strong>
+                <strong>Gemini AI Suggestion:</strong>
 
                 <span *ngIf="getAnswer(q.id).aiSuggestionStatus === 'accepted'" class="obs-status-pill pill-accepted">
                   ✓ Accepted
@@ -460,7 +459,7 @@
                 <strong>Evidence Observed:</strong> {{ getAnswer(q.id).aiEvidence }}
               </p>
               <p class="obs-reasoning" *ngIf="getAnswer(q.id).aiReasoning">
-                <strong>Analysis Reasoning:</strong> {{ getAnswer(q.id).aiReasoning }}
+                <strong>Gemini Reasoning:</strong> {{ getAnswer(q.id).aiReasoning }}
               </p>
               <p class="obs-car-plan" *ngIf="getAnswer(q.id).aiSuggestedCarActionPlan">
                 <strong>Suggested CAR Action Plan:</strong> {{ getAnswer(q.id).aiSuggestedCarActionPlan }}
@@ -474,7 +473,7 @@
 
               <!-- Explicit Overwrite Confirmation Prompt if Inspector Already Answered Manually -->
               <div *ngIf="pendingOverwriteQuestionId() === q.id" class="overwrite-confirm-banner" role="alert">
-                <span>This question already has a manual inspector answer. Replace it with this AI suggestion?</span>
+                <span>This question already has a manual inspector answer. Replace it with Gemini's suggestion?</span>
                 <div class="overwrite-confirm-actions">
                   <button class="btn-confirm-overwrite" (click)="acceptAiSuggestion(q.id, true)" type="button">
                     Confirm Overwrite

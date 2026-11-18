@@ -16,9 +16,8 @@ export interface PersistedChatState {
 
 /**
  * IndexedDB persistence service for QuestAI conversations and photograph attachments.
- * Stores sent message photographs and pending composer attachments in IndexedDB
- * (never storing large Base64 image payloads in localStorage).
- * Includes an automatic in-memory fallback for non-browser test environments.
+ * Stores sent message photographs and pending composer attachments locally in the user's browser
+ * (never storing large Base64 image payloads in localStorage or writing to cloud databases).
  */
 @Injectable({ providedIn: 'root' })
 export class ChatPersistenceService {
@@ -192,29 +191,29 @@ export class ChatPersistenceService {
         const metaReq = metaStore.get('activeConversationId');
         const pendingReq = pendingStore.getAll();
 
-        tx.oncomplete = () => {
-          const rawConvs = Array.isArray(convReq.result) ? convReq.result : [];
-          const conversations = rawConvs
-            .map((c) => this.deserializeConversation(c))
-            .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
-          const activeConversationId =
-            typeof metaReq.result?.value === 'string' ? metaReq.result.value : '';
-          const pendingPhotosByConv: Record<string, InspectionPhoto[]> = {};
-          if (Array.isArray(pendingReq.result)) {
-            for (const entry of pendingReq.result) {
-              if (entry?.convKey && Array.isArray(entry.photos)) {
-                pendingPhotosByConv[entry.convKey] = entry.photos;
+            tx.oncomplete = () => {
+              const rawConvs = Array.isArray(convReq.result) ? convReq.result : [];
+              const activeConversationId =
+                typeof metaReq.result?.value === 'string' ? metaReq.result.value : '';
+              const conversations = rawConvs
+                .map((c) => this.deserializeConversation(c))
+                .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+              const pendingPhotosByConv: Record<string, InspectionPhoto[]> = {};
+              if (Array.isArray(pendingReq.result)) {
+                for (const entry of pendingReq.result) {
+                  if (entry?.convKey && Array.isArray(entry.photos)) {
+                    pendingPhotosByConv[entry.convKey] = entry.photos;
+                  }
+                }
               }
-            }
-          }
-          resolve({ conversations, activeConversationId, pendingPhotosByConv });
-        };
-        tx.onerror = () =>
+              resolve({ conversations, activeConversationId, pendingPhotosByConv });
+            };
+          tx.onerror = () =>
+            resolve({ conversations: [], activeConversationId: '', pendingPhotosByConv: {} });
+        } catch {
           resolve({ conversations: [], activeConversationId: '', pendingPhotosByConv: {} });
-      } catch {
-        resolve({ conversations: [], activeConversationId: '', pendingPhotosByConv: {} });
-      }
-    });
+        }
+      });
   }
 
   private serializeConversation(conv: Conversation): Conversation {
