@@ -3983,6 +3983,7 @@
 .welcome-logo-badge {
   display: none !important;
 }
+
 /* ==============================================================================
    Red Theme Sidebar & Highway Perspective Layout (Matching exact Mockup)
    ============================================================================== */
@@ -4012,7 +4013,7 @@
   min-width: 270px !important;
   max-width: 270px !important;
   height: 100vh !important;
-  background: linear-gradient(180deg, #c40c14 0%, #a30f16 40%, #82080e 75%, #590408 100%) !important;
+  background: linear-gradient(180deg, #f04048 0%, #e02830 40%, #c41e26 75%, #a8161e 100%) !important;
   border-right: none !important;
   display: flex !important;
   flex-direction: column !important;
@@ -4062,7 +4063,7 @@
 }
 
 .sidebar-brand-title .brand-red-text {
-  color: #ef4444 !important;
+  color: #7f0000 !important;
   font-weight: 800 !important;
 }
 
@@ -4670,3 +4671,374 @@
   width: 14px !important;
   height: 14px !important;
 }
+
+
+/* ============================================================
+   ChatGPT / Claude Layout Switch: Empty State & Chat State
+   ============================================================ */
+
+/* Main area container: one flex column */
+.chat-main {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100vh !important;
+  width: 100% !important;
+  position: relative !important;
+  overflow: hidden !important;
+  background: transparent !important;
+}
+
+/* Canvas top header: positioned at top without affecting vertical flex centering */
+.canvas-top-header {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  height: 56px !important;
+  display: flex !important;
+  align-items: center !important;
+  padding: 0.75rem 1.5rem !important;
+  z-index: 25 !important;
+  pointer-events: none !important;
+  background: transparent !important;
+  border-bottom: none !important;
+}
+
+.canvas-top-header button {
+  pointer-events: auto !important;
+}
+
+/* ------------------------------------------------------------
+   EMPTY STATE (no messages yet)
+   ------------------------------------------------------------ */
+.chat-main.empty-state {
+  justify-content: center !important;
+  align-items: center !important;
+  padding: 1.5rem !important;
+}
+
+/* Group: heading, subtitle and input box centered vertically and horizontally */
+.chat-welcome-group {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  text-align: center !important;
+  width: 100% !important;
+  max-width: 800px !important;
+  margin: 0 auto !important;
+  user-select: none !important;
+}
+
+.chat-welcome-group .welcome-heading {
+  font-size: 2.35rem !important;
+  font-weight: 800 !important;
+  color: #111827 !important;
+  letter-spacing: -0.025em !important;
+  margin: 0 0 0.5rem 0 !important;
+  line-height: 1.25 !important;
+  opacity: 1 !important;
+  transform: translateY(0) !important;
+  transition: opacity 300ms cubic-bezier(0.4, 0, 0.2, 1), transform 300ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.chat-welcome-group .welcome-heading.fading {
+  opacity: 0 !important;
+  transform: translateY(-8px) !important;
+}
+
+.chat-welcome-group .welcome-description {
+  font-size: 1rem !important;
+  color: #6b7280 !important;
+  font-weight: 450 !important;
+  margin: 0 0 32px 0 !important; /* ~32px space directly below subtitle */
+  line-height: 1.5 !important;
+}
+
+/* ------------------------------------------------------------
+   AFTER THE FIRST MESSAGE IS SENT (Chat State)
+   ------------------------------------------------------------ */
+.chat-main.has-messages {
+  justify-content: flex-start !important;
+}
+
+/* Messages list in scrollable area that fills the screen */
+.chat-main.has-messages .chat-scroll-area {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  padding: 4.5rem 1.5rem 1rem 1.5rem !important;
+  display: flex !important;
+  flex-direction: column !important;
+  animation: chatMessagesFadeIn 400ms ease-in-out forwards !important;
+}
+
+@keyframes chatMessagesFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ------------------------------------------------------------
+   COMPOSER CONTAINER (Same in both states, smoothly animated)
+   ------------------------------------------------------------ */
+.composer-container {
+  position: relative !important;
+  width: 100% !important;
+  max-width: 800px !important;
+  margin: 0 auto !important;
+  padding: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  background: transparent !important;
+  z-index: 20 !important;
+  flex-shrink: 0 !important;
+}
+
+/* In chat state: bottom fixed container styling */
+.chat-main.has-messages .composer-container {
+  padding: 0.5rem 1.5rem 1rem 1.5rem !important;
+  animation: composerGlideDown 400ms cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
+}
+
+/* Smooth glide down animation (about 400ms ease-in-out) */
+@keyframes composerGlideDown {
+  from {
+    transform: translateY(-28vh);
+    opacity: 0.95;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+
+/* ================================================================
+   LIGHT THEME OVERRIDE — Matching reference screenshot
+   White sidebar + light pink main workspace
+   ================================================================ */
+
+/* Main workspace background: light pink gradient */
+.chat-app-layout.red-theme-layout {
+  background: linear-gradient(135deg, #fff5f5 0%, #fef2f2 50%, #fff8f8 100%) !important;
+}
+
+.workspace-body.red-sidebar-body {
+  background: linear-gradient(135deg, #fff5f5 0%, #fef2f2 50%, #fff8f8 100%) !important;
+}
+
+/* Hide the highway SVG background waves */
+.ambient-waves-layer {
+  display: none !important;
+}
+
+/* Chat main background */
+.chat-main {
+  background: transparent !important;
+}
+
+/* ---- SIDEBAR: White light theme ---- */
+.chat-sidebar.red-theme-sidebar {
+  background: #ffffff !important;
+  border-right: 1px solid #f1e8e8 !important;
+  box-shadow: 2px 0 12px rgba(220, 38, 38, 0.06) !important;
+  color: #1a1a1a !important;
+}
+
+/* Brand area */
+.sidebar-red-brand {
+  padding: 1.25rem 1.25rem 1rem 1.25rem !important;
+}
+
+/* Replace logo with red square Q badge */
+.sidebar-brand-q-badge {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 8px !important;
+  background: #dc2626 !important;
+  color: #ffffff !important;
+  font-weight: 800 !important;
+  font-size: 1.15rem !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  line-height: 1 !important;
+}
+
+.sidebar-brand-q-logo {
+  display: none !important;
+}
+
+/* Brand title: Quest dark, AI red */
+.sidebar-brand-title {
+  color: #1a1a1a !important;
+  font-size: 1.3rem !important;
+  font-weight: 700 !important;
+}
+
+.sidebar-brand-title .brand-red-text {
+  color: #e11d48 !important;
+  font-weight: 700 !important;
+}
+
+/* Divider */
+.sidebar-brand-divider {
+  display: none !important;
+}
+
+/* Nav items */
+.sidebar-red-nav-item {
+  color: #374151 !important;
+  font-size: 0.93rem !important;
+  font-weight: 500 !important;
+  border-radius: 10px !important;
+  gap: 0.75rem !important;
+  padding: 0.72rem 1rem !important;
+}
+
+.sidebar-red-nav-item:hover {
+  background: #fff1f2 !important;
+  color: #be123c !important;
+  transform: none !important;
+}
+
+.sidebar-red-nav-item.active {
+  background: #ffe4e6 !important;
+  color: #be123c !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+}
+
+.sidebar-red-icon {
+  color: #9ca3af !important;
+}
+
+.sidebar-red-nav-item.active .sidebar-red-icon,
+.sidebar-red-nav-item:hover .sidebar-red-icon {
+  color: #be123c !important;
+}
+
+.sidebar-chevron-icon {
+  color: #9ca3af !important;
+}
+
+/* Recent chat items in light sidebar */
+.sidebar-red-conv-item {
+  color: #4b5563 !important;
+}
+
+.sidebar-red-conv-item:hover {
+  background: #fff1f2 !important;
+  color: #be123c !important;
+}
+
+.sidebar-red-conv-item.active {
+  background: #ffe4e6 !important;
+  color: #be123c !important;
+}
+
+.red-conv-icon {
+  color: #9ca3af !important;
+}
+
+.red-conv-title {
+  color: #374151 !important;
+}
+
+.red-conv-time {
+  color: #9ca3af !important;
+  opacity: 1 !important;
+}
+
+.red-empty-text {
+  color: #9ca3af !important;
+}
+
+.sidebar-view-all-btn {
+  color: #be123c !important;
+}
+
+/* Hide sidebar road SVG */
+.sidebar-bottom-road {
+  display: none !important;
+}
+
+/* Delete trash icon in conv items */
+.sidebar-conv-delete-btn {
+  color: #9ca3af !important;
+}
+
+.sidebar-conv-delete-btn:hover {
+  color: #e11d48 !important;
+}
+
+
+
+.welcome-heading-animated {
+  color: #111827 !important;
+  font-size: 2.4rem !important;
+  font-weight: 800 !important;
+}
+
+.chat-welcome-centered .welcome-description {
+  color: #6b7280 !important;
+  font-size: 0.95rem !important;
+}
+
+/* ---- COMPOSER: light pill style ---- */
+.composer-container {
+  background: transparent !important;
+}
+
+.composer-box {
+  background: #ffffff !important;
+  border: 1.5px solid #fca5a5 !important;
+  border-radius: 9999px !important;
+  box-shadow: 0 2px 16px rgba(220, 38, 38, 0.08) !important;
+  padding: 0.4rem 0.5rem 0.4rem 1rem !important;
+}
+
+.composer-input {
+  background: transparent !important;
+  color: #111827 !important;
+}
+
+.composer-input::placeholder {
+  color: #9ca3af !important;
+}
+
+.btn-composer-attach svg {
+  stroke: #e11d48 !important;
+}
+
+.btn-composer-send {
+  background: #e11d48 !important;
+  border-radius: 9999px !important;
+  width: 38px !important;
+  height: 38px !important;
+  flex-shrink: 0 !important;
+}
+
+.btn-composer-send:hover:not(:disabled) {
+  background: #be123c !important;
+}
+
+/* Helper note */
+.composer-helper-note {
+  color: #9ca3af !important;
+  font-size: 0.75rem !important;
+}
+
+/* Top canvas header area: transparent */
+.canvas-top-header {
+  background: transparent !important;
+  border-bottom: none !important;
+}
+
