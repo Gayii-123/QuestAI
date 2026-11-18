@@ -7,101 +7,27 @@
     <aside class="chat-sidebar red-theme-sidebar" [class.mobile-open]="mobileSidebarOpen()"
       [class.desktop-collapsed]="desktopSidebarCollapsed()">
 
-      <!-- Top Brand Section (Matching reference UI: red Q badge + Quest AI) -->
+      <!-- Top Brand Section -->
       <div class="sidebar-red-brand" (click)="navigateToHome()" role="button" tabindex="0" title="Quest AI Home">
         <div class="sidebar-brand-q-badge">Q</div>
         <span class="sidebar-brand-title">Quest <span class="brand-red-text">AI</span></span>
       </div>
 
-      <!-- Sidebar Navigation Menu -->
-      <div class="sidebar-red-nav">
-        <!-- 1. Home Button -->
-        <button class="sidebar-red-nav-item"
-          [class.active]="isHomeActive()"
-          (click)="navigateToHome()" type="button">
-          <svg class="sidebar-red-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      <!-- Primary New Chat Action (E-IMS Style) -->
+      <div class="sidebar-new-chat-wrap">
+        <button class="btn-eims-new-chat" (click)="startNewChat()" type="button" title="Start a new conversation">
+          <svg class="new-chat-plus-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
           </svg>
-          <span class="sidebar-nav-label">Home</span>
+          <span>New Chat</span>
         </button>
+      </div>
 
-        <!-- 2. Recent Chats Button -->
-        <button class="sidebar-red-nav-item" [class.active]="sidebarActiveSection() === 'recent-chats'"
-          (click)="navigateToRecentChats()" type="button">
-          <svg class="sidebar-red-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-          </svg>
-          <span class="sidebar-nav-label">Recent Chats</span>
-          <svg class="sidebar-chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <polyline points="6 9 12 15 18 9"></polyline>
-          </svg>
-        </button>
-
-        <!-- Sub-list of Recent Chats (Shown when chatting has started or user clicks Recent Chats) -->
-        <div class="sidebar-red-conversations"
-          *ngIf="(hasActiveMessages() || sidebarActiveSection() === 'recent-chats') && chatState.conversations().length > 0">
-          <div *ngFor="let conv of chatState.conversations().slice(0, 6)" class="sidebar-red-conv-item"
-            [class.active]="conv.id === chatState.activeConversationId() && isChatRoute()"
-            (click)="selectConversation(conv.id)">
-            <svg class="red-conv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-            </svg>
-            <div class="red-conv-content">
-              <span class="red-conv-title">{{ conv.title }}</span>
-              <span class="red-conv-time">{{ conv.updatedAt | date:'shortTime' }}</span>
-            </div>
-            <!-- Delete Chat Button -->
-            <button class="red-conv-delete-btn" (click)="promptDeleteConversation(conv, $event)" type="button"
-              title="Delete chat" aria-label="Delete chat">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="3 6 5 6 21 6"></polyline>
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-              </svg>
-            </button>
-          </div>
-          <div class="sidebar-conv-actions-row">
-            <button class="sidebar-clear-all-btn" (click)="promptClearAllConversations($event)" type="button"
-              *ngIf="chatState.conversations().length > 1">
-              Clear All
-            </button>
-            <button class="sidebar-view-all-btn" (click)="navigateToRecentChats()" type="button"
-              *ngIf="chatState.conversations().length > 3">
-              <span>View All</span>
-              <span>→</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- 3. Inspection History Button -->
-        <button class="sidebar-red-nav-item" [class.active]="sidebarActiveSection() === 'inspection-history'"
-          (click)="navigateToInspectionHistory()" type="button">
-          <svg class="sidebar-red-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="20" x2="18" y2="10"></line>
-            <line x1="12" y1="20" x2="12" y2="4"></line>
-            <line x1="6" y1="20" x2="6" y2="14"></line>
-          </svg>
-          <span class="sidebar-nav-label">Inspection History</span>
-        </button>
-
-        <!-- Sub-list of Inspection History -->
-        <div class="sidebar-red-conversations" *ngIf="sidebarActiveSection() === 'inspection-history'">
-          <div *ngFor="let rec of reportService.inspectionHistoryList().slice(0, 10)" class="sidebar-red-conv-item"
-            (click)="openHistoryRecord(rec)">
-            <svg class="red-conv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-            </svg>
-            <div class="red-conv-content">
-              <span class="red-conv-title">{{ rec.bankName }}</span>
-              <span class="red-conv-time">{{ rec.referenceNumber }}</span>
-            </div>
-          </div>
-          <div *ngIf="reportService.inspectionHistoryList().length === 0" class="red-empty-text">No inspections recorded yet</div>
-        </div>
-
-        <!-- 4. My Reports Button -->
-        <button class="sidebar-red-nav-item" [class.active]="sidebarActiveSection() === 'my-reports'"
+      <!-- Sidebar Primary Navigation Menu -->
+      <div class="sidebar-primary-menu">
+        <!-- My Reports Button -->
+        <button class="sidebar-red-nav-item" [class.active]="!isChatRoute()"
           (click)="navigateToMyReports()" type="button">
           <svg class="sidebar-red-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -111,20 +37,84 @@
           </svg>
           <span class="sidebar-nav-label">My Reports</span>
         </button>
+      </div>
 
-        <!-- Sub-list of My Reports -->
-        <div class="sidebar-red-conversations" *ngIf="sidebarActiveSection() === 'my-reports'">
-          <div *ngFor="let rec of reportService.inspectionHistoryList().slice(0, 10)" class="sidebar-red-conv-item"
-            (click)="openHistoryRecord(rec)">
-            <svg class="red-conv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="20 6 9 17 4 12"></polyline>
+      <!-- E-IMS Recent Chats Section -->
+      <div class="eims-recent-chats-section">
+        <div class="eims-section-header">
+          <button class="eims-section-toggle" (click)="navigateToRecentChats()" type="button">
+            <span class="eims-section-label">Recent Chats</span>
+            <span class="eims-conv-count" *ngIf="chatState.conversations().length > 0">{{ chatState.conversations().length }}</span>
+            <svg class="eims-section-chevron" [class.collapsed]="!recentChatsExpanded()" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <polyline points="6 9 12 15 18 9"></polyline>
             </svg>
-            <div class="red-conv-content">
-              <span class="red-conv-title">{{ rec.bankName }}</span>
-              <span class="red-conv-time">Ref: {{ rec.referenceNumber }}</span>
-            </div>
+          </button>
+
+          <button *ngIf="chatState.conversations().length > 1 && recentChatsExpanded()"
+            class="eims-clear-all-link"
+            (click)="promptClearAllConversations($event)"
+            type="button"
+            title="Clear all conversations">
+            Clear all
+          </button>
+        </div>
+
+        <!-- Scrollable Conversation History List -->
+        <div class="eims-conv-scroll-list" *ngIf="recentChatsExpanded()">
+          <div *ngIf="chatState.conversations().length === 0" class="eims-empty-chats">
+            <span>No conversations yet</span>
           </div>
-          <div *ngIf="reportService.inspectionHistoryList().length === 0" class="red-empty-text">No reports generated yet</div>
+
+          <div *ngFor="let conv of chatState.conversations()"
+            class="eims-conv-item"
+            [class.active]="conv.id === chatState.activeConversationId() && isChatRoute()"
+            [class.menu-open]="activeContextMenuConv()?.id === conv.id"
+            [class.editing]="editingConvId() === conv.id"
+            (click)="selectConversation(conv.id)">
+
+            <!-- Subtle Quest Red Left Indicator for Active Conversation -->
+            <span class="eims-active-indicator" aria-hidden="true"></span>
+
+            <!-- Inline Rename Input Mode -->
+            <div *ngIf="editingConvId() === conv.id" class="eims-rename-row" (click)="$event.stopPropagation()">
+              <input
+                [id]="'conv-rename-input-' + conv.id"
+                type="text"
+                class="eims-rename-input"
+                [ngModel]="editingConvTitle()"
+                (ngModelChange)="editingConvTitle.set($event)"
+                (keydown)="onRenameKeydown(conv, $event)"
+                (blur)="saveRenameConv(conv)"
+                maxlength="80"
+                aria-label="Rename conversation"
+              />
+              <button type="button" class="eims-rename-btn save" (mousedown)="$event.preventDefault(); saveRenameConv(conv, $event)" title="Save">✓</button>
+              <button type="button" class="eims-rename-btn cancel" (mousedown)="$event.preventDefault(); cancelRenameConv($event)" title="Cancel">✕</button>
+            </div>
+
+            <!-- Standard Conversation Row -->
+            <ng-container *ngIf="editingConvId() !== conv.id">
+              <svg class="eims-conv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+              </svg>
+
+              <span class="eims-conv-title" [title]="conv.title">{{ conv.title }}</span>
+
+              <!-- Subtle Three-Dot Menu Button on Hover -->
+              <button class="eims-conv-more-btn"
+                [class.visible]="activeContextMenuConv()?.id === conv.id"
+                (click)="toggleConversationMenu(conv, $event)"
+                type="button"
+                title="Conversation options"
+                aria-label="Conversation options">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15">
+                  <circle cx="5" cy="12" r="1.8"></circle>
+                  <circle cx="12" cy="12" r="1.8"></circle>
+                  <circle cx="19" cy="12" r="1.8"></circle>
+                </svg>
+              </button>
+            </ng-container>
+          </div>
         </div>
       </div>
 
@@ -317,6 +307,31 @@
     (closeDrawer)="closeReviewDrawer()" (confirmAssessment)="onConfirmAssessment($event)"
     (downloadPdf)="downloadReportPdf($event)"
     (reopenAssessment)="onAssessmentReopened($event)"></app-inspection-review-drawer>
+
+  <!-- E-IMS Floating Three-Dot Context Menu (Rename & Delete) -->
+  <div *ngIf="activeContextMenuConv()" class="eims-context-menu-backdrop" (click)="closeConversationMenu()">
+    <div class="eims-context-menu"
+      [style.top.px]="contextMenuPosition().y"
+      [style.left.px]="contextMenuPosition().x"
+      (click)="$event.stopPropagation()"
+      role="menu">
+      <button type="button" class="eims-context-menu-item" (click)="startRenameActiveMenuConv($event)" role="menuitem">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+        </svg>
+        <span>Rename</span>
+      </button>
+      <div class="eims-context-menu-divider"></div>
+      <button type="button" class="eims-context-menu-item danger" (click)="promptDeleteActiveMenuConv($event)" role="menuitem">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+        </svg>
+        <span>Delete</span>
+      </button>
+    </div>
+  </div>
 
   <!-- Delete Chat Confirmation Modal (ChatGPT Style) -->
   <div *ngIf="conversationToDelete()" class="modal-backdrop" (click)="cancelDeleteConversation()">

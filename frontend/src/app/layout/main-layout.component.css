@@ -114,55 +114,99 @@
   font-weight: 700 !important;
 }
 
-/* Sidebar Navigation */
-.sidebar-red-nav {
+/* Primary New Chat Action Button (E-IMS Style) */
+.sidebar-new-chat-wrap {
+  padding: 0 0.85rem 0.65rem 0.85rem;
+  flex-shrink: 0;
+}
+
+.btn-eims-new-chat {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.58rem 0.85rem;
+  background: #ffffff;
+  border: 1px solid #e4e4e7;
+  border-radius: 9px;
+  color: #18181b;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: all 0.15s ease;
+}
+
+.btn-eims-new-chat:hover {
+  background: #fafafa;
+  border-color: #d4d4d8;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.btn-eims-new-chat:active {
+  transform: translateY(1px);
+}
+
+.new-chat-plus-icon {
+  width: 16px;
+  height: 16px;
+  color: #dc2626;
+  flex-shrink: 0;
+}
+
+/* Sidebar Primary Navigation Menu */
+.sidebar-primary-menu {
   display: flex !important;
   flex-direction: column !important;
-  gap: 0.45rem !important;
-  padding: 0 1rem !important;
-  flex: 1 !important;
-  overflow-y: auto !important;
+  gap: 2px !important;
+  padding: 0 0.75rem 0.6rem 0.75rem !important;
+  border-bottom: 1px solid #f4f4f5 !important;
+  flex-shrink: 0 !important;
 }
 
 .sidebar-red-nav-item {
   display: flex !important;
   align-items: center !important;
-  gap: 0.75rem !important;
-  padding: 0.72rem 1rem !important;
-  border-radius: 10px !important;
-  color: #374151 !important;
+  gap: 0.7rem !important;
+  padding: 0.55rem 0.75rem !important;
+  border-radius: 8px !important;
+  color: #52525b !important;
   background: transparent !important;
   border: none !important;
-  font-size: 0.93rem !important;
+  font-size: 0.86rem !important;
   font-weight: 500 !important;
   cursor: pointer !important;
-  transition: all 0.18s ease !important;
+  transition: background-color 0.15s ease, color 0.15s ease !important;
   text-align: left !important;
   width: 100% !important;
+  position: relative !important;
 }
 
 .sidebar-red-nav-item:hover {
-  background: #fff1f2 !important;
-  color: #be123c !important;
+  background: #f4f4f5 !important;
+  color: #18181b !important;
 }
 
 .sidebar-red-nav-item.active {
-  background: #ffe4e6 !important;
-  color: #be123c !important;
+  background: #f4f4f5 !important;
+  color: #18181b !important;
   font-weight: 600 !important;
 }
 
 .sidebar-red-icon {
-  width: 19px !important;
-  height: 19px !important;
+  width: 17px !important;
+  height: 17px !important;
   flex-shrink: 0 !important;
-  color: #9ca3af !important;
-  transition: color 0.18s ease;
+  color: #71717a !important;
+  transition: color 0.15s ease;
 }
 
-.sidebar-red-nav-item.active .sidebar-red-icon,
+.sidebar-red-nav-item.active .sidebar-red-icon {
+  color: #dc2626 !important;
+}
+
 .sidebar-red-nav-item:hover .sidebar-red-icon {
-  color: #be123c !important;
+  color: #27272a !important;
 }
 
 .sidebar-nav-label {
@@ -172,154 +216,357 @@
   text-overflow: ellipsis !important;
 }
 
-.sidebar-chevron-icon {
-  width: 14px !important;
-  height: 14px !important;
-  color: #9ca3af !important;
-  flex-shrink: 0 !important;
+/* ==============================================================================
+   E-IMS Recent Chats Section (Minimal, Subtle Active State, 3-Dot Menu & Rename)
+   ============================================================================== */
+
+.eims-recent-chats-section {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding: 0.65rem 0.5rem 0.25rem 0.5rem;
+  overflow: hidden;
 }
 
-/* Sub-list of Recent Chats */
-.sidebar-red-conversations {
-  background: #fff8f8 !important;
-  border: 1px solid #fee2e2 !important;
-  border-radius: 10px !important;
-  padding: 0.5rem 0.5rem 0.4rem 0.5rem !important;
-  margin: 0.2rem 0 0.5rem 0 !important;
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 0.25rem !important;
+.eims-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0.5rem 0.35rem 0.5rem;
+  flex-shrink: 0;
 }
 
-.sidebar-red-conv-item {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  gap: 0.5rem !important;
-  padding: 0.45rem 0.55rem !important;
-  border-radius: 7px !important;
-  color: #4b5563 !important;
-  cursor: pointer !important;
-  font-size: 0.82rem !important;
-  transition: all 0.15s ease !important;
+.eims-section-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: none;
+  border: none;
+  padding: 0.15rem 0;
+  cursor: pointer;
+  color: #71717a;
+  transition: color 0.15s ease;
 }
 
-.sidebar-red-conv-item:hover {
-  background: #fff1f2 !important;
-  color: #be123c !important;
+.eims-section-toggle:hover {
+  color: #27272a;
 }
 
-.sidebar-red-conv-item.active {
-  background: #ffe4e6 !important;
-  color: #be123c !important;
-  font-weight: 600 !important;
+.eims-section-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
-.red-conv-icon {
-  width: 14px !important;
-  height: 14px !important;
-  color: #9ca3af !important;
-  flex-shrink: 0 !important;
+.eims-conv-count {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #71717a;
+  background: #f4f4f5;
+  padding: 1px 6px;
+  border-radius: 9999px;
 }
 
-.red-conv-content {
-  display: flex !important;
-  flex-direction: column !important;
-  flex: 1 !important;
-  min-width: 0 !important;
-  overflow: hidden !important;
+.eims-section-chevron {
+  width: 13px;
+  height: 13px;
+  color: #a1a1aa;
+  transition: transform 0.2s ease;
 }
 
-.red-conv-title {
-  font-size: 0.82rem !important;
-  font-weight: 500 !important;
-  color: #374151 !important;
-  white-space: nowrap !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  line-height: 1.25 !important;
+.eims-section-chevron.collapsed {
+  transform: rotate(-90deg);
 }
 
-.red-conv-time {
-  font-size: 0.68rem !important;
-  color: #9ca3af !important;
-  margin-top: 1px !important;
+.eims-clear-all-link {
+  background: none;
+  border: none;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: #a1a1aa;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: color 0.15s ease, background-color 0.15s ease;
 }
 
-.red-conv-delete-btn {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  width: 22px !important;
-  height: 22px !important;
-  border-radius: 5px !important;
-  background: transparent !important;
-  border: none !important;
-  color: #9ca3af !important;
-  cursor: pointer !important;
-  opacity: 0.5 !important;
-  transition: all 0.18s ease !important;
-  flex-shrink: 0 !important;
+.eims-clear-all-link:hover {
+  color: #dc2626;
+  background: #fef2f2;
 }
 
-.sidebar-red-conv-item:hover .red-conv-delete-btn {
-  opacity: 1 !important;
+/* Scrollable Conversation List */
+.eims-conv-scroll-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0.1rem 0.25rem 0.5rem 0.25rem;
 }
 
-.red-conv-delete-btn:hover {
-  background: #fee2e2 !important;
-  color: #e11d48 !important;
+.eims-conv-scroll-list::-webkit-scrollbar {
+  width: 4px;
 }
 
-.red-conv-delete-btn svg {
-  width: 13px !important;
-  height: 13px !important;
+.eims-conv-scroll-list::-webkit-scrollbar-track {
+  background: transparent;
 }
 
-.sidebar-conv-actions-row {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  width: 100% !important;
-  padding: 0.2rem 0.25rem 0.1rem 0.25rem !important;
+.eims-conv-scroll-list::-webkit-scrollbar-thumb {
+  background: #e4e4e7;
+  border-radius: 9999px;
 }
 
-.sidebar-clear-all-btn {
-  background: none !important;
-  border: none !important;
-  color: #9ca3af !important;
-  font-size: 0.74rem !important;
-  font-weight: 500 !important;
-  cursor: pointer !important;
-  padding: 0.15rem 0.25rem !important;
-  transition: color 0.18s ease !important;
+.eims-conv-scroll-list::-webkit-scrollbar-thumb:hover {
+  background: #d4d4d8;
 }
 
-.sidebar-clear-all-btn:hover {
-  color: #dc2626 !important;
-  text-decoration: underline !important;
+.eims-empty-chats {
+  padding: 0.85rem 0.6rem;
+  font-size: 0.78rem;
+  color: #a1a1aa;
+  font-style: italic;
 }
 
-.sidebar-view-all-btn {
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 0.3rem !important;
-  color: #be123c !important;
-  font-size: 0.76rem !important;
-  font-weight: 600 !important;
-  cursor: pointer !important;
-  background: none !important;
-  border: none !important;
+/* Individual Conversation Item */
+.eims-conv-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.46rem 0.5rem 0.46rem 0.65rem;
+  border-radius: 7px;
+  color: #3f3f46;
+  cursor: pointer;
+  font-size: 0.83rem;
+  transition: background-color 0.14s ease, color 0.14s ease;
+  user-select: none;
+  min-height: 34px;
 }
 
-.sidebar-view-all-btn:hover {
-  text-decoration: underline !important;
+.eims-conv-item:hover,
+.eims-conv-item.menu-open {
+  background-color: #f4f4f5;
+  color: #18181b;
 }
 
-.red-empty-text {
-  font-size: 0.76rem !important;
-  color: #9ca3af !important;
-  padding: 0.4rem 0.5rem !important;
+.eims-conv-item.active {
+  background-color: #f4f4f5;
+  color: #111827;
+  font-weight: 600;
+}
+
+/* Subtle Quest Red Active Bar Indicator */
+.eims-active-indicator {
+  position: absolute;
+  left: 0;
+  top: 7px;
+  bottom: 7px;
+  width: 2.5px;
+  border-radius: 0 3px 3px 0;
+  background-color: #dc2626;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.eims-conv-item.active .eims-active-indicator {
+  opacity: 1;
+}
+
+.eims-conv-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: #a1a1aa;
+  transition: color 0.14s ease;
+}
+
+.eims-conv-item.active .eims-conv-icon {
+  color: #dc2626;
+}
+
+.eims-conv-item:hover .eims-conv-icon {
+  color: #52525b;
+}
+
+.eims-conv-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.83rem;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Three-Dot Action Button (Hidden until Hover or Menu Open) */
+.eims-conv-more-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  background: transparent;
+  border: none;
+  color: #71717a;
+  cursor: pointer;
+  opacity: 0;
+  flex-shrink: 0;
+  transition: opacity 0.14s ease, background-color 0.14s ease, color 0.14s ease;
+}
+
+.eims-conv-item:hover .eims-conv-more-btn,
+.eims-conv-more-btn.visible {
+  opacity: 1;
+}
+
+.eims-conv-more-btn:hover {
+  background-color: #e4e4e7;
+  color: #18181b;
+}
+
+/* Inline Rename Input Mode */
+.eims-rename-row {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  width: 100%;
+}
+
+.eims-rename-input {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 6px;
+  font-size: 0.82rem;
+  color: #18181b;
+  background: #ffffff;
+  border: 1px solid #dc2626;
+  border-radius: 5px;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.12);
+}
+
+.eims-rename-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.eims-rename-btn.save {
+  color: #16a34a;
+}
+
+.eims-rename-btn.save:hover {
+  background: #dcfce7;
+}
+
+.eims-rename-btn.cancel {
+  color: #71717a;
+}
+
+.eims-rename-btn.cancel:hover {
+  background: #e4e4e7;
+  color: #18181b;
+}
+
+/* Floating E-IMS Context Menu */
+.eims-context-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9500;
+  background: transparent;
+}
+
+.eims-context-menu {
+  position: fixed;
+  z-index: 9501;
+  min-width: 144px;
+  background: #ffffff;
+  border: 1px solid #e4e4e7;
+  border-radius: 10px;
+  padding: 4px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 4px 10px -3px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  animation: eimsMenuFadeIn 0.12s ease-out;
+}
+
+@keyframes eimsMenuFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.eims-context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.45rem 0.65rem;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #27272a;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+.eims-context-menu-item svg {
+  width: 14px;
+  height: 14px;
+  color: #71717a;
+  flex-shrink: 0;
+}
+
+.eims-context-menu-item:hover {
+  background-color: #f4f4f5;
+  color: #111827;
+}
+
+.eims-context-menu-item:hover svg {
+  color: #27272a;
+}
+
+.eims-context-menu-divider {
+  height: 1px;
+  background: #f4f4f5;
+  margin: 3px 2px;
+}
+
+.eims-context-menu-item.danger {
+  color: #dc2626;
+}
+
+.eims-context-menu-item.danger svg {
+  color: #dc2626;
+}
+
+.eims-context-menu-item.danger:hover {
+  background-color: #fef2f2;
+  color: #b91c1c;
 }
 
 /* Sidebar User Section */
@@ -409,19 +656,16 @@
 
 /* Top Canvas Header */
 .canvas-top-header {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
+  position: relative;
   height: 56px;
   display: flex;
   align-items: center;
-  padding: 12px 20px;
+  padding: 10px 24px;
   z-index: 25;
-  background: transparent !important;
-  border-bottom: none !important;
+  background: #ffffff !important;
+  border-bottom: 1px solid #f1f5f9 !important;
   gap: 12px;
-  pointer-events: none;
+  flex-shrink: 0;
 }
 
 .canvas-top-header button,

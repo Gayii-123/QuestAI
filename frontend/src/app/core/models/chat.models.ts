@@ -69,6 +69,7 @@ export interface Conversation {
   title: string;
   updatedAt: Date;
   previewSnippet: string;
+  lastMessagePreview?: string;
   messages: ChatMessage[];
   selectedBankId?: string;
   activeInspectionId?: string;

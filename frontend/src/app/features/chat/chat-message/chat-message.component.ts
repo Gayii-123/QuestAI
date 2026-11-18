@@ -4,7 +4,7 @@ import {
   Output,
   EventEmitter,
   inject,
-  ChangeDetectionStrategy,
+  computed,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
@@ -19,6 +19,7 @@ import {
 } from '../../../core/models/site-inspection.schema';
 import { ChatStateService } from '../../../core/services/chat-state.service';
 import { ReportService } from '../../../core/services/report.service';
+import { AuthService } from '../../../core/services/auth.service';
 
 import { InspectionProgressComponent } from '../../inspection/progress/inspection-progress.component';
 import { InspectionSingleQuestionCardComponent } from '../../inspection/single-question-card/inspection-single-question-card.component';
@@ -44,6 +45,60 @@ export class ChatMessageComponent {
   private readonly sanitizer = inject(DomSanitizer);
   readonly chatState = inject(ChatStateService);
   readonly reportService = inject(ReportService);
+  readonly authService = inject(AuthService);
+
+  readonly userInitials = computed(() => {
+    const name = (
+      (this.authService.userProfile() as any)?.name ||
+      this.authService.currentUser()?.displayName ||
+      'Subhash Kumar'
+    ).trim();
+    if (!name) return 'SK';
+    const parts = name.split(/\s+/).filter(Boolean);
+    return parts.length >= 2
+      ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+      : name.substring(0, 2).toUpperCase();
+  });
+
+  readonly userPhotoUrl = computed(() => {
+    return this.authService.currentUser()?.photoURL || null;
+  });
+
+  isCopied = false;
+
+  getResolvedPhotoUrl(photo: { id?: string; url?: string }): string {
+    if (photo.url) return photo.url;
+    if (photo.id) {
+      const cached = this.chatState.getPhotoUrl(photo.id);
+      if (cached) {
+        photo.url = cached;
+        return cached;
+      }
+    }
+    return '';
+  }
+
+  onPhotoError(photo: { url?: string }): void {
+    photo.url = '';
+  }
+
+  formatFileSize(bytes?: number): string {
+    if (!bytes || bytes <= 0) return '';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  async copyResponse(content: string): Promise<void> {
+    if (!content || !navigator.clipboard) return;
+    try {
+      await navigator.clipboard.writeText(content);
+      this.isCopied = true;
+      setTimeout(() => (this.isCopied = false), 2000);
+    } catch {
+      // ignore
+    }
+  }
 
   @Input({ required: true }) msg!: ChatMessage;
 

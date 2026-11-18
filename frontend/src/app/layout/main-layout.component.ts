@@ -1,7 +1,8 @@
 import { Component, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterOutlet, Router } from '@angular/router';
+import { RouterOutlet, Router, NavigationEnd } from '@angular/router';
+import { filter } from 'rxjs/operators';
 import { ChatStateService } from '../core/services/chat-state.service';
 import { ReportService } from '../core/services/report.service';
 import { AuthService } from '../core/services/auth.service';
@@ -31,12 +32,15 @@ export class MainLayoutComponent {
   readonly mobileSidebarOpen = signal<boolean>(false);
   readonly desktopSidebarCollapsed = signal<boolean>(false);
   readonly sidebarActiveSection = signal<'home' | 'recent-chats' | 'inspection-history' | 'my-reports'>('home');
+  readonly recentChatsExpanded = signal<boolean>(true);
 
-  // Deletion modals & context menu
+  // Deletion modals, three-dot context menu & inline rename state
   readonly conversationToDelete = signal<Conversation | null>(null);
   readonly showClearAllConfirm = signal<boolean>(false);
   readonly activeContextMenuConv = signal<Conversation | null>(null);
   readonly contextMenuPosition = signal<{ x: number; y: number }>({ x: 0, y: 0 });
+  readonly editingConvId = signal<string | null>(null);
+  readonly editingConvTitle = signal<string>('');
 
   // Authenticated user computed helpers
   readonly userDisplayName = computed(() => {
@@ -64,10 +68,20 @@ export class MainLayoutComponent {
     return (this.authService.userProfile() as any)?.contractor || 'Marlborough Highways';
   });
 
+  readonly currentUrl = signal<string>(this.router.url);
+
   readonly isChatRoute = computed(() => {
-    const url = this.router.url;
+    const url = this.currentUrl();
     return url === '/chat' || url.startsWith('/chat/') || url === '/';
   });
+
+  constructor() {
+    this.router.events
+      .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
+      .subscribe((e) => {
+        this.currentUrl.set(e.urlAfterRedirects || e.url);
+      });
+  }
 
   readonly hasActiveMessages = computed(() => {
     const conv = this.chatState.activeConversation();
@@ -97,7 +111,13 @@ export class MainLayoutComponent {
   }
 
   navigateToHome(): void {
+    this.startNewChat();
+  }
+
+  startNewChat(): void {
     this.sidebarActiveSection.set('home');
+    this.closeConversationMenu();
+    this.cancelRenameConv();
     this.chatState.startNewChat();
     this.closeMobileSidebar();
     void this.router.navigate(['/chat']);
@@ -105,11 +125,13 @@ export class MainLayoutComponent {
 
   navigateToRecentChats(): void {
     this.sidebarActiveSection.set('recent-chats');
+    this.recentChatsExpanded.update((v) => !v);
   }
 
   navigateToInspectionHistory(): void {
     this.reportService.loadInspectionHistory();
     this.sidebarActiveSection.set('inspection-history');
+    this.closeConversationMenu();
     this.closeMobileSidebar();
     void this.router.navigate(['/reports']);
   }
@@ -117,11 +139,14 @@ export class MainLayoutComponent {
   navigateToMyReports(): void {
     this.reportService.loadInspectionHistory();
     this.sidebarActiveSection.set('my-reports');
+    this.closeConversationMenu();
     this.closeMobileSidebar();
     void this.router.navigate(['/reports']);
   }
 
   selectConversation(id: string): void {
+    if (this.editingConvId() === id) return;
+    this.closeConversationMenu();
     this.chatState.selectConversation(id);
     this.closeMobileSidebar();
     void this.router.navigate(['/chat', id]);
@@ -174,10 +199,82 @@ export class MainLayoutComponent {
     void this.router.navigate(['/chat']);
   }
 
-  // --- Context Menu ---
+  // --- Three-Dot Context Menu & Inline Rename ---
+
+  toggleConversationMenu(conv: Conversation, event: MouseEvent): void {
+    event.stopPropagation();
+    if (this.activeContextMenuConv()?.id === conv.id) {
+      this.closeConversationMenu();
+      return;
+    }
+    const target = event.currentTarget as HTMLElement | null;
+    if (target) {
+      const rect = target.getBoundingClientRect();
+      this.contextMenuPosition.set({
+        x: Math.min(rect.left, 148),
+        y: Math.min(rect.bottom + 4, window.innerHeight - 110),
+      });
+    }
+    this.activeContextMenuConv.set(conv);
+  }
 
   closeConversationMenu(): void {
     this.activeContextMenuConv.set(null);
+  }
+
+  startRenameActiveMenuConv(event?: MouseEvent): void {
+    if (event) {
+      event.stopPropagation();
+    }
+    const conv = this.activeContextMenuConv();
+    if (!conv) return;
+    this.closeConversationMenu();
+    this.editingConvId.set(conv.id);
+    this.editingConvTitle.set(conv.title);
+    setTimeout(() => {
+      const inputEl = document.getElementById('conv-rename-input-' + conv.id) as HTMLInputElement | null;
+      if (inputEl) {
+        inputEl.focus();
+        inputEl.select();
+      }
+    }, 20);
+  }
+
+  saveRenameConv(conv: Conversation, event?: Event): void {
+    if (event) {
+      event.stopPropagation();
+    }
+    const trimmed = this.editingConvTitle().trim();
+    if (trimmed && trimmed !== conv.title) {
+      this.chatState.renameConversation(conv.id, trimmed);
+    }
+    this.editingConvId.set(null);
+    this.editingConvTitle.set('');
+  }
+
+  cancelRenameConv(event?: Event): void {
+    if (event) {
+      event.stopPropagation();
+    }
+    this.editingConvId.set(null);
+    this.editingConvTitle.set('');
+  }
+
+  onRenameKeydown(conv: Conversation, event: KeyboardEvent): void {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      this.saveRenameConv(conv, event);
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      this.cancelRenameConv(event);
+    }
+  }
+
+  promptDeleteActiveMenuConv(event?: MouseEvent): void {
+    const conv = this.activeContextMenuConv();
+    if (conv) {
+      this.promptDeleteConversation(conv, event);
+    }
   }
 
   // --- Photo Upload Modal Delegations ---

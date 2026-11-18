@@ -1,7 +1,9 @@
-import { Injectable, inject, signal, computed } from '@angular/core';
+import { Injectable, inject, signal, computed, effect } from '@angular/core';
 import { ApiService } from './api.service';
 import { ConversationalInspectionService } from './conversational-inspection.service';
 import { ChatPersistenceService } from './chat-persistence.service';
+import { ConversationService } from './conversation.service';
+import { AuthService } from './auth.service';
 import { ReportService } from './report.service';
 import {
   Conversation,
@@ -32,6 +34,8 @@ export class ChatStateService {
   private readonly apiService = inject(ApiService);
   private readonly conversationalInspection = inject(ConversationalInspectionService);
   private readonly chatPersistence = inject(ChatPersistenceService);
+  private readonly conversationService = inject(ConversationService);
+  private readonly authService = inject(AuthService);
   private readonly reportService = inject(ReportService);
 
   readonly siteInspectionBanks: SiteInspectionBankOption[] = SITE_INSPECTION_BANKS;
@@ -39,6 +43,9 @@ export class ChatStateService {
   // Conversations list & active ID
   readonly conversations = signal<Conversation[]>([]);
   readonly activeConversationId = signal<string>('');
+  private isRestored = false;
+  private lastLoadedUid: string | null = null;
+  private activeSyncUid: string | null = null;
 
   readonly activeConversation = computed(() => {
     const id = this.activeConversationId();
@@ -130,18 +137,53 @@ export class ChatStateService {
   }
 
   constructor() {
+    /*
+    // ========================================================================
+    // DISABLED: INDEXEDDB INITIAL RESTORATION COMMENTED OUT
+    // Firestore is now the sole source of truth for chat persistence.
+    // ========================================================================
     void this.restorePersistedChatState();
+    */
+    this.isRestored = true;
+
+    // Watch authentication changes to isolate conversations per user directly from Firestore
+    effect(() => {
+      const user = this.authService.currentUser();
+      const uid = user?.uid || null;
+      if (uid !== this.lastLoadedUid) {
+        this.lastLoadedUid = uid;
+        if (uid) {
+          void this.syncUserConversations(uid);
+        } else {
+          this.clearUserState();
+        }
+      }
+    });
   }
 
   // --- Persistence & Initialization ---
 
   async restorePersistedChatState(): Promise<void> {
+    /*
+    // ========================================================================
+    // DISABLED: INDEXEDDB RESTORATION COMMENTED OUT
+    // All conversations and messages load exclusively from Firestore.
+    // ========================================================================
     try {
       const state = await this.chatPersistence.loadState();
-      const convs = state.conversations || [];
+      const convs = (state.conversations || []).sort(
+        (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      );
       this.conversations.set(convs);
 
-      const activeId = state.activeConversationId;
+      const requestedId = this.activeConversationId();
+      let activeId = requestedId || state.activeConversationId;
+      if (!activeId) {
+        try {
+          activeId = sessionStorage.getItem('questai_active_conv_id') || '';
+        } catch {}
+      }
+
       if (activeId && convs.some((c: Conversation) => c.id === activeId)) {
         this.activeConversationId.set(activeId);
         const conv = convs.find((c: Conversation) => c.id === activeId);
@@ -153,8 +195,8 @@ export class ChatStateService {
           const s = this.conversationalInspection.getSession(conv.activeInspectionId);
           this.activeInspectionSession.set(s || null);
         }
-      } else if (convs.length > 0) {
-        this.activeConversationId.set(convs[0].id);
+      } else {
+        this.activeConversationId.set('');
       }
 
       const draftPhotos = await this.chatPersistence.loadPendingAttachments(
@@ -163,16 +205,169 @@ export class ChatStateService {
       this.uploadedPhotos.set(draftPhotos);
     } catch (e) {
       console.warn('Failed to restore chat persistence', e);
+    } finally {
+      this.isRestored = true;
+    }
+    */
+    this.isRestored = true;
+    return Promise.resolve();
+  }
+
+  /**
+   * In-memory & session photo URL cache to preserve full-fidelity photo previews
+   * within the user's active session without storing large Base64 strings in Firestore.
+   */
+  private readonly photoCache = new Map<string, string>();
+
+  cachePhotoUrl(id: string, dataUrl: string): void {
+    if (!id || !dataUrl) return;
+    this.photoCache.set(id, dataUrl);
+    try {
+      sessionStorage.setItem('questai_photo_' + id, dataUrl);
+    } catch {}
+  }
+
+  getPhotoUrl(id: string): string {
+    if (!id) return '';
+    if (this.photoCache.has(id)) {
+      return this.photoCache.get(id)!;
+    }
+    try {
+      const stored = sessionStorage.getItem('questai_photo_' + id);
+      if (stored) {
+        this.photoCache.set(id, stored);
+        return stored;
+      }
+    } catch {}
+    return '';
+  }
+
+  persistClarificationQueue(inspectionId: string): void {
+    if (!inspectionId) return;
+    try {
+      const ids = this.activeClarificationQueue.map((q) => q.questionId);
+      sessionStorage.setItem(`questai_queue_${inspectionId}`, JSON.stringify(ids));
+    } catch {}
+  }
+
+  recoverClarificationQueue(session: InspectionSessionViewModel): void {
+    if (!session?.questionAssessments) return;
+    try {
+      const stored = sessionStorage.getItem(`questai_queue_${session.inspectionId}`);
+      if (stored) {
+        const ids: string[] = JSON.parse(stored);
+        const recovered: InspectionQuestionViewModel[] = [];
+        for (const id of ids) {
+          const q = session.questionAssessments[id];
+          if (q && !q.isAnswered) {
+            recovered.push(q);
+          }
+        }
+        if (recovered.length > 0) {
+          this.activeClarificationQueue = recovered;
+          return;
+        }
+      }
+    } catch {}
+
+    // Fallback: recover any pending unanswered doubts in session
+    const pending = Object.values(session.questionAssessments).filter(
+      (q) =>
+        (q.status === 'conversational_pending' || q.status === 'needs_verification') &&
+        !q.isAnswered
+    );
+    if (pending.length > 0) {
+      this.activeClarificationQueue = [...pending];
+      this.persistClarificationQueue(session.inspectionId);
     }
   }
 
+  /**
+   * Synchronizes user conversations from Firestore (sole source of truth).
+   * Prevents race conditions from previous user sessions.
+   */
+  async syncUserConversations(uid: string): Promise<void> {
+    this.activeSyncUid = uid;
+    try {
+      /*
+      // DISABLED: IndexedDB local state restore commented out
+      await this.restorePersistedChatState();
+      */
+
+      // 1. Fetch remote conversations directly and exclusively from Firestore
+      const remoteConvs = await this.conversationService.loadUserConversations(uid);
+
+      // Verify user hasn't switched accounts or logged out while network request was in-flight
+      if (this.activeSyncUid !== uid) {
+        return;
+      }
+
+      // Preserve any in-memory loaded messages and photos for active sessions
+      const localMap = new Map(this.conversations().map((c) => [c.id, c]));
+      const mergedConvs: Conversation[] = remoteConvs.map((rc) => {
+        const local = localMap.get(rc.id);
+        return {
+          ...rc,
+          messages: local?.messages && local.messages.length > 0 ? local.messages : [],
+        };
+      });
+
+      this.conversations.set(mergedConvs);
+
+      // 2. Resolve active conversation ID from route or sessionStorage
+      let targetActiveId = this.activeConversationId();
+      if (!targetActiveId) {
+        try {
+          targetActiveId = sessionStorage.getItem('questai_active_conv_id') || '';
+        } catch {}
+      }
+
+      const convs = this.conversations();
+      if (targetActiveId && convs.some((c) => c.id === targetActiveId)) {
+        await this.selectConversation(targetActiveId);
+      } else {
+        this.activeConversationId.set('');
+      }
+    } catch (err) {
+      console.error('[ChatState] Error syncing user conversations from Firestore:', err);
+    }
+  }
+
+  clearUserState(): void {
+    this.activeSyncUid = null;
+    this.conversations.set([]);
+    this.activeConversationId.set('');
+    this.composerText.set('');
+    this.attachedDocument.set(null);
+    this.uploadedPhotos.set([]);
+    this.selectedUploadBank.set(null);
+    this.activeInspectionSession.set(null);
+    this.activeReviewDraft.set(null);
+    this.showAttachmentMenu.set(false);
+    try {
+      sessionStorage.removeItem('questai_active_conv_id');
+    } catch {}
+  }
+
   persistChatState(): void {
+    /*
+    // ========================================================================
+    // DISABLED: INDEXEDDB CONVERSATION SAVING COMMENTED OUT
+    // Firestore is now the sole source of truth for saving chat state.
+    // ========================================================================
+    if (!this.isRestored) return;
     void this.chatPersistence.saveConversations(this.conversations(), this.activeConversationId());
+    */
   }
 
   persistPendingComposerPhotos(): void {
+    /*
+    // ========================================================================
+    // DISABLED: INDEXEDDB PENDING COMPOSER ATTACHMENTS SAVING COMMENTED OUT
+    // ========================================================================
     const convId = this.activeConversationId() || '__draft__';
     void this.chatPersistence.savePendingAttachments(convId, this.uploadedPhotos());
+    */
   }
 
   // --- Conversation Lifecycle ---
@@ -186,25 +381,72 @@ export class ChatStateService {
     this.activeInspectionSession.set(null);
     this.activeReviewDraft.set(null);
     this.showAttachmentMenu.set(false);
+    try {
+      sessionStorage.removeItem('questai_active_conv_id');
+    } catch {}
     this.persistChatState();
   }
 
-  selectConversation(id: string): void {
+  async selectConversation(id: string): Promise<void> {
     this.activeConversationId.set(id);
+    try {
+      sessionStorage.setItem('questai_active_conv_id', id);
+    } catch {}
+
     const conv = this.conversations().find((c) => c.id === id);
-    if (conv?.selectedBankId) {
-      const bank = this.siteInspectionBanks.find((b) => b.id === conv.selectedBankId);
-      if (bank) this.selectedUploadBank.set(bank);
+    if (conv) {
+      if (conv.selectedBankId) {
+        const bank = this.siteInspectionBanks.find((b) => b.id === conv.selectedBankId);
+        if (bank) this.selectedUploadBank.set(bank);
+      }
+      if (conv.activeInspectionId) {
+        const s = this.conversationalInspection.getSession(conv.activeInspectionId);
+        this.activeInspectionSession.set(s || null);
+        if (s) {
+          this.recoverClarificationQueue(s);
+        }
+      } else {
+        this.activeInspectionSession.set(null);
+      }
+
+      // Load messages from Firestore if not already loaded
+      const uid = this.conversationService.getCurrentUserId();
+      if (uid && (!conv.messages || conv.messages.length === 0)) {
+        try {
+          const remoteMsgs = await this.conversationService.loadConversationMessages(uid, id);
+          if (remoteMsgs.length > 0) {
+            // Re-hydrate any cached photo data URLs for this session
+            for (const m of remoteMsgs) {
+              if (m.photos) {
+                for (const p of m.photos) {
+                  if (!p.url && p.id) {
+                    const cached = this.getPhotoUrl(p.id);
+                    if (cached) {
+                      p.url = cached;
+                    }
+                  }
+                }
+              }
+            }
+            conv.messages = remoteMsgs;
+            this.conversations.update((list) =>
+              list.map((c) => (c.id === id ? { ...c, messages: remoteMsgs } : c))
+            );
+          }
+        } catch (e) {
+          console.error('[ChatState] Failed to load messages from Firestore:', e);
+        }
+      }
     }
-    if (conv?.activeInspectionId) {
-      const s = this.conversationalInspection.getSession(conv.activeInspectionId);
-      this.activeInspectionSession.set(s || null);
-    } else {
-      this.activeInspectionSession.set(null);
-    }
+
+    /*
+    // ========================================================================
+    // DISABLED: INDEXEDDB PENDING ATTACHMENTS LOAD COMMENTED OUT
+    // ========================================================================
     void this.chatPersistence.loadPendingAttachments(id).then((photos) => {
       this.uploadedPhotos.set(photos);
     });
+    */
     this.persistChatState();
   }
 
@@ -215,10 +457,25 @@ export class ChatStateService {
     }
     const list = this.conversations().filter((c) => c.id !== id);
     this.conversations.set(list);
+
+    /*
+    // ========================================================================
+    // DISABLED: INDEXEDDB CONVERSATION DELETE COMMENTED OUT
+    // ========================================================================
     void this.chatPersistence.deleteConversation(id);
+    */
+
+    // Delete exclusively from Firestore
+    const uid = this.conversationService.getCurrentUserId();
+    if (uid) {
+      void this.conversationService.deleteConversation(uid, id).catch((err) => {
+        console.error('[ChatState] Failed to delete conversation in Firestore:', err);
+      });
+    }
+
     if (this.activeConversationId() === id) {
       if (list.length > 0) {
-        this.selectConversation(list[0].id);
+        void this.selectConversation(list[0].id);
       } else {
         this.startNewChat();
       }
@@ -228,10 +485,21 @@ export class ChatStateService {
 
   clearAllConversations(): void {
     const list = this.conversations();
+    const uid = this.conversationService.getCurrentUserId();
     for (const c of list) {
+      /*
+      // ========================================================================
+      // DISABLED: INDEXEDDB CLEAR CONVERSATION COMMENTED OUT
+      // ========================================================================
       void this.chatPersistence.deleteConversation(c.id);
+      */
       if (c.activeInspectionId) {
         this.conversationalInspection.deleteSession(c.activeInspectionId);
+      }
+      if (uid) {
+        void this.conversationService.deleteConversation(uid, c.id).catch((err) => {
+          console.error('[ChatState] Failed to delete conversation in Firestore:', err);
+        });
       }
     }
     this.conversations.set([]);
@@ -241,27 +509,61 @@ export class ChatStateService {
   renameConversation(id: string, newTitle: string): void {
     const trimmed = (newTitle || '').trim();
     if (!trimmed) return;
+    const now = new Date();
     this.conversations.update((list) =>
-      list.map((c) => (c.id === id ? { ...c, title: trimmed } : c))
+      list
+        .map((c) => (c.id === id ? { ...c, title: trimmed, updatedAt: now } : c))
+        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     );
     this.persistChatState();
+
+    // Persist rename exclusively to Firestore
+    const uid = this.conversationService.getCurrentUserId();
+    if (uid) {
+      void this.conversationService.renameConversation(uid, id, trimmed).catch((err) => {
+        console.error('[ChatState] Failed to rename conversation in Firestore:', err);
+      });
+    }
   }
 
   appendMessageToActive(msg: ChatMessage): void {
     const conv = this.activeConversation();
     if (!conv) return;
-    conv.messages = [...(conv.messages || []), msg];
+
+    if (conv.messages.some((m) => m.id === msg.id)) {
+      conv.messages = conv.messages.map((m) => (m.id === msg.id ? msg : m));
+    } else {
+      conv.messages = [...(conv.messages || []), msg];
+    }
+
     conv.updatedAt = new Date();
-    conv.previewSnippet = msg.content
-      ? msg.content.substring(0, 48)
+    const snippet = msg.content
+      ? msg.content.substring(0, 80)
       : msg.photos && msg.photos.length > 0
         ? `Uploaded ${msg.photos.length} photograph(s)`
         : 'Site Inspection Report';
+    conv.previewSnippet = snippet;
+    conv.lastMessagePreview = snippet;
 
     this.conversations.update((list) =>
-      list.map((c) => (c.id === conv.id ? { ...conv } : c))
+      list
+        .map((c) => (c.id === conv.id ? { ...conv } : c))
+        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     );
     this.persistChatState();
+
+    // Persist to Firestore as single source of truth; display clear error if write fails
+    const uid = this.conversationService.getCurrentUserId();
+    if (uid) {
+      void this.conversationService
+        .saveMessage(uid, conv.id, msg, conv.messages.length)
+        .catch((err) => {
+          console.error('[ChatState] Failed to save message to Firestore:', err);
+          msg.isError = true;
+          msg.retryPrompt = msg.content;
+          this.conversations.update((list) => [...list]);
+        });
+    }
   }
 
   setConversationSelectedBank(bankId: string): void {
@@ -272,22 +574,35 @@ export class ChatStateService {
       list.map((c) => (c.id === conv.id ? { ...c, selectedBankId: bankId } : c))
     );
     this.persistChatState();
+
+    const uid = this.conversationService.getCurrentUserId();
+    if (uid) {
+      void this.conversationService.updateConversationMeta(uid, conv.id, { selectedBankId: bankId });
+    }
   }
 
   markCategorySelectedInConversation(bankId: string, messageId?: string): void {
     const conv = this.activeConversation();
     if (!conv?.messages) return;
+    let targetMsg: ChatMessage | null = null;
     for (const msg of conv.messages) {
       if (messageId && msg.id === messageId) {
         msg.categorySelected = true;
         msg.selectedBankId = bankId;
+        targetMsg = msg;
       } else if (!messageId && msg.showInspectionCategories) {
         msg.categorySelected = true;
         msg.selectedBankId = bankId;
+        targetMsg = msg;
       }
     }
     this.conversations.update((list) => [...list]);
     this.persistChatState();
+
+    const uid = this.conversationService.getCurrentUserId();
+    if (uid && targetMsg) {
+      void this.conversationService.saveMessage(uid, conv.id, targetMsg, conv.messages.length).catch(() => {});
+    }
   }
 
   clearPreviousWorkflowMessagesInActiveConversation(): void {
@@ -313,6 +628,11 @@ export class ChatStateService {
     if (current.length + photos.length > MAX_INSPECTION_PHOTOS) {
       this.photoUploadError.set(`Maximum ${MAX_INSPECTION_PHOTOS} photographs allowed per analysis.`);
       return;
+    }
+    for (const p of photos) {
+      if (p.id && p.url) {
+        this.cachePhotoUrl(p.id, p.url);
+      }
     }
     this.uploadedPhotos.set([...current, ...photos]);
     this.persistPendingComposerPhotos();
@@ -351,8 +671,10 @@ export class ChatStateService {
       }
       try {
         const base64 = await this.compressAndReadFile(file);
+        const photoId = `photo_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+        this.cachePhotoUrl(photoId, base64);
         newPhotos.push({
-          id: `photo_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          id: photoId,
           name: file.name,
           url: base64,
           size: file.size,
@@ -464,6 +786,12 @@ export class ChatStateService {
     const photosToSend = [...this.uploadedPhotos()];
     if ((!text && photosToSend.length === 0) || this.isGenerating()) return;
 
+    for (const p of photosToSend) {
+      if (p.id && p.url) {
+        this.cachePhotoUrl(p.id, p.url);
+      }
+    }
+
     this.showAttachmentMenu.set(false);
     this.photoUploadError.set('');
 
@@ -471,25 +799,35 @@ export class ChatStateService {
     const docAttachment = this.attachedDocument();
 
     if (!currentConv) {
-      const baseTitle =
+      const basePreview =
         text ||
         (this.selectedUploadBank()?.name
           ? `${this.selectedUploadBank()!.name} Inspection`
           : 'Site Inspection Photos');
-      const title = baseTitle.length > 36 ? baseTitle.substring(0, 36) + '...' : baseTitle;
       const newId = 'conv-' + Date.now();
       const newConv: Conversation = {
         id: newId,
-        title: title,
+        title: 'New Chat',
         updatedAt: new Date(),
-        previewSnippet: baseTitle,
+        previewSnippet: basePreview,
+        lastMessagePreview: basePreview,
         selectedBankId: this.selectedUploadBank()?.id,
         messages: [],
       };
 
       this.conversations.update((list) => [newConv, ...list]);
       this.activeConversationId.set(newId);
+      try {
+        sessionStorage.setItem('questai_active_conv_id', newId);
+      } catch {}
       currentConv = newConv;
+
+      const uid = this.conversationService.getCurrentUserId();
+      if (uid) {
+        void this.conversationService.createConversation(uid, newConv).catch((e) => {
+          console.warn('[ChatState] Failed to persist new conversation in Firestore:', e);
+        });
+      }
     }
 
     // 1. Photos Submitted Workflow
@@ -568,6 +906,7 @@ export class ChatStateService {
           if (clarificationQuestions.length > 0) {
             this.activeClarificationQueue = [...clarificationQuestions];
             const firstQ = this.activeClarificationQueue.shift();
+            this.persistClarificationQueue(session.inspectionId);
 
             const assistantMsg: ChatMessage = {
               id: 'msg-' + (Date.now() + 1),
@@ -607,8 +946,11 @@ export class ChatStateService {
           this.clearThinkingAnimation();
           this.analyzingStepMessage.set('');
           this.uploadedPhotos.set([]);
+          /*
+          // DISABLED: IndexedDB pending attachments clear commented out
           void this.chatPersistence.savePendingAttachments(currentConv.id, []);
           void this.chatPersistence.savePendingAttachments('__draft__', []);
+          */
         })
         .catch((err) => {
           this.isGenerating.set(false);
@@ -769,9 +1111,10 @@ export class ChatStateService {
       const newId = 'conv-' + Date.now();
       const newConv: Conversation = {
         id: newId,
-        title: `${bank.name} Inspection`,
+        title: 'New Chat',
         updatedAt: new Date(),
         previewSnippet: bank.name,
+        lastMessagePreview: bank.name,
         selectedBankId: bank.id,
         messages: [],
       };
@@ -923,6 +1266,11 @@ export class ChatStateService {
     );
     if (!session) return;
 
+    // Guard: Prevent double-click or duplicate events from advancing queue multiple times
+    if (msg.singleQuestion?.isAnswered) {
+      return;
+    }
+
     this.conversationalInspection.recordUserAnswer(session, answer);
     this.activeInspectionSession.set(session);
 
@@ -936,10 +1284,23 @@ export class ChatStateService {
     this.conversations.update((list) => [...list]);
     this.persistChatState();
 
+    const uid = this.conversationService.getCurrentUserId();
+    const convId = this.activeConversationId();
+    if (uid && convId) {
+      void this.conversationService.saveMessage(uid, convId, msg).catch(() => {});
+    }
+
+    // Ensure queue is populated (recover if lost due to reload or sync)
+    if (this.activeClarificationQueue.length === 0) {
+      this.recoverClarificationQueue(session);
+    }
+
     if (this.activeClarificationQueue.length > 0) {
       const nextQ = this.activeClarificationQueue.shift()!;
+      this.persistClarificationQueue(session.inspectionId);
+
       const currentIndex = (msg.singleQuestionIndex || 1) + 1;
-      const total = msg.singleQuestionTotal || currentIndex;
+      const total = msg.singleQuestionTotal || (currentIndex + this.activeClarificationQueue.length);
 
       const nextMsg: ChatMessage = {
         id: 'msg-' + Date.now(),
@@ -954,6 +1315,10 @@ export class ChatStateService {
       this.appendMessageToActive(nextMsg);
       return;
     }
+
+    try {
+      sessionStorage.removeItem(`questai_queue_${session.inspectionId}`);
+    } catch {}
 
     session.workflowStatus = 'completed';
     session.completedAt = new Date().toISOString();
@@ -980,6 +1345,10 @@ export class ChatStateService {
     );
     if (!session) return;
 
+    if (msg.singleQuestion?.isAnswered) {
+      return;
+    }
+
     const q = session.questionAssessments[questionId];
     if (q) {
       q.isAnswered = true;
@@ -999,10 +1368,22 @@ export class ChatStateService {
     this.conversations.update((list) => [...list]);
     this.persistChatState();
 
+    const uid = this.conversationService.getCurrentUserId();
+    const convId = this.activeConversationId();
+    if (uid && convId) {
+      void this.conversationService.saveMessage(uid, convId, msg).catch(() => {});
+    }
+
+    if (this.activeClarificationQueue.length === 0) {
+      this.recoverClarificationQueue(session);
+    }
+
     if (this.activeClarificationQueue.length > 0) {
       const nextQ = this.activeClarificationQueue.shift()!;
+      this.persistClarificationQueue(session.inspectionId);
+
       const currentIndex = (msg.singleQuestionIndex || 1) + 1;
-      const total = msg.singleQuestionTotal || currentIndex;
+      const total = msg.singleQuestionTotal || (currentIndex + this.activeClarificationQueue.length);
 
       const nextMsg: ChatMessage = {
         id: 'msg-' + Date.now(),
@@ -1017,6 +1398,10 @@ export class ChatStateService {
       this.appendMessageToActive(nextMsg);
       return;
     }
+
+    try {
+      sessionStorage.removeItem(`questai_queue_${session.inspectionId}`);
+    } catch {}
 
     session.workflowStatus = 'completed';
     session.completedAt = new Date().toISOString();
