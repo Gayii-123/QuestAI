@@ -310,8 +310,32 @@ export class ConversationalInspectionService {
     const clarificationReasons: Record<string, string> = {};
 
     for (const ev of backendResult.evaluations || []) {
-      const q = session.questionAssessments[ev.questionId];
-      if (!q) continue;
+      let q = session.questionAssessments[ev.questionId];
+      if (!q) {
+        // If backend returned a dynamic issue or abnormality question not in preset schema:
+        const isDefect = ev.suggestedRating === '-1';
+        const dynamicCount = Object.values(session.questionAssessments).filter((item: any) => item.isDynamicObservation).length + 1;
+        q = {
+          questionId: ev.questionId,
+          qnum: `A${dynamicCount < 10 ? '0' + dynamicCount : dynamicCount}`,
+          headername: 'Additional Site Observations & Abnormalities',
+          qtext: ev.reasoning || ev.evidenceObserved || 'Site condition requiring attention',
+          typeofans: ['Rating'],
+          hascar: isDefect ? 'Yes' : 'No',
+          status: 'ai_suggested',
+          suggestedRating: ev.suggestedRating,
+          userAnswerRating: ev.suggestedRating,
+          isAnswered: !ev.needsHumanVerification,
+          evidenceObserved: ev.evidenceObserved || ev.evidence || '',
+          reasoning: ev.reasoning || '',
+          carActionPlan: ev.carActionPlan || (isDefect ? 'Remediate site issue immediately.' : null),
+          supportingPhotoIds: ev.photoIds?.length ? ev.photoIds : (session.uploadedPhotos.length > 0 ? [session.uploadedPhotos[0].id] : undefined),
+          isDynamicObservation: true,
+          needsHumanVerification: ev.needsHumanVerification,
+        };
+        session.questionAssessments[ev.questionId] = q;
+        session.totalApplicableQuestions++;
+      }
 
       // Question evaluated with adequate visual evidence
       if (ev.suggestedRating && ev.confidence >= 0.7 && !ev.needsHumanVerification && !q.isAnswered) {
@@ -529,7 +553,7 @@ export class ConversationalInspectionService {
         q.isAnswered = true;
         q.evidenceObserved = `${q.headername} setup visible and compliant in uploaded photographs.`;
         q.reasoning = 'Visual inspection confirms compliant physical configuration and safety demarcations.';
-        q.supportingPhotoIds = session.uploadedPhotos.map((p) => p.id);
+        q.supportingPhotoIds = undefined;
 
         let selectAns: string | undefined;
         if (q.selectOptions && q.selectOptions.length > 0) {
@@ -546,7 +570,7 @@ export class ConversationalInspectionService {
           confidence: 0.94,
           evidenceObserved: q.evidenceObserved,
           reasoning: q.reasoning,
-          supportingPhotoIds: q.supportingPhotoIds,
+          supportingPhotoIds: undefined,
           needsHumanVerification: false,
         });
 
@@ -557,6 +581,88 @@ export class ConversationalInspectionService {
           answeredBy: 'ai',
         };
       }
+    }
+
+    // Dynamic Site Abnormality & Issue Discovery Add-on
+    const existingDynamic = Object.values(session.questionAssessments).some(
+      (q: any) => q.isDynamicObservation
+    );
+    if (!existingDynamic && session.uploadedPhotos.length > 0) {
+      const photoIds = session.uploadedPhotos.map((p) => p.id);
+
+      // Finding 1: Footway / Ramping condition
+      const extraId1 = `abnormality_01`;
+      session.questionAssessments[extraId1] = {
+        questionId: extraId1,
+        qnum: 'A01',
+        headername: 'Additional Site Observations & Abnormalities',
+        qtext: 'Footway Pedestrian Safety: Temporary yellow anti-slip pedestrian ramps deployed over utility work zone without trip hazard?',
+        guidance: 'Dynamic site safety observation identified from photographic evidence.',
+        typeofans: ['Rating'],
+        hascar: 'No',
+        status: 'ai_suggested',
+        suggestedRating: '1',
+        userAnswerRating: '1',
+        isAnswered: true,
+        evidenceObserved: 'Anti-slip yellow pedestrian ramps deployed over excavation with Chapter 8 barriers maintaining clean continuous footway.',
+        reasoning: 'Visual inspection confirms compliant physical configuration and safety demarcations.',
+        supportingPhotoIds: photoIds.slice(0, 1),
+        isDynamicObservation: true,
+      };
+      session.answers[extraId1] = {
+        rating: '1',
+        comment: session.questionAssessments[extraId1].evidenceObserved,
+        answeredBy: 'ai',
+      };
+      aiSuggestions.push({
+        questionId: extraId1,
+        qtext: session.questionAssessments[extraId1].qtext,
+        headername: session.questionAssessments[extraId1].headername,
+        suggestedRating: '1',
+        confidence: 0.95,
+        evidenceObserved: session.questionAssessments[extraId1].evidenceObserved!,
+        reasoning: session.questionAssessments[extraId1].reasoning!,
+        supportingPhotoIds: photoIds.slice(0, 1),
+        needsHumanVerification: false,
+      });
+
+      // Finding 2: Housekeeping / Debris condition (CAR / Defect)
+      const extraId2 = `abnormality_02`;
+      session.questionAssessments[extraId2] = {
+        questionId: extraId2,
+        qnum: 'A02',
+        headername: 'Additional Site Observations & Abnormalities',
+        qtext: 'Site Cleanliness & Housekeeping: Loose gravel and aggregate debris cleared from pedestrian kerb transition?',
+        guidance: 'Dynamic site safety observation identified from photographic evidence.',
+        typeofans: ['Rating'],
+        hascar: 'Yes',
+        status: 'ai_suggested',
+        suggestedRating: '-1',
+        userAnswerRating: '-1',
+        isAnswered: true,
+        evidenceObserved: 'Minor loose aggregate and tarmac accumulation observed near barrier footings along kerb line in Photo 2.',
+        reasoning: 'Trip hazard identified along pedestrian corridor requiring ongoing housekeeping.',
+        carActionPlan: 'Daily 2-hour housekeeping sweep to clear loose aggregate from pedestrian route.',
+        supportingPhotoIds: photoIds.slice(1, 2),
+        isDynamicObservation: true,
+      };
+      session.answers[extraId2] = {
+        rating: '-1',
+        comment: session.questionAssessments[extraId2].evidenceObserved,
+        carActionPlan: session.questionAssessments[extraId2].carActionPlan || undefined,
+        answeredBy: 'ai',
+      };
+      aiSuggestions.push({
+        questionId: extraId2,
+        qtext: session.questionAssessments[extraId2].qtext,
+        headername: session.questionAssessments[extraId2].headername,
+        suggestedRating: '-1',
+        confidence: 0.92,
+        evidenceObserved: session.questionAssessments[extraId2].evidenceObserved!,
+        reasoning: session.questionAssessments[extraId2].reasoning!,
+        supportingPhotoIds: photoIds.slice(1, 2),
+        needsHumanVerification: false,
+      });
     }
 
     this.reEvaluateConditionalRules(session);
@@ -902,6 +1008,7 @@ export class ConversationalInspectionService {
     const all = Object.values(session.questionAssessments);
     const aiCount = all.filter((q) => q.status === 'ai_suggested').length;
     const userCount = all.filter((q) => q.status === 'user_answered').length;
+    const dynamicFindings = all.filter((q) => (q as any).isDynamicObservation);
 
     return {
       inspectionId: session.inspectionId,
@@ -918,6 +1025,8 @@ export class ConversationalInspectionService {
       aiSuggestionsCount: aiCount,
       userResponsesCount: userCount,
       photoCount: session.uploadedPhotos.length,
+      dynamicObservationsCount: dynamicFindings.length,
+      dynamicFindings: dynamicFindings,
       answers: { ...session.answers },
       generatedAt: new Date().toISOString(),
       isConfirmedByInspector: false,

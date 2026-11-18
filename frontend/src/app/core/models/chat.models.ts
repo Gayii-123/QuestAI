@@ -47,6 +47,9 @@ export interface ChatMessage {
   inspectionId?: string;
   evidenceMessage?: InspectionEvidenceViewModel;
   questionBatch?: InspectionQuestionBatchViewModel;
+  singleQuestion?: any;
+  singleQuestionIndex?: number;
+  singleQuestionTotal?: number;
   inspectionProgress?: InspectionProgressViewModel;
   draftSummary?: InspectionDraftSummaryViewModel;
   isAdditionalPhotoRequest?: boolean;

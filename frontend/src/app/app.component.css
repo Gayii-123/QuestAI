@@ -3312,188 +3312,371 @@
 }
 
 /* ==============================================================================
-   Inspection History Detail Modal
+   Official Marlborough Highways / Quest Site Inspection Report Modal
    ============================================================================== */
 
-.history-detail-modal {
-  max-width: 640px;
+.official-report-modal {
+  max-width: 960px;
   width: 95%;
-}
-
-.history-modal-body {
+  max-height: 90vh;
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  padding: 0;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: #ffffff;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.25);
 }
 
-.history-record-meta {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
-}
-
-.history-meta-item {
+.official-report-topbar {
+  background: #88132B;
+  color: #ffffff;
+  padding: 12px 20px;
   display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
-
-.history-meta-label {
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-muted);
-}
-
-.history-meta-value {
-  font-size: 0.84rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.history-stats-row {
-  display: flex;
-  gap: 0.75rem;
-}
-
-.history-stat-card {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
   align-items: center;
-  padding: 0.75rem 0.5rem;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-light);
-  gap: 0.2rem;
-}
-
-.stat-num {
-  font-size: 1.5rem;
-  font-weight: 800;
-  line-height: 1;
-}
-
-.stat-lbl {
-  font-size: 0.72rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-secondary);
-}
-
-.stat-pass {
-  background-color: #f0fdf4;
-  border-color: #bbf7d0;
-}
-
-.stat-pass .stat-num {
-  color: #15803d;
-}
-
-.stat-car {
-  background-color: #fef2f2;
-  border-color: #fecaca;
-}
-
-.stat-car .stat-num {
-  color: #b91c1c;
-}
-
-.stat-na {
-  background-color: #f8fafc;
-  border-color: var(--border-light);
-}
-
-.stat-na .stat-num {
-  color: var(--text-secondary);
-}
-
-.stat-total {
-  background-color: #f0f9ff;
-  border-color: #bae6fd;
-}
-
-.stat-total .stat-num {
-  color: #0369a1;
-}
-
-.history-answers-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-}
-
-.history-answers-title {
-  font-size: 0.84rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0;
-}
-
-.history-answers-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  max-height: 280px;
-  overflow-y: auto;
-}
-
-.history-answer-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.65rem;
-  padding: 0.5rem 0.65rem;
-  background-color: var(--bg-app);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-subtle);
-}
-
-.history-answer-rating {
-  font-size: 0.72rem;
-  font-weight: 700;
-  padding: 2px 7px;
-  border-radius: var(--radius-pill);
-  white-space: nowrap;
+  justify-content: space-between;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   flex-shrink: 0;
-  margin-top: 1px;
 }
 
-.rating-pass {
-  background-color: #dcfce7;
-  color: #15803d;
+.official-topbar-title {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+  letter-spacing: -0.2px;
 }
 
-.rating-car {
-  background-color: #fee2e2;
-  color: #b91c1c;
+.official-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.rating-na {
-  background-color: #f1f5f9;
-  color: var(--text-secondary);
+.official-action-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #701024;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 5px 12px;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
 
-.history-answer-detail {
+.official-action-pill:hover {
+  background: #5b0d1d;
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.official-action-pill.print-btn {
+  background: #dc2626;
+  border-color: #ef4444;
+}
+
+.official-action-pill.print-btn:hover {
+  background: #b91c1c;
+}
+
+.official-pill-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.official-close-btn {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  line-height: 1;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.official-close-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.official-report-scroll-body {
+  padding: 24px 28px;
+  overflow-y: auto;
   flex: 1;
-  min-width: 0;
+  background: #ffffff;
+  color: #1e293b;
+}
+
+.official-brand-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #88132B;
+  margin-bottom: 18px;
+}
+
+.official-brand-title {
+  font-size: 1.65rem;
+  font-weight: 800;
+  color: #88132B;
+  margin: 0;
+  letter-spacing: -0.4px;
+}
+
+.official-marlborough-logo {
+  display: flex;
+  align-items: center;
+}
+
+.official-m-svg {
+  width: 52px;
+  height: 40px;
+}
+
+/* 4-Column Metadata Table */
+.official-meta-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 24px;
+  font-size: 0.88rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+}
+
+.official-meta-table td {
+  padding: 8px 14px;
+  border: 1px solid #e2e8f0;
+  vertical-align: middle;
+}
+
+.official-meta-lbl {
+  width: 20%;
+  font-weight: 700;
+  color: #334155;
+  background: #f8fafc;
+}
+
+.official-meta-val {
+  width: 30%;
+  color: #0f172a;
+  font-weight: 500;
+}
+
+.score-highlight {
+  color: #16a34a;
+  font-size: 1rem;
+}
+
+/* Section Title (Burgundy) */
+.official-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #88132B;
+  margin: 24px 0 12px 0;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.official-section-count {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+/* Site Photographs Gallery Grid */
+.official-photos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.official-photo-card {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #f8fafc;
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
 }
 
-.history-qid {
+.official-photo-card img {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  display: block;
+}
+
+.official-photo-lbl {
+  padding: 5px 8px;
   font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  word-break: break-all;
+  color: #64748b;
+  background: #ffffff;
+  border-top: 1px solid #e2e8f0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.history-comment,
-.history-select {
+/* Grouped Checklist Tables */
+.official-report-tables-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.official-group-block {
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.official-group-title {
+  background: #ffffff;
+  color: #88132B;
+  font-weight: 800;
+  font-size: 0.95rem;
+  margin: 0;
+  padding: 10px 14px;
+  border-bottom: 1px solid #e2e8f0;
+  border-left: 4px solid #88132B;
+}
+
+.official-checklist-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.official-checklist-table thead th {
+  background: #f8fafc;
+  color: #334155;
+  font-weight: 700;
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid #cbd5e1;
   font-size: 0.8rem;
-  color: var(--text-secondary);
+}
+
+.official-checklist-table tbody td {
+  padding: 9px 12px;
+  border-bottom: 1px solid #e2e8f0;
+  vertical-align: top;
+}
+
+.official-sl-col {
+  font-weight: 600;
+  color: #64748b;
+}
+
+.official-item-col {
+  color: #0f172a;
+}
+
+.official-dyn-badge {
+  display: inline-block;
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  margin-bottom: 4px;
+}
+
+.official-q-text {
+  font-weight: 600;
   line-height: 1.4;
+}
+
+.official-q-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.official-inline-thumb {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid #cbd5e1;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.official-inline-thumb:hover {
+  transform: scale(1.08);
+}
+
+.official-evidence-note {
+  font-size: 0.78rem;
+  color: #475569;
+  margin-top: 5px;
+  line-height: 1.35;
+}
+
+.official-car-plan {
+  font-size: 0.78rem;
+  color: #b91c1c;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+.official-status-col {
+  font-weight: 600;
+}
+
+.official-status-col.status-yes {
+  color: #16a34a;
+}
+
+.official-status-col.status-car {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.official-status-col.status-na {
+  color: #64748b;
+}
+
+.official-rating-col {
+  text-align: center;
+  font-weight: 800;
+  font-size: 1rem;
+}
+
+.official-rating-col.rating-green {
+  color: #16a34a;
+}
+
+.official-rating-col.rating-red {
+  color: #dc2626;
+}
+
+.official-rating-col.rating-gray {
+  color: #64748b;
+}
+
+.official-modal-footer {
+  border-top: 1px solid #e2e8f0;
+  padding: 14px 24px;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
 /* ==============================================================================
@@ -5041,4 +5224,118 @@
   background: transparent !important;
   border-bottom: none !important;
 }
+
+.btn-modal-download-pdf {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #dc2626 !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: 8px !important;
+  padding: 8px 16px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-modal-download-pdf:hover {
+  background: #b91c1c !important;
+}
+
+.modal-pdf-icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* Direct Inline Photo Upload Card */
+.chat-direct-upload-wrap {
+  margin-top: 12px;
+  max-width: 540px;
+  width: 100%;
+}
+
+.direct-upload-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  background: #ffffff;
+  border: 2px dashed #cbd5e1;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.direct-upload-card:hover {
+  border-color: #dc2626;
+  background: #fff8f8;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.08);
+  transform: translateY(-1px);
+}
+
+.direct-upload-icon-circle {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #fef2f2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.direct-camera-svg {
+  width: 22px;
+  height: 22px;
+  color: #dc2626;
+}
+
+.direct-upload-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.direct-upload-title {
+  font-size: 14.5px;
+  font-weight: 650;
+  color: #0f172a;
+}
+
+.direct-upload-sub {
+  font-size: 12.5px;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+.btn-direct-choose {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #dc2626;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease;
+}
+
+.btn-direct-choose:hover {
+  background: #b91c1c;
+}
+
+.choose-icon {
+  width: 14px;
+  height: 14px;
+}
+
+
 
