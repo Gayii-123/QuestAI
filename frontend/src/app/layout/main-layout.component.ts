@@ -108,12 +108,14 @@ export class MainLayoutComponent {
   }
 
   navigateToInspectionHistory(): void {
+    this.reportService.loadInspectionHistory();
     this.sidebarActiveSection.set('inspection-history');
     this.closeMobileSidebar();
     void this.router.navigate(['/reports']);
   }
 
   navigateToMyReports(): void {
+    this.reportService.loadInspectionHistory();
     this.sidebarActiveSection.set('my-reports');
     this.closeMobileSidebar();
     void this.router.navigate(['/reports']);
