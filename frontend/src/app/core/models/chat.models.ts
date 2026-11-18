@@ -1,10 +1,17 @@
-import { InspectionPhoto } from '../../features/inspection/site-inspection.models';
+import type { InspectionPhoto } from '../../features/inspection/site-inspection.models';
+export type { InspectionPhoto } from '../../features/inspection/site-inspection.models';
 import {
   InspectionEvidenceViewModel,
   InspectionQuestionBatchViewModel,
   InspectionProgressViewModel,
   InspectionDraftSummaryViewModel,
 } from './inspection-view.models';
+
+export interface ThinkingStep {
+  title: string;
+  detail?: string;
+  timestamp?: Date;
+}
 
 export interface InspectionFindingPreview {
   id?: string;
@@ -35,6 +42,7 @@ export interface ChatMessage {
   isError?: boolean;
   retryPrompt?: string;
   showInspectionCategories?: boolean;
+  categorySelected?: boolean;
   showInlinePhotoUpload?: boolean;
   suggestedBankId?: string;
   selectedBankId?: string;

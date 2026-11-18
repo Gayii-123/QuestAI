@@ -1,0 +1,368 @@
+<div class="chat-app-layout red-theme-layout">
+  <!-- Mobile Sidebar Backdrop Overlay -->
+  <div class="sidebar-backdrop" *ngIf="mobileSidebarOpen()" (click)="closeMobileSidebar()" aria-hidden="true"></div>
+
+  <div class="workspace-body red-sidebar-body">
+    <!-- Left Sidebar -->
+    <aside class="chat-sidebar red-theme-sidebar" [class.mobile-open]="mobileSidebarOpen()"
+      [class.desktop-collapsed]="desktopSidebarCollapsed()">
+
+      <!-- Top Brand Section (Matching reference UI: red Q badge + Quest AI) -->
+      <div class="sidebar-red-brand" (click)="navigateToHome()" role="button" tabindex="0" title="Quest AI Home">
+        <div class="sidebar-brand-q-badge">Q</div>
+        <span class="sidebar-brand-title">Quest <span class="brand-red-text">AI</span></span>
+      </div>
+
+      <!-- Sidebar Navigation Menu -->
+      <div class="sidebar-red-nav">
+        <!-- 1. Home Button -->
+        <button class="sidebar-red-nav-item"
+          [class.active]="isHomeActive()"
+          (click)="navigateToHome()" type="button">
+          <svg class="sidebar-red-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+          </svg>
+          <span class="sidebar-nav-label">Home</span>
+        </button>
+
+        <!-- 2. Recent Chats Button -->
+        <button class="sidebar-red-nav-item" [class.active]="sidebarActiveSection() === 'recent-chats'"
+          (click)="navigateToRecentChats()" type="button">
+          <svg class="sidebar-red-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+          <span class="sidebar-nav-label">Recent Chats</span>
+          <svg class="sidebar-chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </button>
+
+        <!-- Sub-list of Recent Chats (Shown when chatting has started or user clicks Recent Chats) -->
+        <div class="sidebar-red-conversations"
+          *ngIf="(hasActiveMessages() || sidebarActiveSection() === 'recent-chats') && chatState.conversations().length > 0">
+          <div *ngFor="let conv of chatState.conversations().slice(0, 6)" class="sidebar-red-conv-item"
+            [class.active]="conv.id === chatState.activeConversationId() && isChatRoute()"
+            (click)="selectConversation(conv.id)">
+            <svg class="red-conv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+            <div class="red-conv-content">
+              <span class="red-conv-title">{{ conv.title }}</span>
+              <span class="red-conv-time">{{ conv.updatedAt | date:'shortTime' }}</span>
+            </div>
+            <!-- Delete Chat Button -->
+            <button class="red-conv-delete-btn" (click)="promptDeleteConversation(conv, $event)" type="button"
+              title="Delete chat" aria-label="Delete chat">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+            </button>
+          </div>
+          <div class="sidebar-conv-actions-row">
+            <button class="sidebar-clear-all-btn" (click)="promptClearAllConversations($event)" type="button"
+              *ngIf="chatState.conversations().length > 1">
+              Clear All
+            </button>
+            <button class="sidebar-view-all-btn" (click)="navigateToRecentChats()" type="button"
+              *ngIf="chatState.conversations().length > 3">
+              <span>View All</span>
+              <span>→</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 3. Inspection History Button -->
+        <button class="sidebar-red-nav-item" [class.active]="sidebarActiveSection() === 'inspection-history'"
+          (click)="navigateToInspectionHistory()" type="button">
+          <svg class="sidebar-red-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="20" x2="18" y2="10"></line>
+            <line x1="12" y1="20" x2="12" y2="4"></line>
+            <line x1="6" y1="20" x2="6" y2="14"></line>
+          </svg>
+          <span class="sidebar-nav-label">Inspection History</span>
+        </button>
+
+        <!-- Sub-list of Inspection History -->
+        <div class="sidebar-red-conversations" *ngIf="sidebarActiveSection() === 'inspection-history'">
+          <div *ngFor="let rec of reportService.inspectionHistoryList().slice(0, 10)" class="sidebar-red-conv-item"
+            (click)="openHistoryRecord(rec)">
+            <svg class="red-conv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+            </svg>
+            <div class="red-conv-content">
+              <span class="red-conv-title">{{ rec.bankName }}</span>
+              <span class="red-conv-time">{{ rec.referenceNumber }}</span>
+            </div>
+          </div>
+          <div *ngIf="reportService.inspectionHistoryList().length === 0" class="red-empty-text">No inspections recorded yet</div>
+        </div>
+
+        <!-- 4. My Reports Button -->
+        <button class="sidebar-red-nav-item" [class.active]="sidebarActiveSection() === 'my-reports'"
+          (click)="navigateToMyReports()" type="button">
+          <svg class="sidebar-red-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+          </svg>
+          <span class="sidebar-nav-label">My Reports</span>
+        </button>
+
+        <!-- Sub-list of My Reports -->
+        <div class="sidebar-red-conversations" *ngIf="sidebarActiveSection() === 'my-reports'">
+          <div *ngFor="let rec of reportService.inspectionHistoryList().slice(0, 10)" class="sidebar-red-conv-item"
+            (click)="openHistoryRecord(rec)">
+            <svg class="red-conv-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <div class="red-conv-content">
+              <span class="red-conv-title">{{ rec.bankName }}</span>
+              <span class="red-conv-time">Ref: {{ rec.referenceNumber }}</span>
+            </div>
+          </div>
+          <div *ngIf="reportService.inspectionHistoryList().length === 0" class="red-empty-text">No reports generated yet</div>
+        </div>
+      </div>
+
+      <!-- Authenticated Quest Inspector User Card in Sidebar -->
+      <div class="sidebar-user-section">
+        <div class="sidebar-user-avatar" [title]="userDisplayName()">
+          <span>{{ userInitials() }}</span>
+        </div>
+        <div class="sidebar-user-details">
+          <span class="sidebar-user-name" [title]="userDisplayName()">{{ userDisplayName() }}</span>
+          <span class="sidebar-user-role" [title]="userRole()">{{ userRole() }}</span>
+        </div>
+        <button class="btn-sidebar-logout" (click)="logout()" type="button" title="Sign Out of QuestAI"
+          aria-label="Sign Out">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Workspace Column -->
+    <div class="main-workspace-column">
+      <!-- Canvas Top Header (Transparent) -->
+      <header class="canvas-top-header">
+        <button class="btn-icon mobile-toggle-btn" (click)="toggleSidebar()" aria-label="Toggle Sidebar"
+          title="Toggle Sidebar">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
+        <div class="canvas-top-spacer"></div>
+
+        <!-- Authenticated User Profile & Sign Out in Canvas Topbar -->
+        <div class="topbar-user-pill">
+          <div class="topbar-user-avatar">
+            <span>{{ userInitials() }}</span>
+          </div>
+          <div class="topbar-user-meta">
+            <span class="topbar-user-name">{{ userDisplayName() }}</span>
+            <span class="topbar-user-contractor">{{ userContractor() }}</span>
+          </div>
+          <button class="btn-topbar-logout" (click)="logout()" type="button" title="Sign Out of QuestAI">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"
+              class="logout-icon">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+            <span>Sign Out</span>
+          </button>
+        </div>
+
+        <!-- Delete Chat Action Button when viewing active chat -->
+        <button *ngIf="chatState.activeConversation() && hasActiveMessages() && isChatRoute()" class="topbar-delete-chat-btn"
+          (click)="promptDeleteConversation(chatState.activeConversation()!, $event)" type="button" title="Delete current chat"
+          aria-label="Delete current chat">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            <line x1="10" y1="11" x2="10" y2="17"></line>
+            <line x1="14" y1="11" x2="14" y2="17"></line>
+          </svg>
+          <span>Delete Chat</span>
+        </button>
+      </header>
+
+      <!-- Main Router Outlet -->
+      <main class="outlet-main-container">
+        <router-outlet></router-outlet>
+      </main>
+    </div>
+  </div>
+
+  <!-- AI Photo Upload & Form Fill Modal -->
+  <div *ngIf="chatState.showPhotoUploadModal()" class="modal-backdrop" (click)="closePhotoUploadModal()">
+    <div class="modal-window photo-upload-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="modal-badge-row">
+            <span class="modal-badge">AI Vision Inspection</span>
+            <span class="modal-bank-tag">{{ chatState.selectedUploadBank()?.icon }} {{ chatState.selectedUploadBank()?.name }}</span>
+          </div>
+          <h2 class="modal-title">Upload Site Photos & Auto-Fill Form</h2>
+        </div>
+        <button class="btn-modal-close" (click)="closePhotoUploadModal()" aria-label="Close modal">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <p class="modal-description">
+          Upload site inspection photographs for <strong>{{ chatState.selectedUploadBank()?.name }}</strong>. QuestAI vision
+          analysis will evaluate safety compliance and pre-fill suggestions for inspector review.
+        </p>
+
+        <!-- Dynamic Risk Banks Selector when Managers Site Inspection is selected -->
+        <div *ngIf="chatState.selectedUploadBank()?.isManagers" class="modal-managers-risk-panel">
+          <div class="modal-risk-header">
+            <span class="modal-risk-title">Active Risk Banks ({{ chatState.selectedUploadRiskBanks().length }} selected)</span>
+            <div class="modal-risk-actions">
+              <button type="button" class="btn-modal-risk-link" (click)="selectAllUploadRiskBanks()">Select All</button>
+              <button type="button" class="btn-modal-risk-link" (click)="clearAllUploadRiskBanks()">Clear</button>
+            </div>
+          </div>
+          <div class="modal-risk-chips">
+            <button *ngFor="let risk of chatState.availableRiskBanks" type="button" class="modal-risk-chip"
+              [class.selected]="chatState.selectedUploadRiskBanks().includes(risk.key)" (click)="toggleUploadRiskBank(risk.key)">
+              {{ risk.label }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Drag & Drop Upload Dropzone -->
+        <div class="photo-dropzone" [class.dragover]="chatState.isDragOver()" (dragover)="onDragOver($event)"
+          (dragleave)="onDragLeave($event)" (drop)="onDropPhotos($event)" (click)="fileUploadInput.click()">
+          <input #fileUploadInput type="file" multiple accept="image/*" capture="environment"
+            (change)="onFilesSelected($event)" style="display: none" />
+
+          <div class="dropzone-content">
+            <div class="dropzone-icon-circle">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                <circle cx="12" cy="13" r="4"></circle>
+              </svg>
+            </div>
+            <span class="dropzone-title">Click to capture / browse photos, or drag & drop</span>
+            <span class="dropzone-sub">Upload JPG, PNG, or WebP site photographs (Multiple images supported)</span>
+          </div>
+        </div>
+
+        <!-- Uploaded Photos Tray / Grid -->
+        <div *ngIf="chatState.uploadedPhotos().length > 0" class="uploaded-photos-section">
+          <div class="uploaded-photos-header">
+            <span class="uploaded-count-title">{{ chatState.uploadedPhotos().length }} Photo{{ chatState.uploadedPhotos().length > 1 ? 's' : '' }} Selected</span>
+            <button class="btn-text-danger" (click)="clearUploadedPhotos()" type="button">Clear All</button>
+          </div>
+
+          <div class="uploaded-thumbs-grid">
+            <div *ngFor="let photo of chatState.uploadedPhotos(); let i = index" class="photo-thumb-card">
+              <img [src]="photo.url" [alt]="photo.name" class="thumb-img" />
+              <div class="thumb-meta">
+                <span class="thumb-name">{{ photo.name }}</span>
+              </div>
+              <button class="btn-thumb-remove" (click)="removeUploadedPhoto(i)" title="Remove photo" type="button">✕</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Optional Site Context / Notes -->
+        <div class="site-context-field">
+          <label class="field-label">Site Context / Specific Asset Details (Optional):</label>
+          <input type="text" [ngModel]="chatState.uploadSiteNotes()" (ngModelChange)="chatState.uploadSiteNotes.set($event)"
+            placeholder="e.g. A1(M) Junction 4-6, lighting column #14, day shift..." class="site-notes-input" />
+        </div>
+
+        <!-- Photo Validation Error Notice -->
+        <div *ngIf="chatState.photoUploadError()" class="ai-analyzing-progress-banner" role="alert"
+          style="border-color: #ef4444; background: #fef2f2; color: #b91c1c;">
+          <span>{{ chatState.photoUploadError() }}</span>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-modal-cancel" (click)="closePhotoUploadModal()" [disabled]="chatState.isGenerating()" type="button">
+          Cancel
+        </button>
+        <button class="btn-modal-cancel" (click)="openManualChecklistFromModal()" [disabled]="chatState.isGenerating()"
+          type="button" title="Open checklist without uploading photos">
+          Skip Photos (Manual Checklist)
+        </button>
+        <button class="btn-analyze-autofill" (click)="runAiPhotoAnalysisAndFill()"
+          [disabled]="chatState.uploadedPhotos().length === 0 || chatState.isGenerating()" type="button">
+          <svg class="btn-sparkle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
+          </svg>
+          <span>
+            {{ chatState.isGenerating() ? 'Analyzing & Auto-Filling Form...' : 'Analyze ' + chatState.uploadedPhotos().length + ' Photo' + (chatState.uploadedPhotos().length > 1 ? 's' : '') + ' & Auto-Fill Form' }}
+          </span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Inspection Draft Review Drawer (Slide-out dedicated review surface) -->
+  <app-inspection-review-drawer *ngIf="chatState.activeReviewDraft()" [draftSummary]="chatState.activeReviewDraft()!"
+    [session]="chatState.activeInspectionSession() || undefined" [canonicalQuestions]="chatState.activeReviewQuestions()"
+    (closeDrawer)="closeReviewDrawer()" (confirmAssessment)="onConfirmAssessment($event)"
+    (downloadPdf)="downloadReportPdf($event)"
+    (reopenAssessment)="onAssessmentReopened($event)"></app-inspection-review-drawer>
+
+  <!-- Delete Chat Confirmation Modal (ChatGPT Style) -->
+  <div *ngIf="conversationToDelete()" class="modal-backdrop" (click)="cancelDeleteConversation()">
+    <div class="modal-window delete-chat-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <h2 class="modal-title">Delete chat?</h2>
+        </div>
+        <button class="btn-modal-close" (click)="cancelDeleteConversation()" aria-label="Close">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="delete-chat-text">
+          This will delete <strong>"{{ conversationToDelete()?.title }}"</strong>.
+        </p>
+        <p class="delete-chat-subtext">
+          This action cannot be undone. All site inspection messages, photos, and evaluations from this chat will be removed.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-modal-cancel" (click)="cancelDeleteConversation()" type="button">Cancel</button>
+        <button class="btn-delete-confirm" (click)="confirmDeleteConversation()" type="button">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Clear All Chats Confirmation Modal -->
+  <div *ngIf="showClearAllConfirm()" class="modal-backdrop" (click)="cancelClearAll()">
+    <div class="modal-window delete-chat-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <h2 class="modal-title">Clear all chats?</h2>
+        </div>
+        <button class="btn-modal-close" (click)="cancelClearAll()" aria-label="Close">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="delete-chat-text">
+          Are you sure you want to delete all <strong>{{ chatState.conversations().length }}</strong> recent chats?
+        </p>
+        <p class="delete-chat-subtext">
+          This action cannot be undone. All conversation histories and site inspection records will be permanently removed.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-modal-cancel" (click)="cancelClearAll()" type="button">Cancel</button>
+        <button class="btn-delete-confirm" (click)="confirmClearAll()" type="button">Clear All</button>
+      </div>
+    </div>
+  </div>
+</div>

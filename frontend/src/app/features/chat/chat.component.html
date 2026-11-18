@@ -1,0 +1,49 @@
+<div class="chat-workspace" [class.empty-state]="!hasMessages()" [class.has-messages]="hasMessages()">
+  <!-- Chat Scrollable Messages Area (Shown when messages exist) -->
+  <div class="chat-scroll-area" #chatScrollContainer *ngIf="hasMessages()">
+    <div class="messages-stream">
+      <app-chat-message *ngFor="let msg of activeMessages()" [msg]="msg"></app-chat-message>
+
+      <!-- Claude-Style AI Thinking / Photo Analysis Indicator -->
+      <div *ngIf="chatState.isGenerating()" class="message-row assistant-row claude-thinking-row">
+        <div class="avatar-assistant">
+          <div class="avatar-logo-wrap">
+            <svg class="avatar-q-logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M50 14 C30.12 14 14 30.12 14 50 C14 69.88 30.12 86 50 86 C58.2 86 65.75 83.25 71.8 78.6 L78.4 85.2 C79.6 86.4 81.5 86.4 82.7 85.2 C83.9 84 83.9 82.1 82.7 80.9 L76.3 74.5 C82.4 67.8 86 59.3 86 50 C86 30.12 69.88 14 50 14 Z M50 74 C36.75 74 26 63.25 26 50 C26 36.75 36.75 26 50 26 C63.25 26 74 36.75 74 50 C74 56.4 71.5 62.2 67.4 66.5 L60.2 59.3 C61.3 56.6 62 53.4 62 50 C62 43.37 56.63 38 50 38 C43.37 38 38 43.37 38 50 C38 56.63 43.37 62 50 62 C52.2 62 54.3 61.4 56.1 60.3 L63.6 67.8 C59.8 71.7 55.1 74 50 74 Z" fill="#e11d48"/>
+            </svg>
+          </div>
+        </div>
+        <div class="claude-indicator-container" role="status" aria-live="polite">
+          <div class="claude-indicator-pill">
+            <!-- Three terracotta-coral dots in Claude's triangular/orbital constellation -->
+            <div class="claude-dots" aria-hidden="true">
+              <span class="claude-dot dot-1"></span>
+              <span class="claude-dot dot-2"></span>
+              <span class="claude-dot dot-3"></span>
+            </div>
+
+            <!-- Active thought / activity text with shimmer and keyframe fade -->
+            <span class="claude-activity-text" [attr.data-word]="chatState.thinkingWords()">
+              {{ chatState.thinkingWords() }}
+            </span>
+
+            <!-- Understated right chevron icon -->
+            <svg class="claude-chevron" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor"
+              stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="6 4 10 8 6 12"></polyline>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Empty State: Heading & Subtitle directly above the Input Box -->
+  <div *ngIf="!hasMessages()" class="chat-welcome-group">
+    <h1 class="welcome-heading" [class.fading]="isHeadingFading()">{{ welcomeHeading() }}</h1>
+    <p class="welcome-description">Ask me anything to get started.</p>
+  </div>
+
+  <!-- Message Composer -->
+  <app-chat-composer #chatComposer></app-chat-composer>
+</div>
