@@ -139,6 +139,8 @@ export interface SiteInspectionQuestion {
   conditionalRule?: ConditionalDisplayRule;
   /** QuestAI Evaluation Metadata (Separate from Quest DB schema) */
   questai_metadata?: QuestAiMetadata;
+  /** Whether this question is an extra dynamic abnormality/issue identified by AI */
+  isDynamicObservation?: boolean;
   [key: string]: any;
 }
 

@@ -13,9 +13,13 @@ import { InspectionDraftSummaryViewModel } from '../../../core/models/inspection
 export class InspectionDraftSummaryComponent {
   @Input({ required: true }) summary!: InspectionDraftSummaryViewModel;
   @Output() openReview = new EventEmitter<InspectionDraftSummaryViewModel>();
+  @Output() downloadPdf = new EventEmitter<InspectionDraftSummaryViewModel>();
 
   onReviewClick(): void {
     this.openReview.emit(this.summary);
   }
-}
 
+  onDownloadPdfClick(): void {
+    this.downloadPdf.emit(this.summary);
+  }
+}

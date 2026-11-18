@@ -43,6 +43,7 @@ export class InspectionReviewDrawerComponent implements OnInit, OnChanges {
 
   @Output() closeDrawer = new EventEmitter<void>();
   @Output() confirmAssessment = new EventEmitter<InspectionDraftSummaryViewModel>();
+  @Output() downloadPdf = new EventEmitter<InspectionDraftSummaryViewModel>();
 
   questionGroups = signal<QuestionGroup[]>([]);
   activeFilter = signal<'all' | 'pass' | 'car' | 'na' | 'unresolved'>('all');
@@ -63,24 +64,66 @@ export class InspectionReviewDrawerComponent implements OnInit, OnChanges {
   }
 
   private loadQuestions(): void {
+    let allQuestions: any[] = [];
     if (this.canonicalQuestions && this.canonicalQuestions.length > 0) {
-      this.questionGroups.set(groupQuestionsByHeader(this.canonicalQuestions));
-      this.cdr.markForCheck();
-      return;
-    }
-    const dept = this.session?.department || this.draftSummary?.department;
-    if (dept) {
-      const qs = getQuestionsForDepartment(
-        dept,
-        this.session?.trafficSubtype,
-        this.session?.selectedRiskBanks
-      );
-      if (qs && qs.length > 0) {
-        this.canonicalQuestions = qs;
-        this.questionGroups.set(groupQuestionsByHeader(qs));
-        this.cdr.markForCheck();
+      allQuestions = [...this.canonicalQuestions];
+    } else {
+      const dept = this.session?.department || this.draftSummary?.department;
+      if (dept) {
+        const qs = getQuestionsForDepartment(
+          dept,
+          this.session?.trafficSubtype,
+          this.session?.selectedRiskBanks
+        );
+        if (qs && qs.length > 0) {
+          allQuestions = [...qs];
+          this.canonicalQuestions = qs;
+        }
       }
     }
+
+    // Merge any dynamic abnormality questions from session
+    if (this.session?.questionAssessments) {
+      const dynamicQs = Object.values(this.session.questionAssessments).filter(
+        (q: any) => q.isDynamicObservation || q.questionId.startsWith('abnormality_') || q.questionId.startsWith('extra_')
+      );
+      for (const dq of dynamicQs) {
+        if (!allQuestions.some((item) => item.id === dq.questionId)) {
+          allQuestions.push({
+            id: dq.questionId,
+            qnum: dq.qnum,
+            headername: dq.headername,
+            qtext: dq.qtext,
+            typeofans: dq.typeofans,
+            guidance: dq.guidance,
+            isDynamicObservation: true,
+          });
+        }
+      }
+    }
+
+    this.questionGroups.set(groupQuestionsByHeader(allQuestions));
+    this.cdr.markForCheck();
+  }
+
+  getSupportingPhotos(questionId: string): any[] {
+    const qAssessment = this.getQuestionAssessment(questionId);
+    if (!qAssessment) return [];
+    // Only display inline thumbnails if this check is a dynamic observation or defect (-1)
+    if (!qAssessment.isDynamicObservation && qAssessment.userAnswerRating !== '-1' && qAssessment.suggestedRating !== '-1') {
+      return [];
+    }
+    const photoIds = qAssessment.supportingPhotoIds;
+    if (!photoIds || photoIds.length === 0 || !this.session?.uploadedPhotos) return [];
+    return this.session.uploadedPhotos.filter((p) => photoIds.includes(p.id) && p.url && p.url.trim().length > 0);
+  }
+
+  getRequirementStatusText(questionId: string): string {
+    const rating = this.getQuestionRating(questionId);
+    if (rating === '1') return 'Yes / Good';
+    if (rating === '-1') return 'Action Required';
+    if (rating === '0') return 'N/A';
+    return '';
   }
 
   getAnswer(questionId: string): QuestionAnswer | undefined {
@@ -210,6 +253,10 @@ export class InspectionReviewDrawerComponent implements OnInit, OnChanges {
       confirmedAt: new Date().toISOString(),
     };
     this.confirmAssessment.emit(updatedSummary);
+  }
+
+  onDownloadPdf(): void {
+    this.downloadPdf.emit(this.draftSummary);
   }
 
   onClose(): void {
