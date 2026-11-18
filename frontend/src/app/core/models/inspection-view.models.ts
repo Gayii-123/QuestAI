@@ -81,6 +81,12 @@ export interface InspectionQuestionViewModel {
   clarificationContext?: string;
   /** Whether the question has an answer recorded */
   isAnswered: boolean;
+  /** Whether this question is an extra dynamic abnormality/issue identified by AI */
+  isDynamicObservation?: boolean;
+  /** Specific issue or abnormality type */
+  abnormalityType?: string;
+  /** Severity level if defect */
+  severity?: 'low' | 'medium' | 'high' | 'critical';
 }
 
 /**
@@ -113,6 +119,8 @@ export interface InspectionAnswerViewModel {
   selectans?: string;
   multiselectans?: string[];
   textAnswer?: string;
+  comment?: string;
+  answeredBy?: string;
   photos?: InspectionPhoto[];
   carActionPlan?: string;
   answeredAt: string;
@@ -232,6 +240,8 @@ export interface InspectionDraftSummaryViewModel {
   generatedAt: string;
   isConfirmedByInspector: boolean;
   confirmedAt?: string;
+  dynamicObservationsCount?: number;
+  dynamicFindings?: InspectionQuestionViewModel[];
 }
 
 /**

@@ -1,0 +1,100 @@
+<div class="single-q-card" *ngIf="question" [class.is-answered]="isAnswered">
+  <!-- Card Header with Question and Dismiss '✕' -->
+  <div class="single-q-header">
+    <div class="single-q-title-wrap">
+      <span class="single-q-step" *ngIf="questionNumber && totalQuestions">
+        Question {{ questionNumber }} of {{ totalQuestions }}
+      </span>
+      <h4 class="single-q-text">{{ question.qtext }}</h4>
+    </div>
+    <button
+      *ngIf="!isAnswered"
+      type="button"
+      class="single-q-dismiss-btn"
+      (click)="onDismiss()"
+      aria-label="Skip question"
+      title="Skip question"
+    >
+      ✕
+    </button>
+  </div>
+
+  <!-- Options List (Divider separated matching Screenshot 5) -->
+  <div class="single-q-options">
+    <button
+      *ngFor="let opt of options; let i = index"
+      type="button"
+      class="single-q-option-row"
+      [class.selected]="(opt.rating && selectedRating === opt.rating) || (opt.selectValue && selectedOption === opt.selectValue)"
+      [disabled]="isAnswered"
+      (click)="onSelectOption(opt)"
+    >
+      <span class="single-q-num-pill">{{ i + 1 }}</span>
+      <span class="single-q-opt-label">{{ opt.label }}</span>
+      <span
+        *ngIf="(opt.rating && selectedRating === opt.rating) || (opt.selectValue && selectedOption === opt.selectValue)"
+        class="single-q-check-icon"
+      >
+        ✓
+      </span>
+    </button>
+  </div>
+
+  <!-- Custom Input Row / Something Else + Skip Button -->
+  <div class="single-q-footer">
+    <div class="single-q-footer-left">
+      <button
+        *ngIf="!isAnswered && !isInputOpen()"
+        type="button"
+        class="single-q-custom-btn"
+        (click)="toggleCustomInput()"
+      >
+        <span class="single-q-pencil-icon">✏️</span>
+        <span class="single-q-custom-label">Something else</span>
+      </button>
+
+      <!-- Expandable inline input -->
+      <div *ngIf="!isAnswered && isInputOpen()" class="single-q-inline-input-wrap">
+        <input
+          type="text"
+          class="single-q-text-input"
+          placeholder="Type your answer or details..."
+          [ngModel]="customText()"
+          (ngModelChange)="customText.set($event)"
+          (keydown.enter)="submitCustomText()"
+          autofocus
+        />
+        <button
+          type="button"
+          class="single-q-submit-text-btn"
+          [disabled]="!customText().trim()"
+          (click)="submitCustomText()"
+        >
+          Send
+        </button>
+        <button
+          type="button"
+          class="single-q-cancel-text-btn"
+          (click)="isInputOpen.set(false)"
+        >
+          Cancel
+        </button>
+      </div>
+
+      <!-- If answered with custom text, show it read-only -->
+      <div *ngIf="isAnswered && question.userAnswerText" class="single-q-answered-note">
+        <span class="note-label">Answer:</span> "{{ question.userAnswerText }}"
+      </div>
+    </div>
+
+    <!-- Skip Button (Bottom Right) -->
+    <button
+      *ngIf="!isAnswered"
+      type="button"
+      class="single-q-skip-btn"
+      (click)="onSkip()"
+    >
+      Skip
+    </button>
+  </div>
+</div>
