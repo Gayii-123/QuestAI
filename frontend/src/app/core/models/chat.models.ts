@@ -1,3 +1,11 @@
+import { InspectionPhoto } from '../../features/inspection/site-inspection.models';
+import {
+  InspectionEvidenceViewModel,
+  InspectionQuestionBatchViewModel,
+  InspectionProgressViewModel,
+  InspectionDraftSummaryViewModel,
+} from './inspection-view.models';
+
 export interface InspectionFindingPreview {
   id?: string;
   category: string;
@@ -15,6 +23,7 @@ export interface ChatMessage {
   content: string;
   timestamp: Date;
   attachmentName?: string;
+  photos?: InspectionPhoto[];
   structuredInspection?: {
     summary?: string;
     overallRiskLevel?: 'low' | 'medium' | 'high' | 'critical';
@@ -26,8 +35,22 @@ export interface ChatMessage {
   isError?: boolean;
   retryPrompt?: string;
   showInspectionCategories?: boolean;
+  showInlinePhotoUpload?: boolean;
   suggestedBankId?: string;
   selectedBankId?: string;
+
+  // Legacy full-component embed flag (preserved for backwards-compatibility & tests)
+  isInspectionWorkflowMessage?: boolean;
+  inspectionBankId?: string;
+
+  // New Adaptive Grouped Conversation Properties
+  inspectionId?: string;
+  evidenceMessage?: InspectionEvidenceViewModel;
+  questionBatch?: InspectionQuestionBatchViewModel;
+  inspectionProgress?: InspectionProgressViewModel;
+  draftSummary?: InspectionDraftSummaryViewModel;
+  isAdditionalPhotoRequest?: boolean;
+  targetQuestionId?: string;
 }
 
 export interface Conversation {
@@ -36,6 +59,8 @@ export interface Conversation {
   updatedAt: Date;
   previewSnippet: string;
   messages: ChatMessage[];
+  selectedBankId?: string;
+  activeInspectionId?: string;
 }
 
 export interface SuggestionPrompt {

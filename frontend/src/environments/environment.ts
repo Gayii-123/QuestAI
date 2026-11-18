@@ -1,6 +1,6 @@
 export const environment = {
   production: false,
-  apiUrl: 'http://localhost:5001/api',
+  apiUrl: 'https://us-central1-quest-uk898.cloudfunctions.net',
   appName: 'QuestAI',
   version: '1.0.0-dev',
   firebase: {
@@ -13,5 +13,18 @@ export const environment = {
     appId: '1:354004045459:web:6da2b62fcf2c1991adc766',
     measurementId: 'G-8GW90B44QS',
   },
+  endpoints: {
+    health: 'https://us-central1-quest-uk898.cloudfunctions.net/questAiHealth',
+    status: 'https://us-central1-quest-uk898.cloudfunctions.net/questAiStatus',
+    generate: 'https://us-central1-quest-uk898.cloudfunctions.net/questAiGenerateText',
+    inspect: 'https://us-central1-quest-uk898.cloudfunctions.net/questAiInspect',
+    inspectPhotos: 'https://us-central1-quest-uk898.cloudfunctions.net/questAiInspectPhotos',
+    saveInspection: 'https://us-central1-quest-uk898.cloudfunctions.net/questAiSaveInspection',
+    sessionStart: 'https://us-central1-quest-uk898.cloudfunctions.net/questAiSessionStart',
+    evidenceBatch: 'https://us-central1-quest-uk898.cloudfunctions.net/questAiEvidenceBatch',
+    submitAnswer: 'https://us-central1-quest-uk898.cloudfunctions.net/questAiSubmitAnswer',
+    getSession: 'https://us-central1-quest-uk898.cloudfunctions.net/questAiGetSession',
+    prepareDraft: 'https://us-central1-quest-uk898.cloudfunctions.net/questAiPrepareDraft',
+    confirmDraft: 'https://us-central1-quest-uk898.cloudfunctions.net/questAiConfirmDraft',
+  },
 };
-

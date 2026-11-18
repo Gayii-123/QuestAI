@@ -6,6 +6,10 @@ export const routes: Routes = [
     path: 'inspection',
     component: SiteInspectionComponent,
   },
+  {
+    path: '**',
+    redirectTo: '',
+  },
 ];
 
 

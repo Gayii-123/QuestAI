@@ -80,6 +80,7 @@ export interface SectionGroup {
 
 export interface FinalizedInspectionReport {
   referenceNumber: string; // e.g. SI-2026-784912
+  conversationId?: string;
   bankId: string;
   bankName: string;
   department: string;

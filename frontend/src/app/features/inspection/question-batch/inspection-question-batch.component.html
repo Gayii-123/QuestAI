@@ -1,0 +1,148 @@
+<div class="chat-questions-container" *ngIf="batch">
+  <!-- Conversational Batch Intro (Clean heading) -->
+  <div class="batch-prompt-heading" *ngIf="batch.promptIntro || batch.title">
+    <span class="heading-text">{{ batch.promptIntro || batch.title }}</span>
+  </div>
+
+  <!-- Questions Stream -->
+  <div class="questions-stream">
+    <div
+      *ngFor="let q of batch.questions; let idx = index"
+      class="question-row"
+      [class.is-answered]="q.isAnswered"
+    >
+      <!-- Question Prompt Line -->
+      <div class="q-header-line">
+        <span class="q-num" *ngIf="batch.questions.length > 1">{{ idx + 1 }}.</span>
+        <span class="q-text">{{ q.qtext }}</span>
+      </div>
+
+      <!-- Clarification context (if question needed clarification based on photos) -->
+      <div class="q-clarification-hint" *ngIf="q.clarificationContext">
+        <span class="hint-icon">💡</span>
+        <span class="hint-text">{{ q.clarificationContext }}</span>
+      </div>
+
+      <!-- Note / Guidance (if any) -->
+      <div class="q-guidance-hint" *ngIf="q.guidance">
+        <span class="guidance-text">{{ q.guidance }}</span>
+      </div>
+
+      <!-- Action Choices (Interactive Rating / Select / Multi-Select / Text) -->
+      <div class="q-actions-row" *ngIf="!readOnly">
+        <!-- 1. Pass / Defect (CAR) / N/A Pills (Render ONLY when question accepts rating) -->
+        <div class="pills-group" *ngIf="isRatingQuestion(q)">
+          <button
+            type="button"
+            class="choice-pill pass"
+            [class.selected]="q.userAnswerRating === '1'"
+            (click)="selectRating(q, '1')"
+            title="Pass / Compliant"
+          >
+            <span class="pill-icon" *ngIf="q.userAnswerRating === '1'">✓ </span>Pass
+          </button>
+
+          <button
+            type="button"
+            class="choice-pill defect"
+            [class.selected]="q.userAnswerRating === '-1'"
+            (click)="selectRating(q, '-1')"
+            title="Action Required / Defect"
+          >
+            <span class="pill-icon" *ngIf="q.userAnswerRating === '-1'">✕ </span>Action Required
+          </button>
+
+          <button
+            type="button"
+            class="choice-pill na"
+            [class.selected]="q.userAnswerRating === '0'"
+            (click)="selectRating(q, '0')"
+            title="Not Applicable"
+          >
+            <span class="pill-icon" *ngIf="q.userAnswerRating === '0'">– </span>N/A
+          </button>
+        </div>
+
+        <!-- 2. Single-Select Option Pills (if question has dropdown/single choices) -->
+        <div class="pills-group" *ngIf="isSelectQuestion(q)">
+          <button
+            *ngFor="let opt of q.selectOptions"
+            type="button"
+            class="choice-pill opt"
+            [class.selected]="q.userAnswerSelect === getOptionText(opt)"
+            (click)="selectOption(q, opt)"
+          >
+            <span class="pill-icon" *ngIf="q.userAnswerSelect === getOptionText(opt)">✓ </span>{{ getOptionText(opt) }}
+          </button>
+        </div>
+
+        <!-- 3. Multi-Select Option Pills (if question has multi choices) -->
+        <div class="pills-group" *ngIf="isMultiSelectQuestion(q)">
+          <button
+            *ngFor="let opt of q.multiselectOptions"
+            type="button"
+            class="choice-pill multi"
+            [class.selected]="isMultiSelected(q.questionId, opt)"
+            (click)="toggleMultiOption(q, opt)"
+          >
+            <span class="pill-icon" *ngIf="isMultiSelected(q.questionId, opt)">✓ </span>{{ getOptionText(opt) }}
+          </button>
+          <button
+            *ngIf="getMultiDraftCount(q.questionId) > 0"
+            type="button"
+            class="choice-pill confirm-multi"
+            (click)="saveMultiselectAnswer(q)"
+          >
+            Save ({{ getMultiDraftCount(q.questionId) }})
+          </button>
+        </div>
+
+        <!-- 4. Subtle Note Button (Available for ratings/selects to add detail, or auto-opened for text) -->
+        <button
+          type="button"
+          class="btn-note-toggle"
+          *ngIf="!isTextQuestion(q)"
+          (click)="toggleNoteInput(q.questionId)"
+          [class.has-note]="hasTextDraft(q.questionId) || q.userAnswerText"
+          title="Add or edit note"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="note-svg">
+            <path d="M12 20h9"></path>
+            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+          </svg>
+          <span>{{ q.userAnswerText ? 'Note added' : '+ Note' }}</span>
+        </button>
+      </div>
+
+      <!-- Expandable Note / Text Input (Auto-displayed if question is text-only) -->
+      <div class="note-input-row" *ngIf="!readOnly && (isTextQuestion(q) || isNoteOpen(q.questionId) || (!q.isAnswered && hasTextDraft(q.questionId)))">
+        <input
+          type="text"
+          class="note-field"
+          [placeholder]="isTextQuestion(q) ? 'Enter answer or details...' : 'Add site observation or detail...'"
+          [(ngModel)]="textDrafts[q.questionId]"
+          (keydown.enter)="submitTextAnswer(q)"
+        />
+        <button type="button" class="btn-note-save" (click)="submitTextAnswer(q)">Save</button>
+      </div>
+
+      <!-- Read-Only / Answered Summary (when viewing past completed checks) -->
+      <div class="read-only-answer" *ngIf="readOnly && q.isAnswered">
+        <span class="answer-badge" *ngIf="q.userAnswerRating === '1'">✓ Pass</span>
+        <span class="answer-badge defect" *ngIf="q.userAnswerRating === '-1'">✕ Action Required</span>
+        <span class="answer-badge na" *ngIf="q.userAnswerRating === '0'">– N/A</span>
+        <span class="answer-badge" *ngIf="q.userAnswerSelect">{{ q.userAnswerSelect }}</span>
+        <span class="answer-note" *ngIf="q.userAnswerText">"{{ q.userAnswerText }}"</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Action Button when batch is all answered (Only shown for multi-question batches) -->
+  <div class="batch-completion-row" *ngIf="isBatchAllAnswered() && !readOnly && batch.questions.length > 1">
+    <button type="button" class="btn-continue-next" (click)="onContinueNext()">
+      <span class="completion-check">✓</span>
+      <span>Checks recorded — Continue</span>
+      <span class="arrow-icon">→</span>
+    </button>
+  </div>
+</div>

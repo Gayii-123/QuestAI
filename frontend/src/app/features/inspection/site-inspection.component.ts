@@ -4,6 +4,7 @@ import {
   OnDestroy,
   signal,
   computed,
+  Input,
   Output,
   EventEmitter,
   inject,
@@ -71,8 +72,17 @@ export interface DraftMigrationReport {
 export class SiteInspectionComponent implements OnInit, OnDestroy {
   private readonly apiService = inject(ApiService);
 
+  @Input() embeddedInChat = false;
+  @Input() conversationId?: string;
+  @Input() initialBankId?: string;
+  @Input() initialStep?: InspectionStep;
+  @Input() initialPhotos?: InspectionPhoto[];
   @Output() switchToChat = new EventEmitter<void>();
   @Output() requestAiPhotoUpload = new EventEmitter<string>();
+  @Output() workflowStatusChange = new EventEmitter<{
+    state: 'scanning' | 'ready' | 'error' | 'finalized';
+    message: string;
+  }>();
 
   // Active Workflow Step: 'category-select' | 'photo-upload' | 'ai-scanning' | 'review-form' | 'finalized'
   activeStep = signal<InspectionStep>('category-select');
@@ -290,13 +300,14 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
 
   // === STEP 3: AI SCANNING STATE ===
   isScanning = signal(false);
-  scanningStatusMessage = signal<string>('Preparing uploaded photographs');
+  scanningStatusMessage = signal<string>('Reviewing uploaded photographs...');
+  textFadeKey = signal(0);
   scanError = signal<string | null>(null);
   private scanSubscription?: Subscription;
   private scanStageTimers: ReturnType<typeof setTimeout>[] = [];
 
   // AI model identifier and mock flag
-  aiModelIdentifier = signal<string>('gemini-3.8-flash');
+  aiModelIdentifier = signal<string>('QuestAI Vision');
   isMockEngine = signal(false);
   lastAnalyzedTimestamp = signal<string>('');
 
@@ -535,10 +546,52 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
   });
 
   ngOnInit(): void {
+    // If an initial bank ID was provided, apply it before loading the draft
+    if (this.initialBankId) {
+      this.selectedBankId.set(this.initialBankId);
+      const bank = this.currentBank();
+      if (bank?.trafficSubtype) {
+        this.trafficSubtype.set(bank.trafficSubtype);
+      }
+    }
+
+    // If initial full-fidelity photos were provided (e.g. from IndexedDB chat message), preload them
+    if (this.initialPhotos && this.initialPhotos.length > 0) {
+      this.uploadedPhotos.set([...this.initialPhotos]);
+    }
+
     // Clean up any legacy mock pending pre-fill in localStorage
     this.cleanupLegacyPendingAiFill();
     // Initialize draft from localStorage if present (with safe legacy mock cleanup)
     this.loadDraft();
+
+    // If loadDraft restored a finalized report, transition directly to 'finalized',
+    // or if AI evaluation / review answers exist, transition to 'review-form'.
+    // When embedded in chat without an existing completed draft, start directly in 'ai-scanning'.
+    if (this.finalizedReport()) {
+      this.activeStep.set('finalized');
+    } else if (
+      this.aiPreFillSummary() ||
+      Object.keys(this.formAnswers()).some((k) => this.formAnswers()[k]?.hasAiEvaluation || this.hasManualInspectorAnswer(this.formAnswers()[k]))
+    ) {
+      this.activeStep.set('review-form');
+      const groups = groupQuestionsByHeader(this.applicableQuestions());
+      if (groups.length > 0 && !this.activeSectionName()) {
+        this.activeSectionName.set(groups[0].headername);
+        this.expandedSections.set({ [groups[0].headername]: true });
+      }
+    } else if (this.embeddedInChat) {
+      this.activeStep.set('ai-scanning');
+      if (this.uploadedPhotos().length > 0 && !this.isScanning()) {
+        setTimeout(() => {
+          if (!this.isScanning() && this.uploadedPhotos().length > 0 && !this.aiPreFillSummary()) {
+            this.startAiPhotoScanning();
+          }
+        }, 0);
+      }
+    } else if (this.initialStep) {
+      this.activeStep.set(this.initialStep);
+    }
   }
 
   ngOnDestroy(): void {
@@ -615,6 +668,10 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
   backToCategorySelect(): void {
     if (this.isScanning()) {
       this.cancelScanning();
+    }
+    if (this.embeddedInChat) {
+      this.activeStep.set('photo-upload');
+      return;
     }
     this.activeStep.set('category-select');
   }
@@ -799,6 +856,9 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
     photos: InspectionPhoto[];
     siteNotes?: string;
   }): void {
+    if (this.isScanning()) {
+      return;
+    }
     this.selectBank(params.bankId);
     if (params.trafficSubtype) {
       this.trafficSubtype.set(params.trafficSubtype);
@@ -859,6 +919,13 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
     this.scanStageTimers = [];
   }
 
+  updateStatusMessage(msg: string): void {
+    if (this.scanningStatusMessage() !== msg) {
+      this.scanningStatusMessage.set(msg);
+      this.textFadeKey.update((k) => k + 1);
+    }
+  }
+
   startAiPhotoScanning(): void {
     // Prevent duplicate submissions while a request is already in flight
     if (this.isScanning()) {
@@ -882,66 +949,93 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
     this.activeStep.set('ai-scanning');
     this.isScanning.set(true);
     this.scanError.set(null);
-    this.scanningStatusMessage.set('Preparing uploaded photographs');
+    this.updateStatusMessage('Reviewing uploaded photographs...');
+    this.workflowStatusChange.emit({
+      state: 'scanning',
+      message: 'Reviewing uploaded photographs...',
+    });
 
     const request = this.buildPhotoInspectionRequest();
 
-    // Update status message as the HTTP request is dispatched
-    this.scanningStatusMessage.set('Sending photographs for Gemini analysis');
-
-    // Truthful lifecycle status updates while awaiting Gemini's response (no fabricated percentages)
+    // Truthful sequential lifecycle status updates while awaiting response
     this.scanStageTimers.push(
       setTimeout(() => {
         if (this.isScanning()) {
-          this.scanningStatusMessage.set('Analysing site evidence');
+          this.updateStatusMessage('Analysing site photographs...');
         }
-      }, 900),
+      }, 1000),
       setTimeout(() => {
         if (this.isScanning()) {
-          this.scanningStatusMessage.set('Processing inspection question evaluations');
+          this.updateStatusMessage('Examining visual evidence...');
         }
-      }, 2600)
+      }, 2400),
+      setTimeout(() => {
+        if (this.isScanning()) {
+          this.updateStatusMessage('Checking inspection requirements...');
+        }
+      }, 4500),
+      setTimeout(() => {
+        if (this.isScanning()) {
+          this.updateStatusMessage('Preparing inspection findings...');
+        }
+      }, 7000)
     );
 
     this.scanSubscription = this.apiService.analyzeInspectionPhotos(request).subscribe({
       next: (res) => {
         this.clearScanTimers();
         this.scanSubscription = undefined;
-        this.scanningStatusMessage.set('Processing inspection question evaluations');
+        this.updateStatusMessage('Preparing inspection findings...');
         this.applyBackendAiResults(res.data);
       },
       error: (err) => {
         this.clearScanTimers();
         this.scanSubscription = undefined;
         this.isScanning.set(false);
-        this.scanningStatusMessage.set('Photo analysis failed');
-        this.scanError.set(this.formatPhotoAnalysisError(err));
+        this.updateStatusMessage('Photo analysis failed');
+        const formattedErr = this.formatPhotoAnalysisError(err);
+        this.scanError.set(formattedErr);
+        this.workflowStatusChange.emit({
+          state: 'error',
+          message: formattedErr,
+        });
       },
     });
   }
 
-  private formatPhotoAnalysisError(err: any): string {
-    const backendMessage =
-      err?.error?.error?.message ||
-      (Array.isArray(err?.error?.error?.details) && err.error.error.details.join('; ')) ||
-      err?.error?.message;
+  private sanitizeProviderBranding(text: string | undefined): string {
+    if (!text) return '';
+    return text.replace(/\bgemini(-[0-9a-z.-]+)?\b/gi, 'AI service');
+  }
 
-    if (err?.status === 0) {
-      return 'Cannot reach the QuestAI backend server on port 5001. Please ensure the backend is running.';
+  private formatPhotoAnalysisError(err: any): string {
+    const rawBackendMessage = String(
+      err?.error?.error?.message ||
+        (Array.isArray(err?.error?.error?.details) && err.error.error.details.join('; ')) ||
+        err?.error?.message ||
+        err?.message ||
+        ''
+    );
+
+    const isQuotaOrRateLimit =
+      err?.status === 429 ||
+      /quota|rate\s*limit|resource_exhausted|too\s*many\s*requests|429|temporarily\s*unavailable|overloaded|capacity/i.test(
+        rawBackendMessage
+      );
+
+    if (isQuotaOrRateLimit) {
+      return "I'm having trouble completing the photo analysis right now. The AI service is temporarily unavailable—please try again in a moment.";
+    }
+    if (err?.status === 0 || /network|failed\s*to\s*fetch|offline/i.test(rawBackendMessage)) {
+      return "I'm having trouble reaching the analysis service right now. Please check your connection and try again.";
+    }
+    if (err?.status === 504 || err?.status === 408 || /timed?\s*out|deadline/i.test(rawBackendMessage)) {
+      return "The photo analysis took a bit too long to respond. Please try again in a moment.";
     }
     if (err?.status === 400) {
-      return backendMessage || 'Invalid photo analysis request payload. Check photo format and size limits.';
+      return "I couldn't process one or more of the attached photographs. Please make sure they are valid JPG, PNG, or WebP images under 10 MB.";
     }
-    if (err?.status === 401 || err?.status === 403) {
-      return backendMessage || 'Gemini authentication failed on the backend. Verify backend API key configuration.';
-    }
-    if (err?.status === 429) {
-      return backendMessage || 'Gemini API quota or rate limit exceeded. Please wait a moment and try again.';
-    }
-    if (err?.status === 504) {
-      return backendMessage || 'Gemini photo analysis timed out. Try again or upload fewer/smaller photos.';
-    }
-    return backendMessage || 'Gemini photo analysis failed. Please try again.';
+    return "I'm having trouble completing the photo analysis right now. The AI service may be temporarily unavailable.";
   }
 
   cancelScanning(): void {
@@ -958,6 +1052,9 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
 
   retryScanning(): void {
     if (this.isScanning()) return;
+    if (this.uploadedPhotos().length === 0 && this.initialPhotos && this.initialPhotos.length > 0) {
+      this.uploadedPhotos.set([...this.initialPhotos]);
+    }
     this.scanError.set(null);
     this.startAiPhotoScanning();
   }
@@ -995,7 +1092,7 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
     const existingAnswers = this.formAnswers();
     const mergedAnswers: Record<string, QuestionAnswer> = {};
     const analyzedAt = data?.analyzedAt || new Date().toISOString();
-    const modelId = data?.modelIdentifier || 'gemini-3.8-flash';
+    const modelId = data?.modelIdentifier || 'QuestAI Vision';
 
     let suggestedPassCount = 0;
     let suggestedCarCount = 0;
@@ -1144,9 +1241,13 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
 
     this.persistDraftToStorage();
     this.activeStep.set('review-form');
+    this.workflowStatusChange.emit({
+      state: 'ready',
+      message: 'Your photographs have been analysed. Your inspection form is ready for review.',
+    });
 
     this.showToast(
-      `✨ Gemini Analysis Complete: ${suggestedPassCount} Suggested Pass, ${suggestedCarCount} Suggested CAR, ${needsReviewCount} Needs Human Check`
+      `Your photographs have been analysed. Your inspection form is ready for review (${suggestedPassCount} Suggested Pass, ${suggestedCarCount} Suggested CAR, ${needsReviewCount} Needs Human Check).`
     );
   }
 
@@ -1652,6 +1753,7 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
 
     const report: FinalizedInspectionReport = {
       referenceNumber: ref,
+      conversationId: this.conversationId,
       bankId: bank.id,
       bankName: bank.name,
       department: bank.department,
@@ -1674,7 +1776,18 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
       isMock: this.isMockEngine(),
     };
 
-    // Store in standalone local storage (Key: questai_finalized_inspections)
+    // 1. Persist to Quest Firestore collection 'quest-ai-inspections' via Cloud Function
+    this.apiService.saveFinalizedInspection(report).subscribe({
+      next: (res) => {
+        console.log(`[QuestAI] Finalized inspection stored in Quest Firestore:`, res);
+        this.showToast(`Inspection ${ref} successfully saved to Quest Firestore!`);
+      },
+      error: (err) => {
+        console.warn(`[QuestAI] Could not save to Firestore (offline fallback used):`, err);
+      },
+    });
+
+    // 2. Store in local storage as offline fallback (Key: questai_finalized_inspections)
     try {
       const existingRaw = localStorage.getItem('questai_finalized_inspections');
       const existingList = existingRaw ? JSON.parse(existingRaw) : [];
@@ -1687,6 +1800,10 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
     this.finalizedReport.set(report);
     this.showFinalizeModal.set(false);
     this.activeStep.set('finalized');
+    this.workflowStatusChange.emit({
+      state: 'finalized',
+      message: `Inspection finalized! Reference: ${ref}`,
+    });
 
     this.showToast(`Inspection finalized! Reference: ${ref}`);
   }
@@ -1702,6 +1819,38 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
     this.reviewFilter.set('all');
     this.searchQuery.set('');
     this.activeStep.set('category-select');
+  }
+
+  /**
+   * Loads an existing filled inspection record from Inspection History
+   */
+  public loadInspectionRecord(record: {
+    bankId: string;
+    answers?: Record<string, QuestionAnswer>;
+    metadata?: any;
+    photos?: InspectionPhoto[];
+    finalizedReport?: FinalizedInspectionReport | null;
+    step?: InspectionStep;
+  }): void {
+    if (record.bankId) {
+      this.selectBank(record.bankId);
+    }
+    if (record.answers) {
+      this.formAnswers.set(record.answers);
+    }
+    if (record.metadata) {
+      this.inspectionMetadata.set(record.metadata);
+    }
+    if (record.photos && record.photos.length > 0) {
+      this.uploadedPhotos.set(record.photos);
+    }
+    if (record.finalizedReport) {
+      this.finalizedReport.set(record.finalizedReport);
+      this.activeStep.set(record.step || 'finalized');
+    } else {
+      this.activeStep.set(record.step || 'review-form');
+    }
+    this.showToast(`Loaded inspection: ${record.finalizedReport?.referenceNumber || record.bankId}`);
   }
 
   // === DRAFT MANAGEMENT & LEGACY MOCK CLEANUP (PART 6) ===
@@ -1720,23 +1869,37 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
     }, 400);
   }
 
+  private getDraftStorageKey(bankId: string): string {
+    if (this.conversationId) {
+      return `questai_inspection_${this.conversationId}_${bankId}`;
+    }
+    return `questai_inspection_${bankId}`;
+  }
+
   private persistDraftToStorage(): void {
     try {
+      const lightweightPhotos = this.uploadedPhotos().map((p) => ({
+        ...p,
+        // Avoid storing large Base64 strings in localStorage; full photos are stored in IndexedDB
+        url: p.url && p.url.length > 2048 ? '' : p.url,
+      }));
       const data = {
         schemaVersion: DRAFT_SCHEMA_VERSION,
+        conversationId: this.conversationId,
         bankId: this.selectedBankId(),
         trafficSubtype: this.trafficSubtype(),
         selectedRiskBanks: this.selectedRiskBanks(),
         metadata: this.inspectionMetadata(),
         answers: this.formAnswers(),
-        uploadedPhotos: this.uploadedPhotos(),
+        uploadedPhotos: lightweightPhotos,
         aiSummary: this.aiPreFillSummary(),
         aiModelIdentifier: this.aiModelIdentifier(),
         isMockEngine: this.isMockEngine(),
+        finalizedReport: this.finalizedReport(),
         updatedAt: new Date().toISOString(),
       };
-      localStorage.setItem(`questai_inspection_${this.selectedBankId()}`, JSON.stringify(data));
-    } catch {}
+      localStorage.setItem(this.getDraftStorageKey(this.selectedBankId()), JSON.stringify(data));
+    } catch { }
   }
 
   /**
@@ -1878,7 +2041,7 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
     const cleanModelId =
       !isLegacyMockRun && typeof parsed?.aiModelIdentifier === 'string'
         ? parsed.aiModelIdentifier
-        : 'gemini-3.8-flash';
+        : 'QuestAI Vision';
 
     const report: DraftMigrationReport = {
       bankId,
@@ -1900,17 +2063,54 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
   }
 
   public loadDraft(): void {
+    if (this.initialBankId && this.selectedBankId() !== this.initialBankId && this.questionBanks.some((b) => b.id === this.initialBankId)) {
+      this.selectedBankId.set(this.initialBankId);
+      const bank = this.currentBank();
+      if (bank?.trafficSubtype) {
+        this.trafficSubtype.set(bank.trafficSubtype);
+      }
+    }
     const bankId = this.selectedBankId();
     try {
-      const raw = localStorage.getItem(`questai_inspection_${bankId}`);
+      const primaryKey = this.getDraftStorageKey(bankId);
+      let raw = localStorage.getItem(primaryKey);
+
+      // Safe, idempotent fallback & migration: check legacy un-scoped key if conversation draft not yet found
+      if (!raw && this.conversationId) {
+        const legacyKey = `questai_inspection_${bankId}`;
+        const legacyRaw = localStorage.getItem(legacyKey);
+        if (legacyRaw) {
+          raw = legacyRaw;
+          // Migrate copy into conversation-scoped key without deleting original
+          try {
+            localStorage.setItem(primaryKey, legacyRaw);
+          } catch { }
+        }
+      }
+
       if (raw) {
         const parsed = JSON.parse(raw);
         const sanitized = this.sanitizeAndMigrateDraft(bankId, parsed);
 
         this.formAnswers.set(sanitized.answers);
         if (parsed.metadata) this.inspectionMetadata.set(parsed.metadata);
-        if (Array.isArray(parsed.uploadedPhotos)) {
-          this.uploadedPhotos.set(parsed.uploadedPhotos);
+        if (Array.isArray(parsed.uploadedPhotos) && parsed.uploadedPhotos.length > 0) {
+          // If we already received full-fidelity photos via @Input initialPhotos, preserve their full URLs
+          if (this.initialPhotos && this.initialPhotos.length > 0) {
+            const fullPhotoMap = new Map<string, string>();
+            for (const p of this.initialPhotos) {
+              if (p.url) fullPhotoMap.set(p.id, p.url);
+            }
+            const hydrated = parsed.uploadedPhotos.map((p: any) => ({
+              ...p,
+              url: fullPhotoMap.get(p.id) || p.url,
+            }));
+            this.uploadedPhotos.set(hydrated);
+          } else {
+            this.uploadedPhotos.set(parsed.uploadedPhotos);
+          }
+        } else if (this.initialPhotos && this.initialPhotos.length > 0) {
+          this.uploadedPhotos.set([...this.initialPhotos]);
         } else {
           this.uploadedPhotos.set([]);
         }
@@ -1921,19 +2121,45 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
         this.aiModelIdentifier.set(sanitized.aiModelIdentifier);
         this.isMockEngine.set(false);
 
+        // Restore finalized report if stored in draft or matching reference in finalized list
+        if (parsed.finalizedReport) {
+          this.finalizedReport.set(parsed.finalizedReport);
+        } else {
+          try {
+            const finalizedRaw = localStorage.getItem('questai_finalized_inspections');
+            if (finalizedRaw) {
+              const list: FinalizedInspectionReport[] = JSON.parse(finalizedRaw);
+              const match = list.find(
+                (r) =>
+                  r.bankId === bankId &&
+                  (!this.conversationId || !r.conversationId || r.conversationId === this.conversationId)
+              );
+              if (match) {
+                this.finalizedReport.set(match);
+              }
+            }
+          } catch { }
+        }
+
         if (sanitized.migrated) {
           this.lastDraftMigrationReport.set(sanitized.report);
           this.persistDraftToStorage();
         }
       } else {
         this.formAnswers.set({});
-        this.uploadedPhotos.set([]);
+        if (this.initialPhotos && this.initialPhotos.length > 0) {
+          this.uploadedPhotos.set([...this.initialPhotos]);
+        } else {
+          this.uploadedPhotos.set([]);
+        }
         this.aiPreFillSummary.set(null);
+        this.finalizedReport.set(null);
       }
     } catch {
       this.formAnswers.set({});
-      this.uploadedPhotos.set([]);
+      this.uploadedPhotos.set(this.initialPhotos ? [...this.initialPhotos] : []);
       this.aiPreFillSummary.set(null);
+      this.finalizedReport.set(null);
     }
   }
 
@@ -1948,8 +2174,8 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
     this.pendingOverwriteQuestionId.set(null);
     this.editingQuestionId.set(null);
     try {
-      localStorage.removeItem(`questai_inspection_${this.selectedBankId()}`);
-    } catch {}
+      localStorage.removeItem(this.getDraftStorageKey(this.selectedBankId()));
+    } catch { }
     this.showResetModal.set(false);
     this.showToast('Inspection form reset for this question bank.');
   }
@@ -2011,7 +2237,7 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
 
         const img = new Image();
         img.onload = () => {
-          const maxDim = 1200;
+          const maxDim = 1024;
           let width = img.width;
           let height = img.height;
 
@@ -2023,26 +2249,23 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
               width = Math.round((width * maxDim) / height);
               height = maxDim;
             }
+          }
 
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            if (ctx) {
-              ctx.drawImage(img, 0, 0, width, height);
-              const targetMime = originalMime === 'image/png' ? 'image/png' : 'image/jpeg';
-              const optimizedUrl =
-                targetMime === 'image/png'
-                  ? canvas.toDataURL('image/png')
-                  : canvas.toDataURL('image/jpeg', 0.85);
-              resolve({
-                dataUrl: optimizedUrl,
-                mimeType: targetMime,
-                byteLength: this.estimateDataUrlBytes(optimizedUrl),
-                normalizedName: this.ensureSupportedExtension(file.name, targetMime),
-              });
-              return;
-            }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const targetMime = 'image/jpeg';
+            const optimizedUrl = canvas.toDataURL('image/jpeg', 0.8);
+            resolve({
+              dataUrl: optimizedUrl,
+              mimeType: targetMime,
+              byteLength: this.estimateDataUrlBytes(optimizedUrl),
+              normalizedName: this.ensureSupportedExtension(file.name, targetMime),
+            });
+            return;
           }
           resolve({
             dataUrl: result,
