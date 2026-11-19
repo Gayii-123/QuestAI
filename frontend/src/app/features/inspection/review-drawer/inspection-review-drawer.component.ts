@@ -44,10 +44,12 @@ export class InspectionReviewDrawerComponent implements OnInit, OnChanges {
   @Output() closeDrawer = new EventEmitter<void>();
   @Output() confirmAssessment = new EventEmitter<InspectionDraftSummaryViewModel>();
   @Output() downloadPdf = new EventEmitter<InspectionDraftSummaryViewModel>();
+  @Output() reopenAssessment = new EventEmitter<InspectionDraftSummaryViewModel>();
 
   questionGroups = signal<QuestionGroup[]>([]);
   activeFilter = signal<'all' | 'pass' | 'car' | 'na' | 'unresolved'>('all');
   isConfirmed = signal<boolean>(false);
+  showReopenConfirm = signal<boolean>(false);
   inspectorSignOffName: string = 'Site Inspector';
 
   ngOnInit(): void {
@@ -180,9 +182,9 @@ export class InspectionReviewDrawerComponent implements OnInit, OnChanges {
     return true;
   }
 
-  updateQuestionRating(questionId: string, rating: '1' | '-1' | '0'): void {
-    if (this.isConfirmed()) return;
-    if (!this.draftSummary.answers) {
+    updateQuestionRating(questionId: string, rating: '1' | '-1' | '0' | ''): void {
+      if(this.isConfirmed()) return;
+      if(!this.draftSummary.answers) {
       this.draftSummary.answers = {};
     }
     const current = this.draftSummary.answers[questionId] || {};
@@ -200,12 +202,30 @@ export class InspectionReviewDrawerComponent implements OnInit, OnChanges {
       };
       const qAssess = this.session.questionAssessments?.[questionId];
       if (qAssess) {
-        qAssess.userAnswerRating = rating;
-        qAssess.isAnswered = true;
-        qAssess.status = 'user_answered';
+        qAssess.userAnswerRating = rating || null;
+        qAssess.isAnswered = !!rating;
+        qAssess.status = rating ? 'user_answered' : 'unassessed';
       }
     }
     this.recalculateDraftCounts();
+    this.cdr.markForCheck();
+  }
+
+  promptReopen(): void {
+    this.showReopenConfirm.set(true);
+    this.cdr.markForCheck();
+  }
+
+  cancelReopen(): void {
+    this.showReopenConfirm.set(false);
+    this.cdr.markForCheck();
+  }
+
+  confirmReopen(): void {
+    this.showReopenConfirm.set(false);
+    this.isConfirmed.set(false);
+    this.draftSummary.isConfirmedByInspector = false;
+    this.reopenAssessment.emit(this.draftSummary);
     this.cdr.markForCheck();
   }
 

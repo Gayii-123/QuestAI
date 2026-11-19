@@ -1,0 +1,45 @@
+<div class="chat-workspace" [class.empty-state]="!hasMessages()" [class.has-messages]="hasMessages()">
+  <!-- Chat Scrollable Messages Area (Shown when messages exist) -->
+  <div class="chat-scroll-area" #chatScrollContainer *ngIf="hasMessages()">
+    <div class="messages-stream">
+      <app-chat-message *ngFor="let msg of activeMessages()" [msg]="msg"></app-chat-message>
+
+      <!-- Claude-Style AI Thinking / Photo Analysis Indicator -->
+      <div *ngIf="chatState.isGenerating()" class="message-row assistant-row claude-thinking-row">
+        <div class="avatar-assistant">
+          <span>Q</span>
+        </div>
+        <div class="claude-indicator-container" role="status" aria-live="polite">
+          <div class="claude-indicator-pill">
+            <!-- Three terracotta-coral dots in Claude's triangular/orbital constellation -->
+            <div class="claude-dots" aria-hidden="true">
+              <span class="claude-dot dot-1"></span>
+              <span class="claude-dot dot-2"></span>
+              <span class="claude-dot dot-3"></span>
+            </div>
+
+            <!-- Active thought / activity text with shimmer and keyframe fade -->
+            <span class="claude-activity-text" [attr.data-word]="chatState.thinkingWords()">
+              {{ chatState.thinkingWords() }}
+            </span>
+
+            <!-- Understated right chevron icon -->
+            <svg class="claude-chevron" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor"
+              stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="6 4 10 8 6 12"></polyline>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Empty State: Heading & Subtitle directly above the Input Box -->
+  <div *ngIf="!hasMessages()" class="chat-welcome-group">
+    <h1 class="welcome-heading" [class.fading]="isHeadingFading()">{{ welcomeHeading() }}</h1>
+    <p class="welcome-description">Ask me anything to get started.</p>
+  </div>
+
+  <!-- Message Composer -->
+  <app-chat-composer #chatComposer></app-chat-composer>
+</div>

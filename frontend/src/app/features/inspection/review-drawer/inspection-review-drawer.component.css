@@ -558,4 +558,94 @@
   border: 1px solid #e2e8f0;
 }
 
+/* Reopen for Editing Styles */
+.btn-reopen-pill {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-reopen-pill:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+}
+
+.reopen-confirm-banner {
+  background: #fffbeb;
+  border-bottom: 1px solid #fde68a;
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  animation: fadeIn 0.15s ease-in;
+}
+
+.reopen-confirm-text {
+  font-size: 12.5px;
+  color: #92400e;
+  line-height: 1.4;
+}
+
+.reopen-confirm-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.btn-reopen-confirm {
+  background: #b91c1c;
+  color: #ffffff;
+  border: 1px solid #b91c1c;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.btn-reopen-confirm:hover {
+  opacity: 0.9;
+}
+
+.btn-reopen-cancel {
+  background: #ffffff;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.btn-reopen-cancel:hover {
+  background: #f1f5f9;
+}
+
+.btn-drawer-reopen-action {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-drawer-reopen-action:hover {
+  background: #fee2e2;
+  border-color: #f87171;
+}
+
 

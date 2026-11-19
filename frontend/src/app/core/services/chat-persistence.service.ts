@@ -2,11 +2,18 @@ import { Injectable } from '@angular/core';
 import { Conversation, ChatMessage } from '../models/chat.models';
 import { InspectionPhoto } from '../../features/inspection/site-inspection.models';
 
+/*
+// ============================================================================
+// DISABLED: INDEXEDDB CHAT PERSISTENCE
+// The constants and stores below are commented out as Firestore is now the
+// single source of truth for conversations and messages.
+// ============================================================================
 const DB_NAME = 'questai_chat_db';
 const DB_VERSION = 1;
 const STORE_CONVERSATIONS = 'conversations';
 const STORE_META = 'meta';
 const STORE_PENDING_ATTACHMENTS = 'pending_attachments';
+*/
 
 export interface PersistedChatState {
   conversations: Conversation[];
@@ -15,12 +22,16 @@ export interface PersistedChatState {
 }
 
 /**
- * IndexedDB persistence service for QuestAI conversations and photograph attachments.
- * Stores sent message photographs and pending composer attachments locally in the user's browser
- * (never storing large Base64 image payloads in localStorage or writing to cloud databases).
+ * ChatPersistenceService
+ * 
+ * NOTE: IndexedDB chat persistence is DISABLED in favor of Firestore as the single
+ * source of truth under questai/data/users/{uid}/conversations.
+ * The original IndexedDB implementation has been commented out below for future reference.
  */
 @Injectable({ providedIn: 'root' })
 export class ChatPersistenceService {
+  /*
+  // Original IndexedDB connection promise
   private dbPromise: Promise<IDBDatabase | null> | null = null;
 
   // In-memory fallback store used in headless/Node test environments where indexedDB is unavailable
@@ -57,11 +68,15 @@ export class ChatPersistenceService {
     }
     return this.dbPromise;
   }
+  */
 
   async saveConversations(
-    conversations: Conversation[],
-    activeConversationId: string
+    _conversations: Conversation[],
+    _activeConversationId: string
   ): Promise<void> {
+    /*
+    // DISABLED: IndexedDB conversation saving commented out.
+    // Firestore now handles all conversation persistence.
     const serialized = conversations.map((c) => this.serializeConversation(c));
 
     // Always keep memory store synced for synchronous/test access
@@ -92,9 +107,14 @@ export class ChatPersistenceService {
         resolve();
       }
     });
+    */
+    return Promise.resolve();
   }
 
-  async deleteConversation(id: string): Promise<void> {
+  async deleteConversation(_id: string): Promise<void> {
+    /*
+    // DISABLED: IndexedDB conversation deletion commented out.
+    // Firestore now handles all conversation deletion.
     this.memoryConversations.delete(id);
     this.memoryPending.delete(id);
     const db = await this.getDb();
@@ -113,9 +133,13 @@ export class ChatPersistenceService {
         resolve();
       }
     });
+    */
+    return Promise.resolve();
   }
 
-  async savePendingAttachments(convKey: string, photos: InspectionPhoto[]): Promise<void> {
+  async savePendingAttachments(_convKey: string, _photos: InspectionPhoto[]): Promise<void> {
+    /*
+    // DISABLED: IndexedDB pending attachments saving commented out.
     const key = convKey || '__draft__';
     const copy = photos.map((p) => ({ ...p }));
     this.memoryPending.set(key, copy);
@@ -138,9 +162,13 @@ export class ChatPersistenceService {
         resolve();
       }
     });
+    */
+    return Promise.resolve();
   }
 
-  async loadPendingAttachments(convKey: string): Promise<InspectionPhoto[]> {
+  async loadPendingAttachments(_convKey: string): Promise<InspectionPhoto[]> {
+    /*
+    // DISABLED: IndexedDB pending attachments load commented out.
     const key = convKey || '__draft__';
     const db = await this.getDb();
     if (!db) {
@@ -161,9 +189,14 @@ export class ChatPersistenceService {
         resolve(this.memoryPending.get(key) || []);
       }
     });
+    */
+    return Promise.resolve([]);
   }
 
   async loadState(): Promise<PersistedChatState> {
+    /*
+    // DISABLED: IndexedDB loadState commented out.
+    // Conversations and messages now load exclusively from Firestore.
     const db = await this.getDb();
     if (!db) {
       const conversations = Array.from(this.memoryConversations.values()).map((c) =>
@@ -191,31 +224,39 @@ export class ChatPersistenceService {
         const metaReq = metaStore.get('activeConversationId');
         const pendingReq = pendingStore.getAll();
 
-            tx.oncomplete = () => {
-              const rawConvs = Array.isArray(convReq.result) ? convReq.result : [];
-              const activeConversationId =
-                typeof metaReq.result?.value === 'string' ? metaReq.result.value : '';
-              const conversations = rawConvs
-                .map((c) => this.deserializeConversation(c))
-                .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
-              const pendingPhotosByConv: Record<string, InspectionPhoto[]> = {};
-              if (Array.isArray(pendingReq.result)) {
-                for (const entry of pendingReq.result) {
-                  if (entry?.convKey && Array.isArray(entry.photos)) {
-                    pendingPhotosByConv[entry.convKey] = entry.photos;
-                  }
-                }
+        tx.oncomplete = () => {
+          const rawConvs = Array.isArray(convReq.result) ? convReq.result : [];
+          const activeConversationId =
+            typeof metaReq.result?.value === 'string' ? metaReq.result.value : '';
+          const conversations = rawConvs
+            .map((c) => this.deserializeConversation(c))
+            .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+          const pendingPhotosByConv: Record<string, InspectionPhoto[]> = {};
+          if (Array.isArray(pendingReq.result)) {
+            for (const entry of pendingReq.result) {
+              if (entry?.convKey && Array.isArray(entry.photos)) {
+                pendingPhotosByConv[entry.convKey] = entry.photos;
               }
-              resolve({ conversations, activeConversationId, pendingPhotosByConv });
-            };
-          tx.onerror = () =>
-            resolve({ conversations: [], activeConversationId: '', pendingPhotosByConv: {} });
-        } catch {
+            }
+          }
+          resolve({ conversations, activeConversationId, pendingPhotosByConv });
+        };
+        tx.onerror = () =>
           resolve({ conversations: [], activeConversationId: '', pendingPhotosByConv: {} });
-        }
-      });
+      } catch {
+        resolve({ conversations: [], activeConversationId: '', pendingPhotosByConv: {} });
+      }
+    });
+    */
+    return Promise.resolve({
+      conversations: [],
+      activeConversationId: '',
+      pendingPhotosByConv: {},
+    });
   }
 
+  /*
+  // Helper serialization methods preserved in comments
   private serializeConversation(conv: Conversation): Conversation {
     return {
       ...conv,
@@ -244,13 +285,14 @@ export class ChatPersistenceService {
       : [];
     return {
       id: String(raw?.id || ''),
-      title: String(raw?.title || 'Conversation'),
+      title: String(raw?.title || 'New Chat'),
       updatedAt: new Date(raw?.updatedAt || Date.now()),
       previewSnippet: String(raw?.previewSnippet || ''),
+      lastMessagePreview: String(raw?.lastMessagePreview || raw?.previewSnippet || ''),
       selectedBankId: raw?.selectedBankId,
       activeInspectionId: raw?.activeInspectionId,
       messages,
     };
   }
+  */
 }
-
