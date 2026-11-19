@@ -1,0 +1,420 @@
+import { Injectable, inject, signal } from '@angular/core';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { Observable, throwError, timeout, catchError, map } from 'rxjs';
+import { environment } from '../../../environments/environment';
+import {
+  InternalAuditPhoto,
+  InternalAuditObservation,
+  InternalAuditSession,
+  InternalAuditAnalysisResult,
+  InternalAuditAnalyzeRequest,
+  InternalAuditAnalyzeResponse,
+} from './internal-audit.models';
+import {
+  INTERNAL_AUDIT_CONDITIONS,
+  INTERNAL_AUDIT_RATINGS,
+  InternalAuditRating,
+  normalizeAuditRating,
+  ratingTriggersCar,
+} from './internal-audit-conditions.config';
+
+const LOCAL_STORAGE_KEY_DRAFTS = 'questai_internal_audit_drafts';
+const LOCAL_STORAGE_KEY_COMPLETED = 'questai_finalized_internal_audits';
+const MAX_IMAGE_DIMENSION = 1600;
+const COMPRESSION_QUALITY = 0.85;
+const MAX_RAW_FILE_SIZE_BYTES = 15 * 1024 * 1024; // 15MB
+
+@Injectable({
+  providedIn: 'root',
+})
+export class InternalAuditService {
+  private readonly http = inject(HttpClient);
+
+  // Active session signal
+  readonly currentSession = signal<InternalAuditSession | null>(null);
+
+  // Saved / completed audit drafts list signal
+  readonly savedAudits = signal<InternalAuditSession[]>([]);
+
+  constructor() {
+    this.loadSavedAuditsList();
+  }
+
+  // ==========================================================================
+  // Session Creation & Lifecycle
+  // ==========================================================================
+
+  createSession(siteName = '', location = '', auditorName = 'Auditor'): InternalAuditSession {
+    const timestamp = Date.now();
+    const randomHex = Math.random().toString(36).substring(2, 7);
+    const year = new Date().getFullYear();
+    const refNum = `IA-${year}-${String(Math.floor(Math.random() * 9000) + 1000)}`;
+
+    const newSession: InternalAuditSession = {
+      sessionId: `ia_sess_${timestamp}_${randomHex}`,
+      referenceNumber: refNum,
+      status: 'uploading',
+      location: location,
+      siteName: siteName,
+      auditorName: auditorName,
+      auditorSummary: '',
+      photos: [],
+      observations: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    this.currentSession.set(newSession);
+    return newSession;
+  }
+
+  setCurrentSession(session: InternalAuditSession | null): void {
+    this.currentSession.set(session);
+  }
+
+  // ==========================================================================
+  // Photo Processing & Compression
+  // ==========================================================================
+
+  validatePhotoFile(file: File): { valid: boolean; error?: string } {
+    if (!file) {
+      return { valid: false, error: 'No file provided.' };
+    }
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!validTypes.includes((file.type || '').toLowerCase())) {
+      return { valid: false, error: `Unsupported file format (${file.type || 'unknown'}). Please upload JPG, PNG, or WebP.` };
+    }
+    if (file.size > MAX_RAW_FILE_SIZE_BYTES) {
+      return { valid: false, error: `File "${file.name}" exceeds maximum allowed size of 15MB.` };
+    }
+    return { valid: true };
+  }
+
+  compressPhoto(file: File): Promise<InternalAuditPhoto> {
+    return new Promise((resolve, reject) => {
+      const validation = this.validatePhotoFile(file);
+      if (!validation.valid) {
+        reject(new Error(validation.error));
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error(`Failed to read file "${file.name}".`));
+      reader.onload = (e) => {
+        const rawDataUrl = e.target?.result as string;
+        const img = new Image();
+        img.onerror = () => reject(new Error(`Failed to decode image data for "${file.name}".`));
+        img.onload = () => {
+          let { width, height } = img;
+          if (width > MAX_IMAGE_DIMENSION || height > MAX_IMAGE_DIMENSION) {
+            if (width > height) {
+              height = Math.round((height * MAX_IMAGE_DIMENSION) / width);
+              width = MAX_IMAGE_DIMENSION;
+            } else {
+              width = Math.round((width * MAX_IMAGE_DIMENSION) / height);
+              height = MAX_IMAGE_DIMENSION;
+            }
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            // Fallback to raw data URL if canvas 2D context is unavailable
+            resolve({
+              id: `photo_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+              name: file.name,
+              url: rawDataUrl,
+              mimeType: file.type || 'image/jpeg',
+              size: file.size,
+              timestamp: new Date().toISOString(),
+            });
+            return;
+          }
+
+          ctx.drawImage(img, 0, 0, width, height);
+          const targetMime = 'image/jpeg';
+          const compressedDataUrl = canvas.toDataURL(targetMime, COMPRESSION_QUALITY);
+          const estimatedSize = Math.round((compressedDataUrl.length * 3) / 4);
+
+          resolve({
+            id: `photo_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+            name: file.name.replace(/\.[^/.]+$/, '.jpg'),
+            url: compressedDataUrl,
+            mimeType: targetMime,
+            size: estimatedSize,
+            timestamp: new Date().toISOString(),
+          });
+        };
+        img.src = rawDataUrl;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // ==========================================================================
+  // Backend AI Analysis
+  // ==========================================================================
+
+  analyzeAuditPhotos(session: InternalAuditSession): Observable<InternalAuditAnalysisResult> {
+    if (!session || !session.photos || session.photos.length === 0) {
+      return throwError(() => new Error('Cannot start AI analysis without site photographs.'));
+    }
+
+    const endpoint =
+      environment.endpoints && (environment.endpoints as any).internalAuditInspect
+        ? (environment.endpoints as any).internalAuditInspect
+        : `${environment.apiUrl}/questAiInspectInternalAudit`;
+
+    const requestPayload: InternalAuditAnalyzeRequest = {
+      sessionId: session.sessionId,
+      siteName: session.siteName || '',
+      location: session.location || '',
+      auditorName: session.auditorName || 'Auditor',
+      notes: session.auditorSummary || '',
+      photos: session.photos.map((p) => ({
+        id: p.id,
+        name: p.name,
+        base64Data: p.url.includes(',') ? p.url.split(',')[1] : p.url,
+        mimeType: p.mimeType || 'image/jpeg',
+      })),
+    };
+
+    return this.http
+      .post<InternalAuditAnalyzeResponse>(endpoint, requestPayload)
+      .pipe(
+        timeout(45000),
+        map((response) => {
+          if (!response || !response.success || !response.data) {
+            throw new Error(response?.message || 'Invalid or empty response received from backend.');
+          }
+          return this.mapBackendResponseToResult(response, session);
+        }),
+        catchError((err: HttpErrorResponse | Error) => {
+          if (err instanceof HttpErrorResponse) {
+            if (err.status === 404) {
+              return throwError(
+                () =>
+                  new Error(
+                    'The Internal Audit AI analysis endpoint (/questAiInspectInternalAudit) is not yet available on the backend server. Please coordinate with the backend team.'
+                  )
+              );
+            }
+            if (err.status === 0) {
+              return throwError(
+                () =>
+                  new Error(
+                    'Unable to contact the QuestAI backend server. Please check your network connection or server availability.'
+                  )
+              );
+            }
+            return throwError(
+              () =>
+                new Error(
+                  `Backend error (${err.status}): ${err.error?.message || err.message || 'Analysis request failed.'}`
+                )
+            );
+          }
+          return throwError(() => err);
+        })
+      );
+  }
+
+  private mapBackendResponseToResult(
+    response: InternalAuditAnalyzeResponse,
+    session: InternalAuditSession
+  ): InternalAuditAnalysisResult {
+    const data = response.data;
+    const rawObs = Array.isArray(data.observations) ? data.observations : [];
+
+    const mappedObservations: InternalAuditObservation[] = rawObs.map((obs, idx) => {
+      const normalizedRating = normalizeAuditRating(obs.rating);
+      const isCar = ratingTriggersCar(normalizedRating);
+      const refCode = obs.focusAreaRef || `FA${String(idx + 1).padStart(2, '0')}`;
+
+      // Associate photo URLs from photo indices
+      const associatedPhotoIds: string[] = [];
+      const associatedPhotoUrls: string[] = [];
+
+      if (Array.isArray(obs.evidencePhotoIndices)) {
+        obs.evidencePhotoIndices.forEach((photoIdx) => {
+          if (photoIdx >= 0 && photoIdx < session.photos.length) {
+            const p = session.photos[photoIdx];
+            associatedPhotoIds.push(p.id);
+            associatedPhotoUrls.push(p.url);
+          }
+        });
+      }
+
+      // Default to all photos if none specifically mapped
+      if (associatedPhotoUrls.length === 0 && session.photos.length > 0) {
+        associatedPhotoIds.push(session.photos[0].id);
+        associatedPhotoUrls.push(session.photos[0].url);
+      }
+
+      const now = Date.now();
+      const carRef = isCar ? `CA-IA-${now.toString().slice(-6)}-${idx + 1}` : undefined;
+      const resolveBy = isCar ? now + 30 * 24 * 60 * 60 * 1000 : null; // 30 day standard
+
+      return {
+        id: `obs_${now}_${idx + 1}`,
+        focusArea: obs.focusArea || 'General Safety Condition',
+        focusAreaRef: refCode,
+        finding: obs.finding || 'Condition observed during site walkthrough.',
+        suggestedAction: obs.suggestedAction || 'Maintain existing control measures.',
+        rating: normalizedRating,
+        photoIds: associatedPhotoIds,
+        photoUrls: associatedPhotoUrls,
+        hasCar: isCar ? 'Yes' : 'No',
+        carRefNo: carRef,
+        resolveByDate: resolveBy,
+        isEdited: false,
+      };
+    });
+
+    // Compute summary counts
+    let goodPracticeCount = 0;
+    let compliantCount = 0;
+    let observationsOnlyCount = 0;
+    let areaForImprovementCount = 0;
+    let minorNcrCount = 0;
+    let majorNcrCount = 0;
+
+    for (const o of mappedObservations) {
+      switch (o.rating) {
+        case 'Good Practice':
+          goodPracticeCount++;
+          break;
+        case 'Compliant':
+          compliantCount++;
+          break;
+        case 'Observations only':
+          observationsOnlyCount++;
+          break;
+        case 'Area for Improvement':
+          areaForImprovementCount++;
+          break;
+        case 'Minor Non-Conformance':
+          minorNcrCount++;
+          break;
+        case 'Major Non-Conformance':
+          majorNcrCount++;
+          break;
+      }
+    }
+
+    const totalCars = areaForImprovementCount + minorNcrCount + majorNcrCount;
+    const totalCount = mappedObservations.length;
+    const positiveCount = goodPracticeCount + compliantCount + observationsOnlyCount;
+    const complianceScore = totalCount > 0 ? Math.round((positiveCount / totalCount) * 100) : 100;
+
+    return {
+      location: data.location || session.location || 'Site Location Not Specified',
+      auditorSummary:
+        data.auditorSummary ||
+        `Internal audit visual scan completed on ${session.photos.length} site photograph(s).`,
+      observations: mappedObservations,
+      totalPhotosAnalyzed: session.photos.length,
+      goodPracticeCount,
+      compliantCount,
+      observationsOnlyCount,
+      areaForImprovementCount,
+      minorNcrCount,
+      majorNcrCount,
+      totalCarCount: totalCars,
+      overallComplianceScore: complianceScore,
+      analyzedAt: data.analyzedAt || new Date().toISOString(),
+      modelIdentifier: data.modelIdentifier || 'Gemini Vision',
+    };
+  }
+
+  // ==========================================================================
+  // Local Draft & Finalized Audit Persistence
+  // ==========================================================================
+
+  saveDraft(session: InternalAuditSession): void {
+    if (!session) return;
+    session.updatedAt = new Date().toISOString();
+    session.status = 'draft_saved';
+
+    try {
+      const drafts = this.getStoredDraftsList();
+      const existingIdx = drafts.findIndex((d) => d.sessionId === session.sessionId);
+      if (existingIdx >= 0) {
+        drafts[existingIdx] = session;
+      } else {
+        drafts.unshift(session);
+      }
+      localStorage.setItem(LOCAL_STORAGE_KEY_DRAFTS, JSON.stringify(drafts));
+      this.currentSession.set({ ...session });
+      this.loadSavedAuditsList();
+    } catch (e) {
+      console.error('Failed to save internal audit draft to localStorage:', e);
+    }
+  }
+
+  finalizeAudit(session: InternalAuditSession): InternalAuditSession {
+    session.updatedAt = new Date().toISOString();
+    session.completedAt = new Date().toISOString();
+    session.status = 'completed';
+
+    try {
+      // 1. Remove from drafts
+      const drafts = this.getStoredDraftsList().filter((d) => d.sessionId !== session.sessionId);
+      localStorage.setItem(LOCAL_STORAGE_KEY_DRAFTS, JSON.stringify(drafts));
+
+      // 2. Add to completed
+      const completed = this.getStoredCompletedList();
+      completed.unshift(session);
+      localStorage.setItem(LOCAL_STORAGE_KEY_COMPLETED, JSON.stringify(completed));
+
+      this.currentSession.set({ ...session });
+      this.loadSavedAuditsList();
+    } catch (e) {
+      console.error('Failed to persist completed internal audit:', e);
+    }
+    return session;
+  }
+
+  getStoredDraftsList(): InternalAuditSession[] {
+    try {
+      const raw = localStorage.getItem(LOCAL_STORAGE_KEY_DRAFTS);
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  getStoredCompletedList(): InternalAuditSession[] {
+    try {
+      const raw = localStorage.getItem(LOCAL_STORAGE_KEY_COMPLETED);
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  loadSavedAuditsList(): void {
+    const drafts = this.getStoredDraftsList();
+    const completed = this.getStoredCompletedList();
+    this.savedAudits.set([...completed, ...drafts]);
+  }
+
+  deleteAudit(sessionId: string): void {
+    try {
+      const drafts = this.getStoredDraftsList().filter((d) => d.sessionId !== sessionId);
+      localStorage.setItem(LOCAL_STORAGE_KEY_DRAFTS, JSON.stringify(drafts));
+
+      const completed = this.getStoredCompletedList().filter((d) => d.sessionId !== sessionId);
+      localStorage.setItem(LOCAL_STORAGE_KEY_COMPLETED, JSON.stringify(completed));
+
+      if (this.currentSession()?.sessionId === sessionId) {
+        this.currentSession.set(null);
+      }
+      this.loadSavedAuditsList();
+    } catch (e) {
+      console.error('Failed to delete internal audit session:', e);
+    }
+  }
+}
