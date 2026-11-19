@@ -57,8 +57,15 @@
 }
 
 @keyframes toastFadeIn {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Step Header Card */
@@ -669,306 +676,230 @@
 }
 
 /* ==========================================================================
-   STEP 3: AI COMPUTER VISION SCANNING STYLES
+   STEP 3: CLAUDE-INSPIRED AI ACTIVITY INDICATOR
    ========================================================================== */
 
 .step-ai-scanning {
   display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   justify-content: center;
-  align-items: center;
-  min-height: 520px;
+  min-height: 120px;
+  padding: 32px 24px;
 }
 
-.scanning-modal-card {
-  width: 100%;
-  max-width: 620px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 28px 32px;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08);
-  text-align: center;
+.embedded-in-chat .step-ai-scanning {
+  align-items: flex-start;
+  justify-content: flex-start;
+  min-height: 0;
+  padding: 2px 0;
+  background: transparent;
 }
 
-.scanning-header {
-  margin-bottom: 20px;
-}
-
-.scanning-badge {
+/* Single-Line Claude-Inspired Container */
+.claude-indicator-container {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  background-color: #ffe4e8;
-  color: #b30e2f;
-  font-size: 0.78rem;
-  font-weight: 700;
-  padding: 4px 12px;
-  border-radius: 999px;
-  margin-bottom: 8px;
+  gap: 16px;
+  max-width: 100%;
 }
 
-.radar-dot {
-  width: 8px;
-  height: 8px;
-  background-color: #b30e2f;
+/* The inline row holding triangular dots, text, and right-pointing chevron */
+.claude-indicator-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: transparent;
+  border: none;
+  padding: 4px 2px;
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* Three terracotta-orange dots in Claude's triangular/orbital formation */
+.claude-dots {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  display: inline-block;
+  flex-shrink: 0;
+  animation: claudeTriangulateOrbit 3.2s ease-in-out infinite;
+}
+
+.claude-dot {
+  position: absolute;
+  background-color: #d97757;
   border-radius: 50%;
-  animation: radarDotPulse 1.2s infinite ease-in-out;
+  box-shadow: 0 0 6px rgba(217, 119, 87, 0.55);
+  animation: claudeDotPulse 1.5s ease-in-out infinite;
 }
 
-@keyframes radarDotPulse {
-  0% { transform: scale(0.8); opacity: 1; }
-  50% { transform: scale(1.4); opacity: 0.5; }
-  100% { transform: scale(0.8); opacity: 1; }
+.claude-dot.dot-1 {
+  width: 4.5px;
+  height: 4.5px;
+  top: 2px;
+  left: 2px;
+  animation-delay: 0s;
 }
 
-.scanning-title {
-  font-size: 1.45rem;
-  font-weight: 700;
-  color: #0f172a;
-  margin: 0 0 4px 0;
+.claude-dot.dot-2 {
+  width: 5px;
+  height: 5px;
+  top: 5px;
+  left: 11px;
+  animation-delay: 0.28s;
 }
 
-.scanning-bank-target {
-  font-size: 0.88rem;
-  color: #64748b;
+.claude-dot.dot-3 {
+  width: 6px;
+  height: 6px;
+  top: 10px;
+  left: 4px;
+  animation-delay: 0.56s;
+}
+
+@keyframes claudeTriangulateOrbit {
+
+  0%,
+  100% {
+    transform: rotate(0deg) scale(1);
+  }
+
+  50% {
+    transform: rotate(14deg) scale(1.04);
+  }
+}
+
+@keyframes claudeDotPulse {
+
+  0%,
+  80%,
+  100% {
+    transform: scale(0.72);
+    opacity: 0.45;
+  }
+
+  40% {
+    transform: scale(1.22);
+    opacity: 1;
+  }
+}
+
+/* Activity text: subtle fade + shimmer transition, single line, vertically aligned */
+.claude-activity-text {
+  font-size: 0.92rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  display: inline-block;
+  background: linear-gradient(90deg, #64748b 0%, #1e293b 45%, #94a3b8 55%, #64748b 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: #475569;
+  animation: claudeTextFade 0.35s ease-out, claudeTextShimmer 2.4s linear infinite;
+}
+
+@keyframes claudeTextFade {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes claudeTextShimmer {
+  0% {
+    background-position: 200% center;
+  }
+
+  100% {
+    background-position: 0% center;
+  }
+}
+
+/* Understated, purely visual right-pointing chevron */
+.claude-chevron {
+  color: #94a3b8;
+  flex-shrink: 0;
+  stroke-width: 2;
+  transition: color 0.2s ease;
+  margin-left: -2px;
+}
+
+/* Understated cancel action */
+.btn-cancel-scanning {
+  background: none;
+  border: none;
+  color: #6b7280;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-cancel-scanning:hover {
+  color: #dc2626;
+  background-color: #fee2e2;
+}
+
+/* Claude-Style Inline Conversational Error & Understated Retry Action */
+.claude-inline-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: 680px;
+  width: 100%;
+  animation: claudeTextFade 0.25s ease-out;
+}
+
+.claude-inline-error-text {
+  font-size: 0.92rem;
+  font-weight: 400;
+  line-height: 1.6;
+  color: #1e293b;
   margin: 0;
 }
 
-/* Viewfinder & Reticle Frame */
-.viewfinder-frame {
-  position: relative;
-  width: 100%;
-  max-width: 480px;
-  height: 280px;
-  margin: 0 auto 24px;
-  background-color: #0f172a;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.6);
-}
-
-.reticle {
-  position: absolute;
-  width: 20px;
-  height: 20px;
-  border: 3px solid #ff4b6e;
-  z-index: 15;
-}
-
-.corner-tl {
-  top: 10px;
-  left: 10px;
-  border-right: none;
-  border-bottom: none;
-}
-
-.corner-tr {
-  top: 10px;
-  right: 10px;
-  border-left: none;
-  border-bottom: none;
-}
-
-.corner-bl {
-  bottom: 10px;
-  left: 10px;
-  border-right: none;
-  border-top: none;
-}
-
-.corner-br {
-  bottom: 10px;
-  right: 10px;
-  border-left: none;
-  border-top: none;
-}
-
-.viewfinder-photo-wrap {
-  position: relative;
-  width: 100%;
-  height: 100%;
-}
-
-.viewfinder-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  opacity: 0.85;
-}
-
-/* Laser Scanline Sweeping Vertically */
-.laser-scan-line {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, transparent 0%, #b30e2f 25%, #ff4b6e 50%, #b30e2f 75%, transparent 100%);
-  box-shadow: 0 0 14px 4px rgba(255, 75, 110, 0.8), 0 0 24px 6px rgba(179, 14, 47, 0.5);
-  animation: laserSweep 2.2s ease-in-out infinite;
-  z-index: 10;
-}
-
-@keyframes laserSweep {
-  0% { top: 3%; opacity: 0.8; }
-  50% { top: 94%; opacity: 1; }
-  100% { top: 3%; opacity: 0.8; }
-}
-
-/* Radar Glow Overlay */
-.radar-glow-overlay {
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at center, rgba(179, 14, 47, 0.25) 0%, transparent 70%);
-  animation: radarWave 2s infinite ease-in-out;
-  pointer-events: none;
-  z-index: 8;
-}
-
-@keyframes radarWave {
-  0% { transform: scale(0.92); opacity: 0.3; }
-  50% { transform: scale(1.08); opacity: 0.6; }
-  100% { transform: scale(0.92); opacity: 0.3; }
-}
-
-.hud-overlay-top {
-  position: absolute;
-  top: 14px;
-  left: 36px;
-  right: 36px;
-  display: flex;
-  justify-content: space-between;
-  z-index: 12;
-}
-
-.hud-tag {
-  background: rgba(0, 0, 0, 0.7);
-  color: #38bdf8;
-  font-family: monospace;
-  font-size: 0.68rem;
-  padding: 3px 6px;
-  border-radius: 4px;
-  letter-spacing: 0.05em;
-}
-
-.hud-overlay-bottom {
-  position: absolute;
-  bottom: 14px;
-  left: 36px;
-  z-index: 12;
-}
-
-.hud-status-chip {
-  background: rgba(0, 0, 0, 0.7);
-  color: #4ade80;
-  font-family: monospace;
-  font-size: 0.68rem;
-  padding: 3px 8px;
-  border-radius: 4px;
-}
-
-/* Scanning Progress */
-.scanning-progress-wrap {
-  margin-bottom: 16px;
-}
-
-.progress-bar-track {
-  position: relative;
-  width: 100%;
-  height: 8px;
-  background-color: #f1f5f9;
-  border-radius: 999px;
-  overflow: hidden;
-  margin-bottom: 8px;
-}
-
-.progress-bar-fill {
-  height: 100%;
-  width: 100%;
-  background: linear-gradient(90deg, #b30e2f 0%, #ff4b6e 100%);
-  border-radius: 999px;
-}
-
-.progress-bar-fill.indeterminate-bar {
-  width: 45%;
-  animation: indeterminateScanBar 1.4s ease-in-out infinite;
-}
-
-.progress-bar-fill.error-bar {
-  width: 100%;
-  background: #ef4444;
-  animation: none;
-}
-
-@keyframes indeterminateScanBar {
-  0% { transform: translateX(-100%); }
-  50% { transform: translateX(120%); }
-  100% { transform: translateX(-100%); }
-}
-
-.radar-dot:not(.active) {
-  animation: none;
-  background-color: #ef4444;
-}
-
-.progress-labels-row {
-  display: flex;
+.btn-inline-retry-analysis {
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-}
-
-.scanning-status-text {
-  font-size: 0.88rem;
-  font-weight: 600;
-  color: #0f172a;
-}
-
-.scanning-state-pill {
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: #b30e2f;
-  background-color: #ffe4e8;
-  padding: 2px 8px;
-  border-radius: 999px;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-
-.scanning-error-box {
-  background-color: #fef2f2;
-  border: 1px solid #fecaca;
-  border-radius: 10px;
-  padding: 14px 16px;
-  margin-bottom: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  color: #991b1b;
-  font-size: 0.85rem;
-}
-
-.scanning-error-actions {
-  display: flex;
-  justify-content: center;
-  margin-top: 4px;
-}
-
-.scanning-engine-notice {
-  margin-bottom: 20px;
-}
-
-.engine-pill {
-  background-color: #f1f5f9;
+  gap: 6px;
+  padding: 5px 12px;
+  font-size: 0.82rem;
+  font-weight: 500;
   color: #475569;
-  font-size: 0.75rem;
-  font-weight: 600;
-  padding: 3px 10px;
-  border-radius: 999px;
-  margin-right: 6px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
-.mock-clarification {
-  font-size: 0.75rem;
-  color: #94a3b8;
+.btn-inline-retry-analysis:hover:not(:disabled) {
+  color: #0f172a;
+  background-color: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.btn-inline-retry-analysis:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.retry-inline-icon {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  color: #64748b;
 }
 
 /* ==========================================================================
@@ -1027,10 +958,21 @@
   border-radius: 6px;
 }
 
-.review-risk-badge.risk-low { background-color: #dcfce7; color: #166534; }
-.review-risk-badge.risk-medium { background-color: #fef3c7; color: #92400e; }
+.review-risk-badge.risk-low {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.review-risk-badge.risk-medium {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
 .review-risk-badge.risk-high,
-.review-risk-badge.risk-critical { background-color: #fee2e2; color: #991b1b; }
+.review-risk-badge.risk-critical {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
 
 .review-ai-summary-text {
   font-size: 0.84rem;
@@ -1147,11 +1089,25 @@
   letter-spacing: 0.03em;
 }
 
-.card-total .metric-num { color: #0f172a; }
-.card-pass .metric-num { color: #16a34a; }
-.card-car .metric-num { color: #dc2626; }
-.card-needs-review .metric-num { color: #d97706; }
-.card-na .metric-num { color: #64748b; }
+.card-total .metric-num {
+  color: #0f172a;
+}
+
+.card-pass .metric-num {
+  color: #16a34a;
+}
+
+.card-car .metric-num {
+  color: #dc2626;
+}
+
+.card-needs-review .metric-num {
+  color: #d97706;
+}
+
+.card-na .metric-num {
+  color: #64748b;
+}
 
 /* Filter Tabs Bar */
 .filter-tabs-bar {
@@ -1456,9 +1412,20 @@
   border-radius: 999px;
 }
 
-.obs-status-pill.pill-accepted { background-color: #dcfce7; color: #15803d; }
-.obs-status-pill.pill-edited { background-color: #e0f2fe; color: #0369a1; }
-.obs-status-pill.pill-rejected { background-color: #e2e8f0; color: #475569; }
+.obs-status-pill.pill-accepted {
+  background-color: #dcfce7;
+  color: #15803d;
+}
+
+.obs-status-pill.pill-edited {
+  background-color: #e0f2fe;
+  color: #0369a1;
+}
+
+.obs-status-pill.pill-rejected {
+  background-color: #e2e8f0;
+  color: #475569;
+}
 
 .obs-suggested-tag {
   margin-left: auto;
@@ -1468,10 +1435,25 @@
   border-radius: 999px;
 }
 
-.obs-suggested-tag.tag-1 { background-color: #dcfce7; color: #16a34a; }
-.obs-suggested-tag.tag--1 { background-color: #fee2e2; color: #dc2626; }
-.obs-suggested-tag.tag-0 { background-color: #e2e8f0; color: #475569; }
-.obs-suggested-tag.tag-unresolved { background-color: #fef3c7; color: #b45309; }
+.obs-suggested-tag.tag-1 {
+  background-color: #dcfce7;
+  color: #16a34a;
+}
+
+.obs-suggested-tag.tag--1 {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.obs-suggested-tag.tag-0 {
+  background-color: #e2e8f0;
+  color: #475569;
+}
+
+.obs-suggested-tag.tag-unresolved {
+  background-color: #fef3c7;
+  color: #b45309;
+}
 
 .obs-evidence,
 .obs-car-plan,
@@ -1654,7 +1636,11 @@
   transition: all 0.15s ease;
 }
 
-.btn-rate-pass:hover { border-color: #16a34a; color: #16a34a; }
+.btn-rate-pass:hover {
+  border-color: #16a34a;
+  color: #16a34a;
+}
+
 .btn-rate-pass.selected {
   background-color: #16a34a;
   border-color: #16a34a;
@@ -1662,7 +1648,11 @@
   box-shadow: 0 2px 4px rgba(22, 163, 74, 0.25);
 }
 
-.btn-rate-car:hover { border-color: #dc2626; color: #dc2626; }
+.btn-rate-car:hover {
+  border-color: #dc2626;
+  color: #dc2626;
+}
+
 .btn-rate-car.selected {
   background-color: #dc2626;
   border-color: #dc2626;
@@ -1670,7 +1660,11 @@
   box-shadow: 0 2px 4px rgba(220, 38, 38, 0.25);
 }
 
-.btn-rate-na:hover { border-color: #64748b; color: #64748b; }
+.btn-rate-na:hover {
+  border-color: #64748b;
+  color: #64748b;
+}
+
 .btn-rate-na.selected {
   background-color: #64748b;
   border-color: #64748b;
@@ -1966,9 +1960,20 @@
   color: #0f172a;
 }
 
-.pass-text { color: #16a34a; font-weight: 700; }
-.car-text { color: #dc2626; font-weight: 700; }
-.na-text { color: #64748b; font-weight: 700; }
+.pass-text {
+  color: #16a34a;
+  font-weight: 700;
+}
+
+.car-text {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.na-text {
+  color: #64748b;
+  font-weight: 700;
+}
 
 .standalone-notice {
   background-color: #f8fafc;
@@ -2097,8 +2102,13 @@
   color: #475569;
 }
 
-.pass-val { color: #16a34a; }
-.car-val { color: #dc2626; }
+.pass-val {
+  color: #16a34a;
+}
+
+.car-val {
+  color: #dc2626;
+}
 
 .modal-footer {
   padding: 16px 22px;

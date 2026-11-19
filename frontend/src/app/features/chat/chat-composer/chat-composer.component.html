@@ -1,0 +1,74 @@
+<div class="composer-container">
+  <!-- Hidden Native File & Camera Inputs for Chat Composer -->
+  <input #chatGalleryInput type="file" multiple accept="image/jpeg,image/jpg,image/png,image/webp"
+    (change)="onComposerFilesSelected($event)" style="display: none" />
+  <input #chatCameraInput type="file" accept="image/jpeg,image/jpg,image/png,image/webp" capture="environment"
+    (change)="onComposerCameraCaptured($event)" style="display: none" />
+
+  <!-- Photo Upload Error Alert -->
+  <div *ngIf="chatState.photoUploadError() && !chatState.showPhotoUploadModal()" class="composer-photo-error" role="alert">
+    <span>{{ chatState.photoUploadError() }}</span>
+    <button type="button" class="composer-photo-error-close" (click)="chatState.photoUploadError.set('')"
+      aria-label="Dismiss notice">✕</button>
+  </div>
+
+  <!-- Staged Document Attachment Pill -->
+  <div *ngIf="chatState.attachedDocument()" class="staged-attachment-bar">
+    <div class="staged-doc-pill">
+      <svg class="staged-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+        <polyline points="14 2 14 8 20 8"></polyline>
+      </svg>
+      <span class="staged-name">{{ chatState.attachedDocument() }}</span>
+      <button class="btn-remove-staged" (click)="removeAttachedDocument()" title="Remove attachment">✕</button>
+    </div>
+  </div>
+
+  <!-- Composer Box with Pending Thumbnail Strip -->
+  <div class="composer-box-outer" [class.has-pending-photos]="chatState.uploadedPhotos().length > 0">
+    <!-- Pending Photo Thumbnails Preview Directly Above Composer Input -->
+    <div *ngIf="chatState.uploadedPhotos().length > 0" class="composer-pending-photos-strip"
+      aria-label="Selected photographs ready to send">
+      <div *ngFor="let photo of chatState.uploadedPhotos(); let i = index" class="composer-pending-thumb-item">
+        <img [src]="photo.url" [alt]="photo.name" class="composer-pending-thumb-img" />
+        <button type="button" class="btn-remove-pending-photo" (click)="removePendingComposerPhoto(i)"
+          title="Remove photo" aria-label="Remove photo">✕</button>
+      </div>
+      <button type="button" class="btn-add-more-pending-photos" (click)="openGalleryFilePicker(chatGalleryInput)"
+        title="Add more photographs">
+        <span>+</span>
+      </button>
+    </div>
+
+    <div class="composer-box">
+      <!-- Attachment Paperclip Button -->
+      <div class="composer-attach-wrapper">
+        <button class="btn-composer-attach"
+          (click)="openGalleryFilePicker(chatGalleryInput)" type="button" title="Attach photographs"
+          aria-label="Attach photographs">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path
+              d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48">
+            </path>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Input Textarea (Multiline supported, Enter sends) -->
+      <textarea #composerTextarea class="composer-input" rows="1"
+        [placeholder]="chatState.uploadedPhotos().length > 0 ? 'Add notes for these photographs, or press Send to analyse...' : 'Ask about highway compliance, or select a Site Inspection category...'"
+        [value]="chatState.composerText()" (input)="onComposerInput($event)" (keydown)="onComposerKeydown($event)"></textarea>
+
+      <!-- Send Button -->
+      <button class="btn-composer-send"
+        [disabled]="(!chatState.composerText().trim() && chatState.uploadedPhotos().length === 0) || chatState.isGenerating()"
+        (click)="onSendClick()" type="button" aria-label="Send message">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <p class="composer-helper-note">QuestAI can provide inspection guidance and auto-populate checklist responses from photographs.</p>
+</div>

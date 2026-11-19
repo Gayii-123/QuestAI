@@ -1,0 +1,368 @@
+<div class="reports-page-container">
+  <!-- Page Header -->
+  <div class="reports-header">
+    <div class="reports-header-left">
+      <h1 class="reports-title">Site Inspection Reports</h1>
+      <p class="reports-subtitle">Access, review, edit, and export finalized inspection reports.</p>
+    </div>
+  </div>
+
+  <!-- Reports Grid Area -->
+  <div class="reports-grid" *ngIf="reports.length > 0">
+    <div *ngFor="let rec of reports" class="report-card" (click)="openRecord(rec)">
+      <div class="report-card-top">
+        <div class="report-bank-info">
+          <h3 class="report-bank-name">{{ rec.bankName }}</h3>
+          <span class="report-ref-pill">{{ rec.referenceNumber }}</span>
+        </div>
+        <div class="report-risk-badge" [class]="reportService.getRecordRiskClass(rec)">
+          {{ reportService.getRecordPassRate(rec) }}% Pass
+        </div>
+      </div>
+
+      <div class="report-card-meta">
+        <div class="meta-item">
+          <span class="meta-label">Job No:</span>
+          <span class="meta-val">{{ rec.jobNo || rec.jobReference || 'LBN-0029' }}</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Location:</span>
+          <span class="meta-val">{{ rec.siteLocation || 'Romford Road' }}</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Date:</span>
+          <span class="meta-val">{{ reportService.formatHistoryDate(rec.finalizedAt) }}</span>
+        </div>
+      </div>
+
+      <div class="report-card-stats">
+        <div class="stat-box pass">
+          <span class="stat-count">{{ rec.stats?.passCount || rec.totalScore || 0 }}</span>
+          <span class="stat-name">Pass</span>
+        </div>
+        <div class="stat-box car">
+          <span class="stat-count">{{ rec.stats?.carCount || 0 }}</span>
+          <span class="stat-name">CAR</span>
+        </div>
+        <div class="stat-box na">
+          <span class="stat-count">{{ rec.stats?.naCount || 0 }}</span>
+          <span class="stat-name">N/A</span>
+        </div>
+        <div class="stat-box photos" *ngIf="rec.photos?.length > 0">
+          <span class="stat-count">{{ rec.photos.length }}</span>
+          <span class="stat-name">Photos</span>
+        </div>
+      </div>
+
+      <div class="report-card-actions" (click)="$event.stopPropagation()">
+        <button type="button" class="btn-card-view" (click)="openRecord(rec)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="action-icon">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+          <span>View Report</span>
+        </button>
+        <button type="button" class="btn-card-pdf" (click)="downloadPdf(rec)" title="Download PDF Report">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="action-icon">
+            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+            <rect x="6" y="14" width="12" height="8"></rect>
+          </svg>
+          <span>PDF</span>
+        </button>
+        <button type="button" class="btn-card-delete" (click)="deleteRecord($event, rec.referenceNumber)" title="Delete Report">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="action-icon">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Empty State -->
+  <div class="reports-empty-state" *ngIf="reports.length === 0">
+    <div class="empty-icon-circle">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="empty-svg">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+        <polyline points="14 2 14 8 20 8"></polyline>
+        <line x1="16" y1="13" x2="8" y2="13"></line>
+        <line x1="16" y1="17" x2="8" y2="17"></line>
+      </svg>
+    </div>
+    <h3 class="empty-title">No inspection reports found</h3>
+    <p class="empty-desc">Completed site inspections will appear here. You can start a new inspection or complete one via the conversational chat.</p>
+    <button type="button" class="btn-start-inspection-empty" (click)="startNewInspection()">
+      Start Site Inspection
+    </button>
+  </div>
+
+  <!-- Official Marlborough Highways / Quest Site Inspection Report Modal (Matches 10-screen format) -->
+  <div *ngIf="selectedRecord" class="modal-backdrop" (click)="closeRecord()">
+    <div class="modal-window official-report-modal" (click)="$event.stopPropagation()">
+      <!-- Top Red Header Bar -->
+      <div class="official-report-topbar">
+        <h3 class="official-topbar-title">
+          Site Inspection Report under Job no : {{ selectedRecord?.jobNo || selectedRecord?.jobReference || 'LBN-0029' }} Ref no: {{ selectedRecord?.referenceNumber }}
+        </h3>
+        <div class="official-topbar-actions">
+          <button type="button" class="official-action-pill" title="Evaluate">
+            <svg class="official-pill-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a6 6 0 0 1 6 6c0 2.22-1.21 4.16-3 5.2V17a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-3.8c-1.79-1.04-3-2.98-3-5.2a6 6 0 0 1 6-6z"></path><path d="M9 21h6"></path></svg>
+            Evaluate
+          </button>
+          <button type="button" class="official-action-pill" title="Rate">
+            <svg class="official-pill-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+            Rate
+          </button>
+          <button type="button" class="official-action-pill print-btn" (click)="downloadPdf(selectedRecord)" title="Print PDF Report">
+            <svg class="official-pill-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+            Print
+          </button>
+          <button type="button" class="official-close-btn" (click)="closeRecord()" aria-label="Close">✕</button>
+        </div>
+      </div>
+
+      <!-- Report Body Document -->
+      <div class="official-report-scroll-body">
+        <!-- Title & Marlborough Logo -->
+        <div class="official-brand-header">
+          <h2 class="official-brand-title">Site Inspection Report</h2>
+          <div class="official-marlborough-logo">
+            <svg class="official-m-svg" viewBox="0 0 120 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 78 L52 14 L76 56 L64 56 L52 34 L25 78 Z" fill="#88132B"/>
+              <path d="M46 78 L70 36 L108 78 L95 78 L70 50 L58 78 Z" fill="#A82038"/>
+            </svg>
+          </div>
+        </div>
+
+        <!-- 4-Column Metadata Table -->
+        <table class="official-meta-table">
+          <tbody>
+            <tr>
+              <td class="official-meta-lbl">Ref No</td>
+              <td class="official-meta-val"><strong>{{ selectedRecord?.referenceNumber }}</strong></td>
+              <td class="official-meta-lbl">Inspection Date</td>
+              <td class="official-meta-val">{{ reportService.formatHistoryDate(selectedRecord?.finalizedAt) }}</td>
+            </tr>
+            <tr>
+              <td class="official-meta-lbl">Job No</td>
+              <td class="official-meta-val">{{ selectedRecord?.jobNo || selectedRecord?.jobReference || 'LBN-0029' }}</td>
+              <td class="official-meta-lbl">Report Date</td>
+              <td class="official-meta-val">{{ reportService.formatHistoryDate(selectedRecord?.finalizedAt) }}</td>
+            </tr>
+            <tr>
+              <td class="official-meta-lbl">Location</td>
+              <td class="official-meta-val">{{ selectedRecord?.siteLocation || 'Romford Road' }}</td>
+              <td class="official-meta-lbl">Depot</td>
+              <td class="official-meta-val">{{ selectedRecord?.depot || 'N/A' }}</td>
+            </tr>
+            <tr>
+              <td class="official-meta-lbl">Department</td>
+              <td class="official-meta-val">{{ selectedRecord?.department || 'Civil' }}</td>
+              <td class="official-meta-lbl">Reported By</td>
+              <td class="official-meta-val">{{ selectedRecord?.inspectorName || 'Dan Kennett' }}</td>
+            </tr>
+            <tr>
+              <td class="official-meta-lbl">Supervisor</td>
+              <td class="official-meta-val">{{ selectedRecord?.supervisorName || 'Dan Kennett' }}</td>
+              <td class="official-meta-lbl">Foreman</td>
+              <td class="official-meta-val">{{ selectedRecord?.foremanName || 'Bekim Aliaj' }}</td>
+            </tr>
+            <tr>
+              <td class="official-meta-lbl">Contract</td>
+              <td class="official-meta-val">{{ selectedRecord?.contract || '140-Newham' }}</td>
+              <td class="official-meta-lbl">Operatives</td>
+              <td class="official-meta-val">{{ selectedRecord?.operatives || '1. Dan Kennett, 2. Bekim Aliaj' }}</td>
+            </tr>
+            <tr>
+              <td class="official-meta-lbl">Job Description</td>
+              <td class="official-meta-val">{{ selectedRecord?.jobDescription || 'Highway safety & compliance inspection' }}</td>
+              <td class="official-meta-lbl">Total Score</td>
+              <td class="official-meta-val"><strong class="score-highlight">{{ selectedRecord?.totalScore || selectedRecord?.stats?.passCount || 50 }}</strong></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Live Summary Metrics Bar (Feature 2.B) -->
+        <div class="official-summary-stats-bar">
+          <div class="official-stat-pill stat-total">
+            <span class="stat-lbl">Total Checks</span>
+            <span class="stat-num">{{ selectedRecord?.stats?.total || 0 }}</span>
+          </div>
+          <div class="official-stat-pill stat-answered">
+            <span class="stat-lbl">Answered</span>
+            <span class="stat-num">{{ selectedRecord?.stats?.answered || 0 }}</span>
+          </div>
+          <div class="official-stat-pill stat-pass">
+            <span class="stat-lbl">Pass</span>
+            <span class="stat-num">{{ selectedRecord?.stats?.passCount || 0 }}</span>
+          </div>
+          <div class="official-stat-pill stat-car">
+            <span class="stat-lbl">CAR / Defect</span>
+            <span class="stat-num">{{ selectedRecord?.stats?.carCount || 0 }}</span>
+          </div>
+          <div class="official-stat-pill stat-na">
+            <span class="stat-lbl">N/A</span>
+            <span class="stat-num">{{ selectedRecord?.stats?.naCount || 0 }}</span>
+          </div>
+          <div class="official-stat-pill stat-unresolved">
+            <span class="stat-lbl">Pending</span>
+            <span class="stat-num">{{ selectedRecord?.stats?.unresolvedCount ?? (selectedRecord?.stats?.needsReviewCount || 0) }}</span>
+          </div>
+          <div class="official-stat-pill stat-score">
+            <span class="stat-lbl">Total Score</span>
+            <span class="stat-num">{{ selectedRecord?.totalScore ?? (selectedRecord?.stats?.passCount || 0) }}</span>
+          </div>
+        </div>
+
+        <!-- Site Photographs Gallery -->
+        <div class="official-section-title" *ngIf="selectedRecord?.photos?.length > 0">
+          <span>Site Photographs</span>
+          <span class="official-section-count">{{ selectedRecord?.photos?.length }} Images</span>
+        </div>
+        <div class="official-photos-grid" *ngIf="selectedRecord?.photos?.length > 0">
+          <div *ngFor="let photo of selectedRecord?.photos; let idx = index" class="official-photo-card">
+            <img [src]="photo.url" [alt]="photo.name || 'Site Photo ' + (idx + 1)" (error)="$any($event.target).closest('.official-photo-card').style.display = 'none'" />
+            <span class="official-photo-lbl">{{ photo.name || 'Photo ' + (idx + 1) }}</span>
+          </div>
+        </div>
+
+        <!-- Inspection Report Table -->
+        <div class="official-section-title">
+          <span>Inspection Report</span>
+          <span class="official-section-count">{{ selectedRecord?.stats?.total || 0 }} Checks Evaluated</span>
+        </div>
+
+        <div class="official-report-tables-wrap">
+          <div *ngFor="let group of reportService.getHistoryQuestionGroups(selectedRecord)" class="official-group-block">
+            <h4 class="official-group-title">{{ group.headername }}</h4>
+            <table class="official-checklist-table">
+              <thead>
+                <tr>
+                  <th style="width: 6%;">SL</th>
+                  <th style="width: 58%;">Item / Question</th>
+                  <th style="width: 26%;">Meets Legislative & Company Requirements</th>
+                  <th style="width: 10%; text-align: center;">Rating</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let q of group.questions; let sIdx = index" [class.row-is-editing]="reportService.editingHistoryQuestionId() === q.id">
+                  <td class="official-sl-col">{{ sIdx + 1 < 10 ? '0' + (sIdx + 1) : sIdx + 1 }}</td>
+                  <td class="official-item-col">
+                    <span *ngIf="q.isDynamicObservation" class="official-dyn-badge">⚠️ AI Observed Abnormality</span>
+                    <div class="official-q-text">{{ q.qtext }}</div>
+
+                    <!-- Embedded Photos row under question text -->
+                    <div class="official-q-photos" *ngIf="reportService.getHistorySupportingPhotos(selectedRecord, q.supportingPhotoIds || selectedRecord?.answers?.[q.id]?.photoIds, q).length > 0">
+                      <img *ngFor="let p of reportService.getHistorySupportingPhotos(selectedRecord, q.supportingPhotoIds || selectedRecord?.answers?.[q.id]?.photoIds, q)"
+                        [src]="p.url" [alt]="p.name || 'Site photo'" class="official-inline-thumb"
+                        (error)="$any($event.target).style.display = 'none'" />
+                    </div>
+
+                    <!-- Evidence & CAR Note (when NOT editing) -->
+                    <div *ngIf="reportService.editingHistoryQuestionId() !== q.id">
+                      <div class="official-evidence-note" *ngIf="selectedRecord?.answers?.[q.id]?.comment">
+                        {{ selectedRecord?.answers?.[q.id]?.comment }}
+                      </div>
+                      <div class="official-car-plan" *ngIf="selectedRecord?.answers?.[q.id]?.carActionPlan">
+                        Action: {{ selectedRecord?.answers?.[q.id]?.carActionPlan }}
+                      </div>
+                    </div>
+
+                    <!-- Corrective Action Plan Editor (when editing and rating is CAR '-1') -->
+                    <div *ngIf="reportService.editingHistoryQuestionId() === q.id && reportService.editingHistoryRating() === '-1'" class="official-car-editor-box">
+                      <label class="official-car-label">Corrective Action Plan:</label>
+                      <input
+                        type="text"
+                        class="official-car-input"
+                        placeholder="Enter corrective action required on site..."
+                        [value]="reportService.editingHistoryCarPlan()"
+                        (input)="reportService.onEditingCarPlanChange($any($event.target).value)"
+                      />
+                    </div>
+                  </td>
+
+                  <!-- Status Column -->
+                  <td class="official-status-col">
+                    <div *ngIf="reportService.editingHistoryQuestionId() !== q.id" class="official-status-view">
+                      <span class="official-status-badge"
+                        [class.status-yes]="selectedRecord?.answers?.[q.id]?.rating === '1'"
+                        [class.status-car]="selectedRecord?.answers?.[q.id]?.rating === '-1'"
+                        [class.status-na]="selectedRecord?.answers?.[q.id]?.rating === '0'"
+                        [class.status-pending]="!selectedRecord?.answers?.[q.id]?.rating">
+                        {{ reportService.getHistoryRequirementStatus(selectedRecord?.answers?.[q.id]?.rating) }}
+                      </span>
+                      <span *ngIf="reportService.historyRowSaveSuccess() === q.id" class="official-saved-pill">✓ Saved</span>
+                      <button type="button" class="btn-row-edit" (click)="reportService.startEditingHistoryQuestion(q.id)" title="Edit this question rating & plan">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="edit-icon">
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                        </svg>
+                        <span>Edit</span>
+                      </button>
+                    </div>
+
+                    <!-- Inline Rating Buttons when editing -->
+                    <div *ngIf="reportService.editingHistoryQuestionId() === q.id" class="official-edit-controls-wrap">
+                      <div class="official-rate-choice-group">
+                        <button type="button" class="btn-rate-choice rate-pass"
+                          [class.active]="reportService.editingHistoryRating() === '1'"
+                          (click)="reportService.setEditingHistoryRating('1')">
+                          ✓ PASS
+                        </button>
+                        <button type="button" class="btn-rate-choice rate-car"
+                          [class.active]="reportService.editingHistoryRating() === '-1'"
+                          (click)="reportService.setEditingHistoryRating('-1')">
+                          ✕ CAR
+                        </button>
+                        <button type="button" class="btn-rate-choice rate-na"
+                          [class.active]="reportService.editingHistoryRating() === '0'"
+                          (click)="reportService.setEditingHistoryRating('0')">
+                          – N/A
+                        </button>
+                        <button type="button" class="btn-rate-choice rate-pending"
+                          [class.active]="reportService.editingHistoryRating() === ''"
+                          (click)="reportService.setEditingHistoryRating('')">
+                          ○ PENDING
+                        </button>
+                      </div>
+                      <div class="official-row-action-buttons">
+                        <button type="button" class="btn-row-save" (click)="reportService.saveEditingHistoryQuestion(q.id)">
+                          ✓ Save
+                        </button>
+                        <button type="button" class="btn-row-cancel" (click)="reportService.cancelEditingHistoryQuestion()">
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </td>
+
+                  <!-- Rating Score Column -->
+                  <td class="official-rating-col"
+                    [class.rating-green]="(reportService.editingHistoryQuestionId() === q.id ? reportService.editingHistoryRating() : selectedRecord?.answers?.[q.id]?.rating) === '1'"
+                    [class.rating-red]="(reportService.editingHistoryQuestionId() === q.id ? reportService.editingHistoryRating() : selectedRecord?.answers?.[q.id]?.rating) === '-1'"
+                    [class.rating-gray]="(reportService.editingHistoryQuestionId() === q.id ? reportService.editingHistoryRating() : selectedRecord?.answers?.[q.id]?.rating) === '0'">
+                    {{ (reportService.editingHistoryQuestionId() === q.id ? reportService.editingHistoryRating() : selectedRecord?.answers?.[q.id]?.rating) || '-' }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="modal-footer official-modal-footer">
+        <button class="btn-modal-download-pdf" (click)="downloadPdf(selectedRecord)" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="modal-pdf-icon">
+            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+            <rect x="6" y="14" width="12" height="8"></rect>
+          </svg>
+          Download PDF Report
+        </button>
+        <button class="btn-modal-cancel" (click)="closeRecord()" type="button">Close</button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -23,8 +23,6 @@ import {
   MANAGERS_BASE_QUESTIONS,
   MANAGERS_RISK_BANKS,
   ROAD_MARKING_TEST_QUESTIONS,
-  SITE_INSPECTION_QUESTION_BANKS,
-  SUPPORTED_DEPARTMENTS,
   getCompositeQuestionId,
   getQuestionsForDepartment,
   evaluateConditionalRule,

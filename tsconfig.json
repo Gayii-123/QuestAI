@@ -1,8 +1,8 @@
 {
   "files": [],
   "references": [
-    { "path": "./frontend/tsconfig.app.json" },
-    { "path": "./backend/tsconfig.json" }
+    { "path": "./frontend/tsconfig.json" },
+    { "path": "./frontend/tsconfig.app.json" }
   ]
 }
 

@@ -139,6 +139,8 @@ export interface SiteInspectionQuestion {
   conditionalRule?: ConditionalDisplayRule;
   /** QuestAI Evaluation Metadata (Separate from Quest DB schema) */
   questai_metadata?: QuestAiMetadata;
+  /** Whether this question is an extra dynamic abnormality/issue identified by AI */
+  isDynamicObservation?: boolean;
   [key: string]: any;
 }
 
@@ -6294,3 +6296,129 @@ export function groupQuestionsByHeader(questions: SiteInspectionQuestion[]): Que
     questions: groups[headername]
   }));
 }
+
+export interface SiteInspectionBankOption {
+  id: string;
+  name: string;
+  department: string;
+  trafficSubtype?: string;
+  isManagers?: boolean;
+  icon: string;
+  badge: string;
+  count: number;
+  description: string;
+}
+
+export const SITE_INSPECTION_BANKS: SiteInspectionBankOption[] = [
+  {
+    id: 'civil-other',
+    name: 'Civil / Other',
+    department: 'Civil/Other',
+    icon: '🏗️',
+    badge: '52 Questions',
+    count: 52,
+    description: 'Civil works, plant, traffic management, welfare, site vehicles, and quality checks',
+  },
+  {
+    id: 'street-lighting',
+    name: 'Street Lighting',
+    department: 'Street Lighting',
+    icon: '💡',
+    badge: '47 Questions',
+    count: 47,
+    description: 'Column installations, cable isolations, MEWPs, electrical testing and safety',
+  },
+  {
+    id: 'road-marking',
+    name: 'Road Marking',
+    department: 'Road Marking',
+    icon: '🛣️',
+    badge: '44 Questions',
+    count: 44,
+    description: 'Thermoplastic boilers, pre-heaters, glass bead pressure systems and hydro-blasting',
+  },
+  {
+    id: 'road-surfacing',
+    name: 'Road Surfacing',
+    department: 'Road Surfacing',
+    icon: '🚜',
+    badge: '27 Questions',
+    count: 27,
+    description: 'Asphalt paving, rollers, pedestrian management, thermal hazards, and environmental controls',
+  },
+  {
+    id: 'tm-12d',
+    name: 'Traffic Management 12D',
+    department: 'Traffic Management',
+    trafficSubtype: '12D',
+    icon: '🛑',
+    badge: '33 Questions',
+    count: 33,
+    description: 'Urban and rural roads, temporary traffic lights, convoy working and stop/go controls',
+  },
+  {
+    id: 'tm-12ab',
+    name: 'Traffic Management 12AB',
+    department: 'Traffic Management',
+    trafficSubtype: '12AB',
+    icon: '🚧',
+    badge: '32 Questions',
+    count: 32,
+    description: 'High-speed dual carriageways and motorways, IPVs, taper closures and overhead gantries',
+  },
+  {
+    id: 'full-body-harness',
+    name: 'Full Body Harness',
+    department: 'Harness and Lanyard',
+    icon: '🪢',
+    badge: '21 Questions',
+    count: 21,
+    description: 'Fall arrest harnesses, lanyards, carabiners, webbing integrity, labels and inspection history',
+  },
+  {
+    id: 'ladder-stepladder',
+    name: 'Ladder / Stepladder',
+    department: 'Ladder/Stepladder',
+    icon: '🪜',
+    badge: '9 Questions',
+    count: 9,
+    description: 'Ladder pre-use checks, stiles, rungs, anti-slip feet, spreaders and angle requirements',
+  },
+  {
+    id: 'depot-check-sheet',
+    name: 'Depot Check Sheet',
+    department: 'Depot Check Sheet',
+    icon: '🏢',
+    badge: '32 Questions',
+    count: 32,
+    description: 'Depot yards, bunded fuel storage, hazardous waste, emergency eyewash and fire safety',
+  },
+  {
+    id: 'managers-site-inspection',
+    name: 'Managers Site Inspection',
+    department: 'Managers Site Inspection',
+    isManagers: true,
+    icon: '📋',
+    badge: '12 Base + Risk Banks',
+    count: 12,
+    description: 'Management site walk inspection with dynamic selection of active project risk banks',
+  },
+  {
+    id: 'managers-risk-banks',
+    name: 'Managers Site Inspection – Risk Banks',
+    department: 'Managers Risk Banks',
+    icon: '⚠️',
+    badge: '49 Risk Questions',
+    count: 49,
+    description: 'Comprehensive risk bank covering all 13 high-risk construction activities',
+  },
+  {
+    id: 'road-marking-test',
+    name: 'Road Marking (Test)',
+    department: 'Road Marking (Test)',
+    icon: '🧪',
+    badge: '16 Questions',
+    count: 16,
+    description: 'Operational test verification checklist for road marking crews and equipment calibration',
+  },
+];
