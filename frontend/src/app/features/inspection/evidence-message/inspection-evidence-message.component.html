@@ -27,7 +27,10 @@
   <!-- Evidence-Supported AI Suggested Findings -->
   <div class="ai-suggestions-list" *ngIf="evidence.aiSuggestions && evidence.aiSuggestions.length > 0">
     <div class="suggestions-header">
-      <span class="suggestions-icon">🔍</span>
+      <svg class="suggestions-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
       <span class="suggestions-title">Evaluated from Photographs ({{ evidence.aiSuggestions.length }} Checks)</span>
     </div>
     <div *ngFor="let s of (showAllSuggestions ? evidence.aiSuggestions : (evidence.aiSuggestions | slice:0:2))" class="ai-suggestion-card">
@@ -61,7 +64,10 @@
   <!-- Additional Photo Request Callout (if needed) -->
   <div class="photo-request-banner" *ngIf="evidence.needsAdditionalPhotos">
     <div class="request-left">
-      <span class="camera-emoji">📸</span>
+      <svg class="camera-emoji" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+        <circle cx="12" cy="13" r="4"></circle>
+      </svg>
       <span class="request-text">{{ evidence.additionalPhotoPrompt || 'Additional photograph recommended for closer inspection.' }}</span>
     </div>
     <button type="button" class="btn-request-upload" (click)="onAddMorePhotosClick()">

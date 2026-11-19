@@ -224,7 +224,7 @@ export class ChatStateService {
     this.photoCache.set(id, dataUrl);
     try {
       sessionStorage.setItem('questai_photo_' + id, dataUrl);
-    } catch {}
+    } catch { }
   }
 
   getPhotoUrl(id: string): string {
@@ -238,7 +238,7 @@ export class ChatStateService {
         this.photoCache.set(id, stored);
         return stored;
       }
-    } catch {}
+    } catch { }
     return '';
   }
 
@@ -247,7 +247,7 @@ export class ChatStateService {
     try {
       const ids = this.activeClarificationQueue.map((q) => q.questionId);
       sessionStorage.setItem(`questai_queue_${inspectionId}`, JSON.stringify(ids));
-    } catch {}
+    } catch { }
   }
 
   recoverClarificationQueue(session: InspectionSessionViewModel): void {
@@ -268,7 +268,7 @@ export class ChatStateService {
           return;
         }
       }
-    } catch {}
+    } catch { }
 
     // Fallback: recover any pending unanswered doubts in session
     const pending = Object.values(session.questionAssessments).filter(
@@ -319,7 +319,7 @@ export class ChatStateService {
       if (!targetActiveId) {
         try {
           targetActiveId = sessionStorage.getItem('questai_active_conv_id') || '';
-        } catch {}
+        } catch { }
       }
 
       const convs = this.conversations();
@@ -346,7 +346,7 @@ export class ChatStateService {
     this.showAttachmentMenu.set(false);
     try {
       sessionStorage.removeItem('questai_active_conv_id');
-    } catch {}
+    } catch { }
   }
 
   persistChatState(): void {
@@ -383,7 +383,7 @@ export class ChatStateService {
     this.showAttachmentMenu.set(false);
     try {
       sessionStorage.removeItem('questai_active_conv_id');
-    } catch {}
+    } catch { }
     this.persistChatState();
   }
 
@@ -391,7 +391,7 @@ export class ChatStateService {
     this.activeConversationId.set(id);
     try {
       sessionStorage.setItem('questai_active_conv_id', id);
-    } catch {}
+    } catch { }
 
     const conv = this.conversations().find((c) => c.id === id);
     if (conv) {
@@ -601,7 +601,7 @@ export class ChatStateService {
 
     const uid = this.conversationService.getCurrentUserId();
     if (uid && targetMsg) {
-      void this.conversationService.saveMessage(uid, conv.id, targetMsg, conv.messages.length).catch(() => {});
+      void this.conversationService.saveMessage(uid, conv.id, targetMsg, conv.messages.length).catch(() => { });
     }
   }
 
@@ -779,6 +779,27 @@ export class ChatStateService {
     return text.replace(/\bgemini(-[0-9a-z.-]+)?\b/gi, 'QuestAI');
   }
 
+  private buildConversationTitle(rawText: string, bankName?: string): string {
+    const trimmed = (rawText || '').replace(/\s+/g, ' ').trim();
+    if (!trimmed) {
+      return bankName ? `${bankName} Inspection` : 'Site Inspection Photos';
+    }
+
+    const cleaned = trimmed
+      .replace(/^(hi|hello|hey|good morning|good afternoon|good evening)[\s,!.]*/i, '')
+      .replace(/^(please\s+|can you\s+|could you\s+|i\s+(wanna|want to|need to|would like to)\s+(do\s+|start\s+|run\s+)?(a\s+|an\s+)?)/i, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (bankName && (!cleaned || this.isInspectionFormRequest(cleaned))) {
+      return `${bankName} Inspection`;
+    }
+
+    const base = cleaned || trimmed;
+    const titled = base.charAt(0).toUpperCase() + base.slice(1);
+    return titled.length > 38 ? titled.substring(0, 38).trimEnd() + '…' : titled;
+  }
+
   // --- Send Message & Workflows ---
 
   sendMessage(): void {
@@ -804,10 +825,11 @@ export class ChatStateService {
         (this.selectedUploadBank()?.name
           ? `${this.selectedUploadBank()!.name} Inspection`
           : 'Site Inspection Photos');
+      const autoTitle = this.buildConversationTitle(text, this.selectedUploadBank()?.name);
       const newId = 'conv-' + Date.now();
       const newConv: Conversation = {
         id: newId,
-        title: 'New Chat',
+        title: autoTitle,
         updatedAt: new Date(),
         previewSnippet: basePreview,
         lastMessagePreview: basePreview,
@@ -819,7 +841,7 @@ export class ChatStateService {
       this.activeConversationId.set(newId);
       try {
         sessionStorage.setItem('questai_active_conv_id', newId);
-      } catch {}
+      } catch { }
       currentConv = newConv;
 
       const uid = this.conversationService.getCurrentUserId();
@@ -827,6 +849,23 @@ export class ChatStateService {
         void this.conversationService.createConversation(uid, newConv).catch((e) => {
           console.warn('[ChatState] Failed to persist new conversation in Firestore:', e);
         });
+      }
+    } else if (
+      (currentConv.title === 'New Chat' || this.isGreeting(currentConv.title)) &&
+      (text || photosToSend.length > 0)
+    ) {
+      const autoTitle = this.buildConversationTitle(text, this.selectedUploadBank()?.name);
+      if (autoTitle && autoTitle !== currentConv.title) {
+        currentConv.title = autoTitle;
+        this.conversations.update((list) =>
+          list.map((c) => (c.id === currentConv!.id ? { ...c, title: autoTitle } : c))
+        );
+        const uid = this.conversationService.getCurrentUserId();
+        if (uid) {
+          void this.conversationService.updateConversationMeta(uid, currentConv.id, {
+            title: autoTitle,
+          });
+        }
       }
     }
 
@@ -1111,7 +1150,7 @@ export class ChatStateService {
       const newId = 'conv-' + Date.now();
       const newConv: Conversation = {
         id: newId,
-        title: 'New Chat',
+        title: `${bank.name} Inspection`,
         updatedAt: new Date(),
         previewSnippet: bank.name,
         lastMessagePreview: bank.name,
@@ -1120,6 +1159,29 @@ export class ChatStateService {
       };
       this.conversations.update((list) => [newConv, ...list]);
       this.activeConversationId.set(newId);
+      const uid = this.conversationService.getCurrentUserId();
+      if (uid) {
+        void this.conversationService.createConversation(uid, newConv).catch(() => { });
+      }
+    } else {
+      const existing = this.activeConversation()!;
+      if (
+        existing.title === 'New Chat' ||
+        this.isGreeting(existing.title) ||
+        this.isInspectionFormRequest(existing.title)
+      ) {
+        const nextTitle = `${bank.name} Inspection`;
+        existing.title = nextTitle;
+        this.conversations.update((list) =>
+          list.map((c) => (c.id === existing.id ? { ...c, title: nextTitle } : c))
+        );
+        const uid = this.conversationService.getCurrentUserId();
+        if (uid) {
+          void this.conversationService.updateConversationMeta(uid, existing.id, {
+            title: nextTitle,
+          });
+        }
+      }
     }
 
     this.selectedUploadBank.set(bank);
@@ -1287,7 +1349,7 @@ export class ChatStateService {
     const uid = this.conversationService.getCurrentUserId();
     const convId = this.activeConversationId();
     if (uid && convId) {
-      void this.conversationService.saveMessage(uid, convId, msg).catch(() => {});
+      void this.conversationService.saveMessage(uid, convId, msg).catch(() => { });
     }
 
     // Ensure queue is populated (recover if lost due to reload or sync)
@@ -1318,7 +1380,7 @@ export class ChatStateService {
 
     try {
       sessionStorage.removeItem(`questai_queue_${session.inspectionId}`);
-    } catch {}
+    } catch { }
 
     session.workflowStatus = 'completed';
     session.completedAt = new Date().toISOString();
@@ -1371,7 +1433,7 @@ export class ChatStateService {
     const uid = this.conversationService.getCurrentUserId();
     const convId = this.activeConversationId();
     if (uid && convId) {
-      void this.conversationService.saveMessage(uid, convId, msg).catch(() => {});
+      void this.conversationService.saveMessage(uid, convId, msg).catch(() => { });
     }
 
     if (this.activeClarificationQueue.length === 0) {
@@ -1401,7 +1463,7 @@ export class ChatStateService {
 
     try {
       sessionStorage.removeItem(`questai_queue_${session.inspectionId}`);
-    } catch {}
+    } catch { }
 
     session.workflowStatus = 'completed';
     session.completedAt = new Date().toISOString();
