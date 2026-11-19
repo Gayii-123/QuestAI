@@ -97,19 +97,26 @@
   width: 100%;
   display: flex;
   flex-direction: column;
+  background: var(--q-bg);
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-r-xl);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.composer-box-outer:focus-within {
+  border-color: var(--q-red);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.10);
 }
 
 .composer-box-outer.has-pending-photos {
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-light);
-  border-radius: 20px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+  border-radius: var(--q-r-xl);
 }
 
 .composer-box-outer.has-pending-photos .composer-box {
   box-shadow: none;
   border: none;
-  border-radius: 0 0 20px 20px;
+  border-radius: 0 0 var(--q-r-xl) var(--q-r-xl);
 }
 
 .composer-pending-photos-strip {
@@ -162,17 +169,17 @@
 }
 
 .btn-remove-pending-photo:hover {
-  background-color: #dc2626;
+  background-color: var(--q-red);
   transform: scale(1.08);
 }
 
 .btn-add-more-pending-photos {
   width: 56px;
   height: 56px;
-  border-radius: 10px;
-  border: 1px dashed #cbd5e1;
-  background-color: #f8fafc;
-  color: #64748b;
+  border-radius: var(--q-r-md);
+  border: 1px dashed var(--q-border-hover);
+  background-color: var(--q-shell);
+  color: var(--q-muted);
   font-size: 1.2rem;
   font-weight: 500;
   display: flex;
@@ -184,29 +191,22 @@
 }
 
 .btn-add-more-pending-photos:hover {
-  border-color: var(--primary-red);
-  color: var(--primary-red);
-  background-color: #fff1f2;
+  border-color: var(--q-border-hover);
+  color: var(--q-text);
+  background-color: var(--q-surface-2);
 }
 
-/* Rounded Capsule Composer Box */
+/* Unified Composer Input Row */
 .composer-box {
-  max-width: 800px;
   width: 100%;
-  background: #ffffff !important;
-  border: 1.5px solid #fca5a5 !important;
-  border-radius: 9999px !important;
-  padding: 0.4rem 0.5rem 0.4rem 1rem !important;
+  background: transparent;
+  border: none;
+  border-radius: var(--q-r-xl);
+  padding: 8px 8px 8px 12px;
   display: flex;
   align-items: center;
-  gap: 0.45rem;
-  box-shadow: 0 2px 16px rgba(220, 38, 38, 0.08) !important;
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-
-.composer-box:focus-within {
-  border-color: var(--primary-red);
-  box-shadow: 0 0 0 3px var(--primary-red-glow), var(--shadow-md);
+  gap: 8px;
+  box-shadow: none;
 }
 
 .composer-attach-wrapper {
@@ -218,28 +218,27 @@
 .btn-composer-attach {
   width: 34px;
   height: 34px;
-  border-radius: 50%;
-  border: 1px solid #e2e8f0;
-  background-color: #f8fafc;
-  color: #64748b;
+  border-radius: var(--q-r-md);
+  border: none;
+  background-color: transparent;
+  color: var(--q-muted);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .btn-composer-attach:hover {
-  background-color: #f1f5f9;
-  border-color: #cbd5e1;
-  color: #0f172a;
+  background-color: var(--q-surface-2);
+  color: var(--q-text);
 }
 
 .btn-composer-attach svg {
   width: 18px;
   height: 18px;
-  stroke: #e11d48;
+  stroke: currentColor;
 }
 
 .composer-input {
@@ -247,42 +246,41 @@
   border: none;
   outline: none;
   background: transparent;
-  font-size: 0.91rem;
-  color: var(--text-primary);
+  font-size: 14.5px;
+  color: var(--q-text);
   resize: none;
-  line-height: 1.4;
-  padding: 0.35rem 0.25rem;
+  line-height: 1.5;
+  padding: 6px 4px;
   max-height: 120px;
 }
 
 .composer-input::placeholder {
-  color: var(--text-muted);
+  color: var(--q-faint);
 }
 
-/* Modern Red Circle Send Button */
+/* Primary Red Circle Send Button */
 .btn-composer-send {
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background-color: #e11d48;
+  background-color: var(--q-red);
   color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  box-shadow: var(--shadow-red);
-  transition: all 0.15s ease-in-out;
+  box-shadow: none;
+  transition: background-color 0.15s ease;
   cursor: pointer;
 }
 
 .btn-composer-send:hover:not(:disabled) {
-  background-color: var(--primary-red-hover);
-  transform: scale(1.05);
+  background-color: var(--q-red-hover);
 }
 
 .btn-composer-send:disabled {
-  background-color: #e2e8f0;
-  color: #94a3b8;
+  background-color: var(--q-border);
+  color: var(--q-faint);
   box-shadow: none;
   cursor: not-allowed;
 }
