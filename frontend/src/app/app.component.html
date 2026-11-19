@@ -199,31 +199,42 @@
               (click)="selectConversation(conv.id)">
               <div class="conv-icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+              </div>
+              <div class="conv-info">
+                <span class="conv-title">{{ conv.title }}</span>
+                <span class="conv-time">{{ conv.updatedAt | date:'shortTime' }}</span>
+              </div>
+              <button class="btn-delete-conv" (click)="promptDeleteConversation(conv, $event)" type="button"
+                title="Delete chat" aria-label="Delete chat">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="3 6 5 6 21 6"></polyline>
                   <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
                 </svg>
-                </button>
-              </div>
+              </button>
+            </div>
 
-              <!-- Empty Recents State -->
-              <div *ngIf="conversations().length === 0" class="empty-recents-box">
-                <svg class="empty-recents-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                  stroke-width="1.5">
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                </svg>
-                <span class="empty-recents-text">No recent chats</span>
-                <span class="empty-recents-sub">Start a new chat to begin</span>
-              </div>
+            <!-- Empty Recents State -->
+            <div *ngIf="conversations().length === 0" class="empty-recents-box">
+              <svg class="empty-recents-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="1.5">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+              </svg>
+              <span class="empty-recents-text">No recent chats</span>
+              <span class="empty-recents-sub">Start a new chat to begin</span>
+            </div>
 
-              <!-- Empty search filter state -->
-              <div *ngIf="conversations().length > 0 && filteredConversations().length === 0" class="empty-recents-box">
-                <span class="empty-recents-text">No matching chats</span>
-              </div>
+            <!-- Empty search filter state -->
+            <div *ngIf="conversations().length > 0 && filteredConversations().length === 0" class="empty-recents-box">
+              <span class="empty-recents-text">No matching chats</span>
             </div>
           </div>
+        </div>
+      </div>
 
-          <!-- Bottom User Profile Card with Construction Skyline Watermark -->
-          <div class="sidebar-user-footer">
+      <!-- Bottom User Profile Card with Construction Skyline Watermark -->
+      <div class="sidebar-user-footer">
             <div class="sidebar-skyline-watermark" aria-hidden="true">
               <svg viewBox="0 0 260 90" fill="none" xmlns="http://www.w3.org/2000/svg" class="skyline-svg">
                 <path d="M15 85 L15 35 L40 35 L40 85" stroke="currentColor" stroke-width="1.5" stroke-opacity="0.18" />

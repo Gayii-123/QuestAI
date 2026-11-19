@@ -639,6 +639,63 @@ export class AppComponent implements OnInit, AfterViewChecked {
     this.shouldScrollToBottom = true;
   }
 
+  promptDeleteConversation(conv: Conversation, event?: Event): void {
+    if (event) {
+      event.stopPropagation();
+    }
+    const confirmed = typeof window !== 'undefined'
+      ? window.confirm(`Delete conversation "${conv.title}"?`)
+      : true;
+    if (!confirmed) return;
+
+    this.conversations.update((list) => list.filter((c) => c.id !== conv.id));
+    if (this.activeConversationId() === conv.id) {
+      const remaining = this.conversations();
+      if (remaining.length > 0) {
+        this.selectConversation(remaining[0].id);
+      } else {
+        this.startNewChat();
+      }
+    }
+  }
+
+  toggleNotifications(event?: Event): void {
+    if (event) {
+      event.stopPropagation();
+    }
+    this.showNotifications.update((v) => !v);
+  }
+
+  openSettings(): void {
+    this.sidebarActiveNav.set('settings');
+    this.showSettingsModal.set(true);
+  }
+
+  closeSettingsModal(): void {
+    this.showSettingsModal.set(false);
+    if (this.sidebarActiveNav() === 'settings') {
+      this.sidebarActiveNav.set('new-chat');
+    }
+  }
+
+  openInspectionHistory(): void {
+    this.sidebarActiveNav.set('inspection-history');
+    this.navigateToInspection();
+  }
+
+  openMyReports(): void {
+    this.sidebarActiveNav.set('my-reports');
+    this.navigateToInspection();
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    const target = event.target as HTMLElement | null;
+    if (this.showNotifications() && !target?.closest('.notification-wrap')) {
+      this.showNotifications.set(false);
+    }
+  }
+
   // --- Message Handling ---
 
   sendMessage(): void {
