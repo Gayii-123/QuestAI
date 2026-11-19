@@ -47,7 +47,7 @@
   --border-focus: var(--q-red);
 
   /* Typography & Text */
-  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-family: 'Futura PT', 'futura-pt', 'Futura', 'Jost', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --text-primary: var(--q-text);
   /* Dark Charcoal / Slate 900 */
   --text-secondary: var(--q-text-2);
