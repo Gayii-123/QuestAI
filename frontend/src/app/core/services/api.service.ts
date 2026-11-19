@@ -95,6 +95,10 @@ export interface PhotoInspectionRequest {
   siteNotes?: string;
   inspectorName?: string;
   jobReference?: string;
+  /** Rules telling the AI to act as a careful site inspector and answer strictly from the photos */
+  inspectorGuidelines?: string;
+  /** Whether the AI may add extra observations for issues not covered by the questions */
+  allowAdditionalObservations?: boolean;
 }
 
 export interface QuestionAiEvaluation {
@@ -114,6 +118,23 @@ export interface QuestionAiEvaluation {
   photoIds?: string[];
 }
 
+export interface PhotoAssessmentItem {
+  photoId: string;
+  description: string;
+  relevant: boolean;
+  quality: 'clear' | 'partial' | 'poor';
+  usable: boolean;
+}
+
+export interface AdditionalObservationItem {
+  title: string;
+  rating: '1' | '-1';
+  confidence: number;
+  evidenceObserved: string;
+  photoIds?: string[];
+  carActionPlan?: string | null;
+}
+
 export interface PhotoInspectionResult {
   inspectionBankId: string;
   inspectionBankName: string;
@@ -130,6 +151,8 @@ export interface PhotoInspectionResult {
   needsReviewCount: number;
   evaluations: QuestionAiEvaluation[];
   evaluationsMap: Record<string, QuestionAiEvaluation>;
+  photoAssessments?: PhotoAssessmentItem[];
+  additionalObservations?: AdditionalObservationItem[];
   recommendations: string[];
   analyzedAt: string;
   modelIdentifier: string;
