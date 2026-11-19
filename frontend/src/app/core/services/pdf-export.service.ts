@@ -656,9 +656,14 @@ export class PdfExportService {
               ratingClass = 'rating-0';
             }
 
-            // Supporting photos attached only to defects or dynamic abnormalities
-            const isDefectOrDynamic = q.isDynamicObservation || rating === '-1';
-            const supportingIds = isDefectOrDynamic ? (q.supportingPhotoIds || ans?.photoIds || []) : [];
+            // Supporting photos: allow for defects, abnormalities, and genuine specific evidence, suppressing bulk duplicates
+            const isDefect = rating === '-1';
+            const isDynamic = Boolean(q.isDynamicObservation);
+            const isGeneralSetup = q.qnum === '01' || /appropriate traffic management in place/i.test(q.qtext || '');
+            const rawIds: string[] = q.supportingPhotoIds || ans?.photoIds || [];
+            const totalSitePhotos = data.photos?.length || 0;
+            const isBulkDump = !isDefect && !isDynamic && !isGeneralSetup && totalSitePhotos > 1 && rawIds.length >= totalSitePhotos;
+            const supportingIds = isBulkDump ? [] : rawIds.slice(0, isGeneralSetup ? 3 : 2);
             let photosThumbHtml = '';
             if (supportingIds.length > 0) {
               const matchedThumbs = supportingIds
