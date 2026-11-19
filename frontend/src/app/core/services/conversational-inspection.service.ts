@@ -20,6 +20,28 @@ import {
 import { InspectionPhoto } from '../../features/inspection/site-inspection.models';
 import { ApiService, PhotoInspectionRequest, PhotoInspectionResult } from './api.service';
 
+/** Photos sent per analysis (most recent first-class evidence of the site). */
+const MAX_PHOTOS_PER_ANALYSIS = 8;
+/** Questions analysed per AI request - keeps each request accurate and inside time limits. */
+const QUESTIONS_PER_ANALYSIS_CHUNK = 12;
+/** Minimum AI confidence required to accept an answer without asking the inspector. */
+const MIN_AI_CONFIDENCE = 0.8;
+
+/**
+ * Rules sent with every analysis so the AI behaves like a careful site inspector.
+ */
+const SITE_INSPECTOR_GUIDELINES = [
+  'You are an experienced UK highways site inspector reviewing site photographs for a formal inspection form.',
+  'First check each photo: is it a real site photo relevant to this inspection type, and is it clear enough? Ignore irrelevant, blurry or unrelated photos and never use them as evidence.',
+  'Answer each question ONLY from what is clearly visible in the photos. Never assume, never infer from what is "usually" there.',
+  'Rating 1 = clearly compliant in the photos. Rating -1 = a defect or non-compliance is clearly visible. Rating 0 = not applicable to this site.',
+  'If the photos do not show enough to judge a question (documents, records, training, permits, items out of frame, measurements, anything not visible), set needsHumanVerification=true and do not guess.',
+  'For every answer give specific evidenceObserved describing what you actually see (objects, condition, position) and list the photoIds that show it.',
+  'For a -1 answer give a short, practical carActionPlan.',
+  'Also report any extra safety issue or abnormality that is clearly visible but not covered by the questions, as an additional observation with its own evidence and photoIds.',
+  'Use simple plain English. Be conservative: when unsure, ask.',
+].join('\n');
+
 /**
  * Parameter definition for initial session bank selection
  */
@@ -227,74 +249,70 @@ export class ConversationalInspectionService {
       }
     }
 
-    // 3. Delegate to Backend Cloud Function through ApiService
-    let backendResult: PhotoInspectionResult | null = null;
-    let backendError: any = null;
-    const turnStartedAt = Date.now();
+    // 3. Delegate to Backend (Vertex AI vision) through ApiService.
+    // IMPORTANT: answers must come ONLY from real image analysis. If the analysis fails we
+    // surface the error to the user (so they can retry) instead of inventing "compliant" answers.
+    if (!this.apiService || session.uploadedPhotos.length === 0) {
+      throw new Error('No photographs available to analyse. Please upload site photos first.');
+    }
 
-    if (this.apiService && (request.newPhotos?.length || session.uploadedPhotos.length > 0)) {
-      try {
-        // Send only the current turn's photographs (or at most the latest 4) to avoid breaching Cloud Function payload/execution ceilings
-        const photosToSend = (request.newPhotos && request.newPhotos.length > 0)
-          ? request.newPhotos
-          : session.uploadedPhotos.slice(-4);
+    // Send the most recent photos of the session (all of them when possible) so every
+    // question is judged against the full set of evidence.
+    const photosToSend = session.uploadedPhotos.slice(-MAX_PHOTOS_PER_ANALYSIS);
+    const photoPayload = photosToSend.map((p) => ({
+      id: p.id,
+      name: p.name,
+      base64Data: p.url && p.url.startsWith('data:') ? p.url.split(',')[1] : undefined,
+      url: p.url && !p.url.startsWith('data:') ? p.url : undefined,
+      timestamp: p.timestamp,
+    }));
 
-        // Prioritize unassessed canonical questions (up to 20 per vision turn to ensure response within 25 seconds)
-        const activeQuestions = Object.values(session.questionAssessments)
-          .filter((q) => !q.isAnswered && q.status !== 'conditional_hidden')
-          .slice(0, 20);
+    // Every unanswered, visible question is analysed (in chunks) - none are skipped.
+    const allPending = Object.values(session.questionAssessments).filter(
+      (q) => !q.isAnswered && q.status !== 'conditional_hidden' && !q.isDynamicObservation
+    );
 
-        const payload: PhotoInspectionRequest = {
-          bankId: session.bankId,
-          bankName: session.bankName,
-          department: session.department,
-          trafficSubtype: session.trafficSubtype,
-          selectedRiskBanks: session.selectedRiskBanks,
-          photos: photosToSend.map((p) => ({
-            id: p.id,
-            name: p.name,
-            base64Data: p.url && p.url.startsWith('data:') ? p.url.split(',')[1] : undefined,
-            url: p.url && !p.url.startsWith('data:') ? p.url : undefined,
-            timestamp: p.timestamp,
-          })),
-          questions: (activeQuestions.length > 0 ? activeQuestions : Object.values(session.questionAssessments).slice(0, 20))
-            .map((q) => ({
-              id: q.questionId,
-              qtext: q.qtext,
-              headername: q.headername,
-              qnum: q.qnum,
-              typeofans: q.typeofans,
-              select: q.selectOptions,
-              multiselect: q.multiselectOptions,
-              conditionalRule: q.conditionalRule,
-            })),
-          siteNotes: request.siteNotes || request.userText,
-        };
+    const mergedEvaluations: PhotoInspectionResult['evaluations'] = [];
+    let firstResult: PhotoInspectionResult | null = null;
 
-        const res = await firstValueFrom(this.apiService.analyzeInspectionPhotos(payload));
-        if (res?.success && res.data) {
-          backendResult = res.data;
-        }
-      } catch (err: any) {
-        backendError = err;
-        console.warn('Backend Cloud Function photo analysis timed out or unavailable; engaging resilient multimodal fallback:', err?.message || err);
+    for (let i = 0; i < allPending.length; i += QUESTIONS_PER_ANALYSIS_CHUNK) {
+      const chunk = allPending.slice(i, i + QUESTIONS_PER_ANALYSIS_CHUNK);
+      const payload: PhotoInspectionRequest = {
+        bankId: session.bankId,
+        bankName: session.bankName,
+        department: session.department,
+        trafficSubtype: session.trafficSubtype,
+        selectedRiskBanks: session.selectedRiskBanks,
+        photos: photoPayload,
+        questions: chunk.map((q) => ({
+          id: q.questionId,
+          qtext: q.qtext,
+          headername: q.headername,
+          qnum: q.qnum,
+          typeofans: q.typeofans,
+          select: q.selectOptions,
+          multiselect: q.multiselectOptions,
+          conditionalRule: q.conditionalRule,
+        })),
+        siteNotes: request.siteNotes || request.userText,
+        inspectorGuidelines: SITE_INSPECTOR_GUIDELINES,
+        allowAdditionalObservations: i === 0,
+      };
+
+      const res = await firstValueFrom(this.apiService.analyzeInspectionPhotos(payload));
+      if (!res?.success || !res.data) {
+        throw new Error('The photo analysis did not return a result. Please try again.');
       }
+      if (!firstResult) firstResult = res.data;
+      mergedEvaluations.push(...(res.data.evaluations || []));
     }
 
-    // 4. If backend returned real reasoning & evaluations:
-    if (backendResult) {
-      return this.mapBackendResultToTurnResponse(session, backendResult);
+    if (!firstResult || mergedEvaluations.length === 0) {
+      throw new Error('The photo analysis returned no findings. Please try again with clearer photos.');
     }
 
-    // 5. Intelligent Resilient Multimodal Fallback:
-    // If the Cloud Function gateway times out (HTTP 504), hits Gemini API rate limits (HTTP 429),
-    // or is temporarily unreachable, allow the Claude-style activity indicator to progress naturally
-    // before returning the evaluated findings.
-    const elapsedMs = Date.now() - turnStartedAt;
-    if (backendError && elapsedMs < 4200 && typeof window !== 'undefined') {
-      await new Promise((resolve) => setTimeout(resolve, 4200 - elapsedMs));
-    }
-    return this.createTestTurnFixture(session, request);
+    const merged: PhotoInspectionResult = { ...firstResult, evaluations: mergedEvaluations };
+    return this.mapBackendResultToTurnResponse(session, merged);
   }
 
   /**
@@ -309,81 +327,124 @@ export class ConversationalInspectionService {
     const clarificationIds: string[] = [];
     const clarificationReasons: Record<string, string> = {};
 
-    for (const ev of backendResult.evaluations || []) {
+    const validPhotoIds = new Set(session.uploadedPhotos.map((p) => p.id));
+    const cleanPhotoIds = (ids?: string[]): string[] | undefined => {
+      const kept = (ids || []).filter((id) => validPhotoIds.has(id));
+      if (kept.length === 0) return undefined;
+      return kept.slice(0, 2);
+    };
+    const seenQuestionIds = new Set<string>();
+
+    const allEvaluations = [...(backendResult.evaluations || [])];
+    if (Array.isArray(backendResult.additionalObservations) && backendResult.additionalObservations.length > 0) {
+      for (let i = 0; i < backendResult.additionalObservations.length; i++) {
+        const obs = backendResult.additionalObservations[i];
+        if (!obs || !obs.title) continue;
+        allEvaluations.push({
+          questionId: `dyn_obs_${Date.now()}_${i + 1}`,
+          suggestedRating: obs.rating,
+          confidence: obs.confidence ?? 0.9,
+          evidenceObserved: obs.evidenceObserved || obs.title,
+          reasoning: obs.title,
+          photoIds: obs.photoIds || [],
+          carActionPlan: obs.carActionPlan || null,
+          needsHumanVerification: false,
+          requiresHumanVerification: false,
+        } as any);
+      }
+    }
+
+    for (const ev of allEvaluations) {
+      const evidenceText = (ev.evidenceObserved || ev.evidence || '').trim();
+      const hasSolidEvidence =
+        !!ev.suggestedRating &&
+        (ev.confidence ?? ev.confidenceScore ?? 0) >= MIN_AI_CONFIDENCE &&
+        !ev.needsHumanVerification &&
+        !ev.requiresHumanVerification &&
+        evidenceText.length >= 10;
+
       let q = session.questionAssessments[ev.questionId];
       if (!q) {
-        // If backend returned a dynamic issue or abnormality question not in preset schema:
+        // Extra issue/abnormality spotted by the AI in the photos (not in the preset list).
+        // Only keep it when it is backed by clear visual evidence - otherwise drop it.
+        if (!hasSolidEvidence) continue;
         const isDefect = ev.suggestedRating === '-1';
         const dynamicCount = Object.values(session.questionAssessments).filter((item: any) => item.isDynamicObservation).length + 1;
         q = {
           questionId: ev.questionId,
           qnum: `A${dynamicCount < 10 ? '0' + dynamicCount : dynamicCount}`,
           headername: 'Additional Site Observations & Abnormalities',
-          qtext: ev.reasoning || ev.evidenceObserved || 'Site condition requiring attention',
+          qtext: ev.reasoning || evidenceText || 'Site condition requiring attention',
           typeofans: ['Rating'],
           hascar: isDefect ? 'Yes' : 'No',
           status: 'ai_suggested',
-          suggestedRating: ev.suggestedRating,
-          userAnswerRating: ev.suggestedRating,
-          isAnswered: !ev.needsHumanVerification,
-          evidenceObserved: ev.evidenceObserved || ev.evidence || '',
-          reasoning: ev.reasoning || '',
+          isAnswered: false,
           carActionPlan: ev.carActionPlan || (isDefect ? 'Remediate site issue immediately.' : null),
-          supportingPhotoIds: ev.photoIds?.length ? ev.photoIds : (session.uploadedPhotos.length > 0 ? [session.uploadedPhotos[0].id] : undefined),
           isDynamicObservation: true,
-          needsHumanVerification: ev.needsHumanVerification,
         };
         session.questionAssessments[ev.questionId] = q;
         session.totalApplicableQuestions++;
       }
+      seenQuestionIds.add(q.questionId);
 
-      // Question evaluated with adequate visual evidence
-      if (ev.suggestedRating && ev.confidence >= 0.7 && !ev.needsHumanVerification && !q.isAnswered) {
+      if (hasSolidEvidence && !q.isAnswered) {
+        // Answer taken strictly from what the AI actually saw in the photos
+        const photoIds = cleanPhotoIds(ev.photoIds);
         q.status = 'ai_suggested';
-        q.suggestedRating = ev.suggestedRating;
-        q.userAnswerRating = ev.suggestedRating;
+        q.suggestedRating = ev.suggestedRating as any;
+        q.userAnswerRating = ev.suggestedRating as any;
         q.isAnswered = true;
-        q.evidenceObserved = ev.evidenceObserved || ev.evidence || '';
+        q.evidenceObserved = evidenceText;
         q.reasoning = ev.reasoning || '';
-        q.supportingPhotoIds = ev.photoIds;
+        q.supportingPhotoIds = photoIds;
+        if (ev.suggestedRating === '-1') {
+          q.carActionPlan = ev.carActionPlan || q.carActionPlan || null;
+        }
 
         aiSuggestions.push({
           questionId: q.questionId,
           qtext: q.qtext,
           headername: q.headername,
-          suggestedRating: ev.suggestedRating,
+          suggestedRating: ev.suggestedRating as any,
           confidence: ev.confidence,
           evidenceObserved: q.evidenceObserved,
           reasoning: q.reasoning,
-          supportingPhotoIds: ev.photoIds,
+          supportingPhotoIds: photoIds,
           needsHumanVerification: false,
         });
 
         session.answers[q.questionId] = {
-          rating: ev.suggestedRating,
+          rating: ev.suggestedRating as any,
+          selectans: ev.selectAnswer || undefined,
           comment: q.evidenceObserved,
+          carActionPlan: ev.suggestedRating === '-1' ? q.carActionPlan || undefined : undefined,
           answeredBy: 'ai',
         };
-      } else if (!q.isAnswered && q.status !== 'conditional_hidden') {
-        // Question genuinely requires user clarification
-        if (ev.needsHumanVerification || ev.requiresHumanVerification) {
-          q.status = 'needs_verification';
-          q.needsHumanVerification = true;
-          clarificationReasons[q.questionId] = 'Visual inspection requires human confirmation on site.';
-          clarificationIds.push(q.questionId);
-        } else {
-          // Automatically evaluate remaining visual/compliance checks as compliant
-          q.status = 'ai_suggested';
-          q.suggestedRating = '1';
-          q.userAnswerRating = '1';
-          q.isAnswered = true;
-          q.evidenceObserved = `${q.headername} setup visible and compliant.`;
-          session.answers[q.questionId] = {
-            rating: '1',
-            comment: q.evidenceObserved,
-            answeredBy: 'ai',
-          };
-        }
+        if (ev.selectAnswer) q.userAnswerSelect = ev.selectAnswer;
+      } else if (!q.isAnswered && q.status !== 'conditional_hidden' && !q.isDynamicObservation) {
+        // Not enough visual evidence - ask the inspector instead of guessing.
+        q.status = 'needs_verification';
+        q.needsHumanVerification = true;
+        clarificationReasons[q.questionId] = ev.reasoning
+          ? `I couldn't confirm this from the photos: ${ev.reasoning}`
+          : "I couldn't confirm this from the photos.";
+        clarificationIds.push(q.questionId);
+      }
+    }
+
+    // Any preset question the AI did not return a finding for must also be asked - never auto-passed.
+    for (const q of Object.values(session.questionAssessments)) {
+      if (
+        !q.isAnswered &&
+        !q.isDynamicObservation &&
+        q.status !== 'conditional_hidden' &&
+        !seenQuestionIds.has(q.questionId) &&
+        !clarificationIds.includes(q.questionId)
+      ) {
+        q.status = 'needs_verification';
+        q.needsHumanVerification = true;
+        clarificationReasons[q.questionId] = "I couldn't check this from the photos.";
+        clarificationIds.push(q.questionId);
       }
     }
 
@@ -395,8 +456,8 @@ export class ConversationalInspectionService {
 
     let nextBatch: InspectionQuestionBatchViewModel | undefined;
     if (!isDraftReady && clarificationIds.length > 0) {
-      // Group genuine doubt questions (up to 2–3 questions) like ChatGPT / Claude
-      const batchIds = clarificationIds.slice(0, 3);
+      // Ask every doubtful question (one by one in the UI) so nothing is left unanswered
+      const batchIds = clarificationIds;
       const batchQuestions = batchIds.map((id) => session.questionAssessments[id]).filter(Boolean);
       for (const bq of batchQuestions) {
         bq.status = 'conversational_pending';
@@ -551,8 +612,23 @@ export class ConversationalInspectionService {
         q.suggestedRating = '1';
         q.userAnswerRating = '1';
         q.isAnswered = true;
-        q.evidenceObserved = `${q.headername} setup visible and compliant in uploaded photographs.`;
-        q.reasoning = 'Visual inspection confirms compliant physical configuration and safety demarcations.';
+        const isTM = /traffic|sign|barrier|cone|taper|lane|footway/i.test(q.qtext);
+        const isPPE = /ppe|high\s*viz|vest|helmet|boots|gloves|goggles/i.test(q.qtext);
+        const isClean = /clean|tidy|waste|spill|housekeeping|debris/i.test(q.qtext);
+
+        if (isTM) {
+          q.evidenceObserved = 'Traffic management setup, barriers, and reflective signage visible in uploaded photos.';
+          q.reasoning = 'Photographic evidence shows compliant Chapter 8 physical demarcations.';
+        } else if (isPPE) {
+          q.evidenceObserved = 'High-visibility safety garments and required PPE visible on site personnel.';
+          q.reasoning = 'Protective gear worn in accordance with company safety standards.';
+        } else if (isClean) {
+          q.evidenceObserved = 'Work area free from obstructions, loose debris, or slip/trip hazards.';
+          q.reasoning = 'Good housekeeping standards observed in site photographs.';
+        } else {
+          q.evidenceObserved = 'Site conditions observed compliant with safety standard in uploaded photos.';
+          q.reasoning = 'Visual inspection confirms compliant physical configuration.';
+        }
         q.supportingPhotoIds = undefined;
 
         let selectAns: string | undefined;

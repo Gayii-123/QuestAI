@@ -60,9 +60,9 @@
   align-items: center;
   gap: 6px;
   font-size: 12.5px;
-  color: #b45309;
-  background: #fffbeb;
-  border-radius: 6px;
+  color: var(--q-muted);
+  background: var(--q-shell);
+  border-radius: var(--q-r-sm);
   padding: 4px 8px;
   margin-left: 18px;
 }

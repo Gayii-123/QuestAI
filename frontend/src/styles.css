@@ -3,45 +3,63 @@
    ============================================================================== */
 
 :root {
+  /* QuestAI Design Tokens */
+  --q-red: #dc2626;
+  --q-red-hover: #b91c1c;
+  --q-red-tint: #fef2f2;
+  --q-bg: #ffffff;
+  --q-shell: #f8fafc;
+  --q-surface-2: #f4f4f5;
+  --q-text: #0f172a;
+  --q-text-2: #334155;
+  --q-muted: #64748b;
+  --q-faint: #94a3b8;
+  --q-border: #e2e8f0;
+  --q-border-hover: #cbd5e1;
+  --q-r-sm: 6px;
+  --q-r-md: 8px;
+  --q-r-lg: 12px;
+  --q-r-xl: 16px;
+
   /* Primary Red Theme Palette (Used as intentional accent) */
-  --primary-red: #d32f2f;
-  --primary-red-hover: #b71c1c;
-  --primary-red-light: #fef2f2;
+  --primary-red: var(--q-red);
+  --primary-red-hover: var(--q-red-hover);
+  --primary-red-light: var(--q-red-tint);
   --primary-red-subtle: #fee2e2;
   --primary-red-border: #fca5a5;
-  --primary-red-glow: rgba(211, 47, 47, 0.12);
+  --primary-red-glow: rgba(220, 38, 38, 0.10);
 
   /* Backgrounds & Surfaces */
-  --bg-app: #f8fafc;
-  --bg-surface: #ffffff;
+  --bg-app: var(--q-bg);
+  --bg-surface: var(--q-bg);
   --bg-surface-hover: #f1f5f9;
-  --bg-sidebar: #ffffff;
-  --bg-user-bubble: #fff1f2;
-  --user-bubble-border: #fecdd3;
-  --user-bubble-text: #0f172a;
-  --bg-assistant-bubble: #ffffff;
-  --assistant-bubble-border: #e2e8f0;
+  --bg-sidebar: var(--q-shell);
+  --bg-user-bubble: var(--q-surface-2);
+  --user-bubble-border: #e4e4e7;
+  --user-bubble-text: var(--q-text);
+  --bg-assistant-bubble: var(--q-bg);
+  --assistant-bubble-border: var(--q-border);
 
   /* Borders & Dividers */
-  --border-light: #e2e8f0;
+  --border-light: var(--q-border);
   --border-subtle: #edf2f7;
-  --border-hover: #cbd5e1;
-  --border-focus: #d32f2f;
+  --border-hover: var(--q-border-hover);
+  --border-focus: var(--q-red);
 
   /* Typography & Text */
-  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  --text-primary: #0f172a;
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --text-primary: var(--q-text);
   /* Dark Charcoal / Slate 900 */
-  --text-secondary: #475569;
+  --text-secondary: var(--q-text-2);
   /* Muted Slate 600 */
-  --text-muted: #94a3b8;
+  --text-muted: var(--q-faint);
   /* Slate 400 */
   --text-on-red: #ffffff;
 
   /* Status Accents */
   --status-success: #10b981;
   --status-warning: #f59e0b;
-  --status-error: #ef4444;
+  --status-error: var(--q-red);
 
   /* Elevations & Shadows */
   --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
@@ -77,9 +95,11 @@ body {
 
 body {
   font-family: var(--font-family);
-  background-color: var(--bg-app);
-  color: var(--text-primary);
-  line-height: 1.5;
+  font-size: 14.5px;
+  letter-spacing: -0.01em;
+  background-color: var(--q-bg);
+  color: var(--q-text);
+  line-height: 1.65;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
