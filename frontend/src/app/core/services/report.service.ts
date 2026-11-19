@@ -494,14 +494,24 @@ export class ReportService {
     question?: any
   ): any[] {
     if (!record?.photos || !photoIds || photoIds.length === 0) return [];
-    const rating = question?.id ? record.answers?.[question.id]?.rating : undefined;
-    if (question && !question.isDynamicObservation && rating !== '-1') {
+
+    const totalSitePhotos = record.photos.length;
+    const isDefect = question?.id && record.answers?.[question.id]?.rating === '-1';
+    const isDynamic = Boolean(question?.isDynamicObservation);
+    const isGeneralSetup = question?.qnum === '01' || /appropriate traffic management in place/i.test(question?.qtext || '');
+
+    // Prevent bulk dumping all site photos onto non-defect, non-general individual checks
+    if (!isDefect && !isDynamic && !isGeneralSetup && totalSitePhotos > 1 && photoIds.length >= totalSitePhotos) {
       return [];
     }
+
     const idSet = new Set(photoIds);
-    return record.photos.filter(
-      (p: any) => idSet.has(p.id) && p.url && p.url.trim().length > 0
+    const matched = record.photos.filter(
+      (p: any) => idSet.has(p.id) && p.url && typeof p.url === 'string' && p.url.trim().length > 0
     );
+
+    const maxThumbs = isGeneralSetup ? 3 : 2;
+    return matched.slice(0, maxThumbs);
   }
 
   getHistoryRequirementStatus(rating: string | undefined): string {
