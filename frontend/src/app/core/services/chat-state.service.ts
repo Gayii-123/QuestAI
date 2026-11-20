@@ -416,12 +416,17 @@ export class ChatStateService {
         this.activeInspectionSession.set(null);
       }
 
+      if (conv.messages && conv.messages.length > 0) {
+        this.healInternalAuditMessages(conv.messages);
+      }
+
       // Load messages from Firestore if not already loaded
       const uid = this.conversationService.getCurrentUserId();
       if (uid && (!conv.messages || conv.messages.length === 0)) {
         try {
           const remoteMsgs = await this.conversationService.loadConversationMessages(uid, id);
           if (remoteMsgs.length > 0) {
+            this.healInternalAuditMessages(remoteMsgs);
             // Re-hydrate any cached photo data URLs for this session
             for (const m of remoteMsgs) {
               if (m.photos) {
@@ -570,6 +575,39 @@ export class ChatStateService {
           msg.retryPrompt = msg.content;
           this.conversations.update((list) => [...list]);
         });
+    }
+  }
+
+  healInternalAuditMessages(messages: ChatMessage[]): void {
+    if (!Array.isArray(messages)) return;
+    for (const m of messages) {
+      if (
+        m.sender === 'assistant' &&
+        !m.internalAuditResult &&
+        m.content &&
+        m.content.includes('Internal Audit')
+      ) {
+        const completed = this.internalAuditService.getStoredCompletedList();
+        const matched =
+          completed.find(
+            (s) =>
+              (s.location && m.content.includes(s.location)) ||
+              (s.auditorSummary && m.content.includes(s.auditorSummary.substring(0, 30)))
+          ) || completed[0];
+
+        if (matched) {
+          m.internalAuditSession = matched;
+          m.internalAuditResult = matched.analysisResult || {
+            location: matched.location || 'Site Location',
+            auditorSummary: matched.auditorSummary || 'Internal Audit completed.',
+            observations: matched.observations || [],
+            totalPhotosAnalyzed: matched.photos?.length || 0,
+            totalCarCount: (matched.observations || []).filter((o) => o.hasCar === 'Yes').length,
+            overallComplianceScore: 100,
+            analyzedAt: matched.completedAt || new Date().toISOString(),
+          };
+        }
+      }
     }
   }
 

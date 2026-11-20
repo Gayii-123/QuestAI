@@ -381,6 +381,32 @@ export class ConversationService {
     if (msg.draftSummary) {
       base['draftSummary'] = this.cleanForFirestore(msg.draftSummary);
     }
+    if (msg.showInternalAuditUpload) {
+      base['showInternalAuditUpload'] = true;
+    }
+    if (msg.internalAuditResult) {
+      const cleanedResult = {
+        ...msg.internalAuditResult,
+        observations: (msg.internalAuditResult.observations || []).map((obs: any) => ({
+          ...obs,
+          photoUrls: (obs.photoUrls || []).filter((u: string) => u && !u.startsWith('data:')),
+        })),
+      };
+      base['internalAuditResult'] = this.cleanForFirestore(cleanedResult);
+    }
+    if (msg.internalAuditSession) {
+      const cleanedSession = {
+        ...msg.internalAuditSession,
+        photos: (msg.internalAuditSession.photos || []).map((p: any) => ({
+          id: p.id || '',
+          name: p.name || 'photograph.jpg',
+          size: typeof p.size === 'number' ? p.size : 0,
+          timestamp: p.timestamp || new Date().toISOString(),
+          url: p.url && !p.url.startsWith('data:') ? p.url : '',
+        })),
+      };
+      base['internalAuditSession'] = this.cleanForFirestore(cleanedSession);
+    }
 
     return this.cleanForFirestore(base);
   }
@@ -408,6 +434,76 @@ export class ConversationService {
         }))
       : [];
 
+    let internalAuditResult = data?.internalAuditResult || undefined;
+    let internalAuditSession = data?.internalAuditSession || undefined;
+
+    // Self-healing: If this message represents a completed Internal Audit but internalAuditResult is missing
+    if (!internalAuditResult && data?.content && String(data.content).includes('Internal Audit')) {
+      try {
+        const rawCompleted = typeof localStorage !== 'undefined'
+          ? localStorage.getItem('questai_ia_completed_audits')
+          : null;
+        if (rawCompleted) {
+          const completedList = JSON.parse(rawCompleted);
+          if (Array.isArray(completedList) && completedList.length > 0) {
+            const matched =
+              completedList.find(
+                (s: any) =>
+                  (s.location && String(data.content).includes(s.location)) ||
+                  (s.auditorSummary &&
+                    String(data.content).includes(String(s.auditorSummary).substring(0, 30)))
+              ) || completedList[0];
+
+            if (matched) {
+              internalAuditSession = matched;
+              internalAuditResult = matched.analysisResult || {
+                location: matched.location || 'Site Location',
+                auditorSummary: matched.auditorSummary || 'Internal Audit completed.',
+                observations: matched.observations || [],
+                totalPhotosAnalyzed: matched.photos?.length || 0,
+                totalCarCount: (matched.observations || []).filter((o: any) => o.hasCar === 'Yes').length,
+                overallComplianceScore: matched.complianceScore || 100,
+                analyzedAt: matched.completedAt || new Date().toISOString(),
+              };
+            }
+          }
+        }
+      } catch {
+        // ignore storage access error
+      }
+
+      // If still missing, reconstruct from the textual summary in content
+      if (!internalAuditResult) {
+        const contentStr = String(data.content);
+        const locMatch = contentStr.match(/Location:\*?\*?\s*([^\n]+)/i);
+        const sumMatch = contentStr.match(/Auditor Summary:\*?\*?\s*([^\n]+)/i);
+        const scoreMatch = contentStr.match(/Compliance Score:\*?\*?\s*(\d+)%/i);
+        const obsMatch = contentStr.match(/Total Observations:\*?\*?\s*(\d+)/i);
+        const carMatch = contentStr.match(/CARs Generated:\*?\*?\s*(\d+)/i);
+
+        if (scoreMatch || locMatch || obsMatch) {
+          const score = scoreMatch ? parseInt(scoreMatch[1], 10) : 100;
+          const carCount = carMatch ? parseInt(carMatch[1], 10) : 0;
+          const obsCount = obsMatch ? parseInt(obsMatch[1], 10) : 0;
+          internalAuditResult = {
+            location: locMatch ? locMatch[1].trim() : 'Unspecified Location',
+            auditorSummary: sumMatch ? sumMatch[1].trim() : 'Internal audit evaluation completed.',
+            observations: [],
+            totalPhotosAnalyzed: obsCount,
+            goodPracticeCount: 0,
+            compliantCount: Math.max(0, obsCount - carCount),
+            observationsOnlyCount: 0,
+            areaForImprovementCount: 0,
+            minorNcrCount: carCount,
+            majorNcrCount: 0,
+            totalCarCount: carCount,
+            overallComplianceScore: score,
+            analyzedAt: timestamp.toISOString(),
+          };
+        }
+      }
+    }
+
     return {
       id: String(data?.id || id),
       sender: data?.sender || 'assistant',
@@ -421,6 +517,9 @@ export class ConversationService {
       showInspectionCategories: !!data?.showInspectionCategories,
       categorySelected: !!data?.categorySelected,
       showInlinePhotoUpload: !!data?.showInlinePhotoUpload,
+      showInternalAuditUpload: !!data?.showInternalAuditUpload,
+      internalAuditResult,
+      internalAuditSession,
       suggestedBankId: data?.suggestedBankId || undefined,
       selectedBankId: data?.selectedBankId || undefined,
       isInspectionWorkflowMessage: !!data?.isInspectionWorkflowMessage,
