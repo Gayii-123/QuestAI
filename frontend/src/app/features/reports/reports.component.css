@@ -26,7 +26,7 @@
   background-color: #fee2e2;
   color: #b91c1c;
   font-size: 0.72rem;
-  font-weight: 700;
+  font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   padding: 3px 8px;
@@ -36,7 +36,7 @@
 
 .reports-title {
   font-size: 1.75rem;
-  font-weight: 800;
+  font-weight: 500;
   color: #0f172a;
   margin: 0 0 0.25rem 0;
   letter-spacing: -0.02em;
@@ -109,7 +109,7 @@
 
 .report-bank-name {
   font-size: 1.05rem;
-  font-weight: 700;
+  font-weight: 500;
   color: #0f172a;
   margin: 0 0 4px 0;
 }
@@ -126,7 +126,7 @@
 
 .report-risk-badge {
   font-size: 0.74rem;
-  font-weight: 700;
+  font-weight: 500;
   padding: 3px 8px;
   border-radius: 9999px;
   text-transform: uppercase;
@@ -216,13 +216,13 @@
 
 .stat-count {
   font-size: 1.05rem;
-  font-weight: 800;
+  font-weight: 600;
   color: #0f172a;
 }
 
 .stat-name {
   font-size: 0.68rem;
-  font-weight: 700;
+  font-weight: 500;
   color: #64748b;
   text-transform: uppercase;
 }
@@ -332,7 +332,7 @@
 
 .empty-title {
   font-size: 1.25rem;
-  font-weight: 700;
+  font-weight: 500;
   color: #0f172a;
   margin: 0 0 0.4rem 0;
 }
@@ -403,7 +403,7 @@
 
 .official-topbar-title {
   font-size: 0.9rem;
-  font-weight: 700;
+  font-weight: 500;
   color: #ffffff;
   margin: 0;
   letter-spacing: -0.2px;
@@ -465,7 +465,7 @@
 
 .official-brand-title {
   font-size: 1.65rem;
-  font-weight: 800;
+  font-weight: 600;
   color: #88132B;
   margin: 0;
   letter-spacing: -0.4px;
@@ -498,7 +498,7 @@
 
 .official-meta-lbl {
   width: 20%;
-  font-weight: 700;
+  font-weight: 500;
   color: #334155;
   background: #f8fafc;
 }
@@ -538,7 +538,7 @@
 
 .official-stat-pill .stat-lbl {
   font-size: 0.7rem;
-  font-weight: 700;
+  font-weight: 500;
   color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -546,7 +546,7 @@
 
 .official-stat-pill .stat-num {
   font-size: 1.15rem;
-  font-weight: 800;
+  font-weight: 600;
   color: #0f172a;
   line-height: 1.2;
 }
@@ -581,7 +581,7 @@
   align-items: center;
   justify-content: space-between;
   font-size: 1.15rem;
-  font-weight: 800;
+  font-weight: 600;
   color: #88132B;
   margin: 24px 0 12px 0;
   padding-bottom: 6px;
@@ -643,7 +643,7 @@
 .official-group-title {
   background: #ffffff;
   color: #88132B;
-  font-weight: 800;
+  font-weight: 600;
   font-size: 0.95rem;
   margin: 0;
   padding: 10px 14px;
@@ -660,7 +660,7 @@
 .official-checklist-table thead th {
   background: #f8fafc;
   color: #334155;
-  font-weight: 700;
+  font-weight: 500;
   text-align: left;
   padding: 8px 12px;
   border-bottom: 1px solid #cbd5e1;
@@ -689,7 +689,7 @@
   border: 1px solid #fde68a;
   border-radius: 4px;
   font-size: 0.72rem;
-  font-weight: 700;
+  font-weight: 500;
   padding: 2px 6px;
   margin-bottom: 4px;
 }
@@ -730,7 +730,7 @@
 .official-car-plan {
   font-size: 0.78rem;
   color: #b91c1c;
-  font-weight: 700;
+  font-weight: 500;
   margin-top: 4px;
 }
 
@@ -755,7 +755,7 @@
 
 .official-status-badge.status-car {
   color: #dc2626;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .official-status-badge.status-na {
@@ -798,7 +798,7 @@
   align-items: center;
   padding: 2px 7px;
   font-size: 0.72rem;
-  font-weight: 700;
+  font-weight: 500;
   color: #15803d;
   background: #dcfce7;
   border-radius: 9999px;
@@ -819,7 +819,7 @@
 .btn-rate-choice {
   padding: 4px 8px;
   font-size: 0.74rem;
-  font-weight: 700;
+  font-weight: 500;
   border-radius: 4px;
   border: 1px solid #cbd5e1;
   background: #ffffff;
@@ -864,7 +864,7 @@
 .btn-row-save {
   padding: 4px 10px;
   font-size: 0.75rem;
-  font-weight: 700;
+  font-weight: 500;
   color: #ffffff;
   background: #88132B;
   border: 1px solid #88132B;
@@ -904,7 +904,7 @@
 .official-car-label {
   display: block;
   font-size: 0.74rem;
-  font-weight: 700;
+  font-weight: 500;
   color: #b91c1c;
   margin-bottom: 4px;
   text-transform: uppercase;
@@ -930,7 +930,7 @@
 
 .official-rating-col {
   text-align: center;
-  font-weight: 800;
+  font-weight: 600;
   font-size: 1rem;
 }
 
