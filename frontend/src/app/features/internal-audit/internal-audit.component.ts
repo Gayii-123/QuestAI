@@ -383,7 +383,15 @@ export class InternalAuditComponent implements OnInit {
 
   saveDraftExplicitly(): void {
     this.autoSave();
-    this.showToast('Audit draft saved locally.');
+    const sess = this.session();
+    if (sess) {
+      this.auditService.saveAuditToBackend(sess).subscribe({
+        next: () => this.showToast('Audit draft saved locally and synced to backend.'),
+        error: () => this.showToast('Audit draft saved locally.'),
+      });
+    } else {
+      this.showToast('Audit draft saved locally.');
+    }
   }
 
   completeAudit(): void {
@@ -399,6 +407,16 @@ export class InternalAuditComponent implements OnInit {
     this.session.set(finalized);
     this.currentStep.set('completed');
     this.showToast(`Internal Audit ${finalized.referenceNumber} successfully completed.`);
+
+    // Persist to backend Firestore in background
+    this.auditService.saveAuditToBackend(finalized).subscribe({
+      next: (res) => {
+        console.log('[QuestAI IA] Persisted to backend Firestore:', res);
+      },
+      error: (err) => {
+        console.warn('[QuestAI IA] Backend persistence notice:', err.message);
+      },
+    });
   }
 
   onExit(): void {

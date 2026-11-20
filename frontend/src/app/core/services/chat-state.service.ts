@@ -5,6 +5,7 @@ import { ChatPersistenceService } from './chat-persistence.service';
 import { ConversationService } from './conversation.service';
 import { AuthService } from './auth.service';
 import { ReportService } from './report.service';
+import { InternalAuditService } from '../../features/internal-audit/internal-audit.service';
 import {
   Conversation,
   ChatMessage,
@@ -23,9 +24,14 @@ import {
   SITE_INSPECTION_BANKS,
   getQuestionsForDepartment,
 } from '../models/site-inspection.schema';
+import {
+  isHeicFile,
+  isSupportedImageFile,
+  convertHeicToJpeg,
+} from '../utils/image-utils';
 
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB per photo
-const MAX_INSPECTION_PHOTOS = 10;
+const MAX_INSPECTION_PHOTOS = 35;
 
 @Injectable({
   providedIn: 'root',
@@ -37,6 +43,7 @@ export class ChatStateService {
   private readonly conversationService = inject(ConversationService);
   private readonly authService = inject(AuthService);
   private readonly reportService = inject(ReportService);
+  private readonly internalAuditService = inject(InternalAuditService);
 
   readonly siteInspectionBanks: SiteInspectionBankOption[] = SITE_INSPECTION_BANKS;
 
@@ -650,10 +657,10 @@ export class ChatStateService {
 
   async processFiles(fileList: FileList | File[]): Promise<void> {
     this.photoUploadError.set('');
-    const allowedMimes = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
-    const files = Array.from(fileList).filter((f) => allowedMimes.has((f.type || '').toLowerCase()));
+    const rawFiles = Array.from(fileList);
+    const files = rawFiles.filter((f) => isSupportedImageFile(f));
     if (files.length === 0) {
-      this.photoUploadError.set('Please upload valid JPG, PNG, or WebP photographs.');
+      this.photoUploadError.set('Please upload valid JPG, PNG, WebP, or HEIC photographs.');
       return;
     }
 
@@ -664,12 +671,16 @@ export class ChatStateService {
     }
 
     const newPhotos: InspectionPhoto[] = [];
-    for (const file of files) {
-      if (file.size > MAX_IMAGE_SIZE_BYTES) {
-        this.photoUploadError.set(`"${file.name}" exceeds the 10 MB per-photo limit.`);
+    for (const rawFile of files) {
+      if (rawFile.size > MAX_IMAGE_SIZE_BYTES) {
+        this.photoUploadError.set(`"${rawFile.name}" exceeds the 10 MB per-photo limit.`);
         continue;
       }
       try {
+        let file = rawFile;
+        if (isHeicFile(rawFile)) {
+          file = await convertHeicToJpeg(rawFile);
+        }
         const base64 = await this.compressAndReadFile(file);
         const photoId = `photo_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
         this.cachePhotoUrl(photoId, base64);
@@ -680,8 +691,9 @@ export class ChatStateService {
           size: file.size,
           timestamp: new Date().toISOString(),
         });
-      } catch (err) {
+      } catch (err: any) {
         console.error('Failed to process image', err);
+        this.photoUploadError.set(err?.message || `Failed to process image "${rawFile.name}".`);
       }
     }
 
@@ -691,7 +703,10 @@ export class ChatStateService {
     }
   }
 
-  private compressAndReadFile(file: File): Promise<string> {
+  private async compressAndReadFile(file: File): Promise<string> {
+    if (isHeicFile(file)) {
+      file = await convertHeicToJpeg(file);
+    }
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -740,9 +755,15 @@ export class ChatStateService {
     const photoStages = [
       { delay: 1400, word: 'Reviewing photographs' },
       { delay: 2900, word: 'Examining visual evidence' },
-      { delay: 4600, word: 'Checking inspection criteria' },
-      { delay: 6400, word: 'Evaluating safety compliance' },
-      { delay: 8200, word: 'Synthesizing report' },
+      { delay: 5000, word: 'Checking inspection criteria' },
+      { delay: 8000, word: 'Evaluating safety conditions' },
+      { delay: 13000, word: 'Deep scanning site hazards' },
+      { delay: 20000, word: 'Cross-referencing compliance rules' },
+      { delay: 30000, word: 'Analyzing multi-photo evidence' },
+      { delay: 45000, word: 'Auditing site details & plant' },
+      { delay: 60000, word: 'Evaluating corrective action items' },
+      { delay: 80000, word: 'Synthesizing comprehensive findings' },
+      { delay: 110000, word: 'Finalizing compliance report' },
     ];
 
     const textStages = [
@@ -871,6 +892,102 @@ export class ChatStateService {
 
     // 1. Photos Submitted Workflow
     if (photosToSend.length > 0) {
+      if (currentConv.isInternalAudit || this.isInternalAuditRequest(text)) {
+        currentConv.isInternalAudit = true;
+        currentConv.title = 'Internal Audit';
+        this.conversations.update((list) =>
+          list.map((c) => (c.id === currentConv!.id ? { ...c, title: 'Internal Audit', isInternalAudit: true } : c))
+        );
+
+        const userPhotoMessage: ChatMessage = {
+          id: 'msg-' + Date.now(),
+          sender: 'user',
+          content: text || 'Uploaded photographs for Internal Audit evaluation.',
+          timestamp: new Date(),
+          photos: photosToSend.map((p) => ({ ...p })),
+          attachmentName: docAttachment || undefined,
+        };
+
+        this.appendMessageToActive(userPhotoMessage);
+        this.composerText.set('');
+        this.uploadSiteNotes.set('');
+        this.attachedDocument.set(null);
+        this.uploadedPhotos.set([]);
+
+        this.isGenerating.set(true);
+        this.startThinkingAnimation(true);
+        this.analyzingStepMessage.set('Conducting Internal Audit on your photographs against FA01–FA27...');
+
+        const iaSession = this.internalAuditService.createSession(
+          'Site Walkthrough',
+          '',
+          this.authService.currentUser()?.displayName || 'Auditor'
+        );
+        iaSession.photos = photosToSend.map((p, idx) => ({
+          id: p.id || `photo_${idx + 1}`,
+          name: p.name || `Photo ${idx + 1}`,
+          url: p.url,
+          mimeType: 'image/jpeg',
+          size: p.size,
+          timestamp: new Date().toISOString(),
+        }));
+
+        this.internalAuditService.analyzeAuditPhotos(iaSession).subscribe({
+          next: (analysisResult) => {
+            iaSession.observations = analysisResult.observations;
+            iaSession.auditorSummary = analysisResult.auditorSummary;
+            iaSession.location = analysisResult.location;
+            iaSession.analysisResult = analysisResult;
+            iaSession.status = 'completed';
+
+            this.internalAuditService.finalizeAudit(iaSession);
+            this.reportService.loadInspectionHistory();
+            this.internalAuditService.saveAuditToBackend(iaSession).subscribe({
+              next: () => {},
+              error: (e) => console.warn('[QuestAI IA] Background save notice:', e.message),
+            });
+
+            this.isGenerating.set(false);
+            this.clearThinkingAnimation();
+            this.analyzingStepMessage.set('');
+
+            const carCount = analysisResult.totalCarCount;
+            const summaryText =
+              `All done! I have completed the **Internal Audit** across your ${photosToSend.length} uploaded photograph(s) evaluated against the 27 official safety conditions:\n\n` +
+              `• **Location:** ${analysisResult.location || 'Site Location'}\n` +
+              `• **Auditor Summary:** ${analysisResult.auditorSummary}\n` +
+              `• **Compliance Score:** ${analysisResult.overallComplianceScore || 100}%\n` +
+              `• **Total Observations:** ${analysisResult.observations.length}\n` +
+              `• **CARs Generated:** ${carCount} ${carCount > 0 ? '⚠️ (Action Required)' : '✅ (None)'}`;
+
+            const assistantMsg: ChatMessage = {
+              id: 'msg-' + (Date.now() + 1),
+              sender: 'assistant',
+              content: summaryText,
+              timestamp: new Date(),
+              internalAuditResult: analysisResult,
+              internalAuditSession: iaSession,
+            };
+            this.appendMessageToActive(assistantMsg);
+          },
+          error: (err) => {
+            this.isGenerating.set(false);
+            this.clearThinkingAnimation();
+            this.analyzingStepMessage.set('');
+
+            const errMsg: ChatMessage = {
+              id: 'msg-' + (Date.now() + 1),
+              sender: 'assistant',
+              content: `Failed to complete Internal Audit analysis: ${err.message || 'Please check your connection and try again.'}`,
+              timestamp: new Date(),
+              isError: true,
+            };
+            this.appendMessageToActive(errMsg);
+          },
+        });
+        return;
+      }
+
       const targetBankId =
         currentConv.selectedBankId ||
         this.selectedUploadBank()?.id ||
@@ -1066,6 +1183,35 @@ export class ChatStateService {
         timestamp: new Date(),
       };
       this.appendMessageToActive(greetingMsg);
+      return;
+    }
+
+    // Check for Internal Audit Request
+    if (this.isInternalAuditRequest(text)) {
+      this.clearActiveCategorySelectors();
+      if (currentConv) {
+        currentConv.isInternalAudit = true;
+        currentConv.title = 'Internal Audit';
+        this.conversations.update((list) =>
+          list.map((c) => (c.id === currentConv!.id ? { ...c, title: 'Internal Audit', isInternalAudit: true } : c))
+        );
+        const uid = this.conversationService.getCurrentUserId();
+        if (uid) {
+          void this.conversationService.updateConversationMeta(uid, currentConv.id, {
+            title: 'Internal Audit',
+          });
+        }
+      }
+
+      const assistantMsg: ChatMessage = {
+        id: 'msg-' + (Date.now() + 1),
+        sender: 'assistant',
+        content:
+          "To carry out an **Internal Audit**, please upload your site photographs below. I will examine the visual evidence against all **27 official Internal Audit safety conditions** (FA01–FA27) and generate your complete compliance report with observations and any required Corrective Action Requests (CAR).",
+        timestamp: new Date(),
+        showInternalAuditUpload: true,
+      };
+      this.appendMessageToActive(assistantMsg);
       return;
     }
 
@@ -1300,9 +1446,23 @@ export class ChatStateService {
     return null;
   }
 
-  isInspectionFormRequest(text: string): boolean {
+  isInternalAuditRequest(text: string): boolean {
     const q = (text || '').trim().toLowerCase();
     if (!q) return false;
+    const auditPatterns = [
+      /\binternal\s*audit\b/i,
+      /\b(do|start|conduct|run|perform|fill|new)\s*(a|an)?\s*internal\s*audit\b/i,
+      /\baudit\s*(the\s*)?(site|report|checklist)?\b/i,
+      /\bhealth\s*and\s*safety\s*audit\b/i,
+      /\bhseq\s*audit\b/i,
+      /\baudit\s*photos\b/i,
+    ];
+    return auditPatterns.some((pattern) => pattern.test(q));
+  }
+
+  isInspectionFormRequest(text: string): boolean {
+    const q = (text || '').trim().toLowerCase();
+    if (!q || this.isInternalAuditRequest(q)) return false;
     const formPatterns = [
       /\b(site\s*)?inspection\b/i,
       /\bchecklist\b/i,
@@ -1540,6 +1700,22 @@ export class ChatStateService {
       session.workflowStatus = 'draft_ready';
       session.draftSummary = draftSummary;
       this.conversationalInspection.saveSession(session);
+    }
+  }
+
+  // --- Internal Audit Helpers ---
+
+  runInternalAuditFromUploadedPhotos(): void {
+    const conv = this.activeConversation();
+    if (conv) {
+      conv.isInternalAudit = true;
+    }
+    this.sendMessage();
+  }
+
+  openSessionInInternalAudit(session: any): void {
+    if (session) {
+      this.internalAuditService.setCurrentSession(session);
     }
   }
 }

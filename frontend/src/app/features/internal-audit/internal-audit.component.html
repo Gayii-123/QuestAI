@@ -104,14 +104,14 @@
       #galleryInput
       type="file"
       multiple
-      accept="image/jpeg,image/jpg,image/png,image/webp"
+      accept="image/jpeg,image/jpg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
       (change)="onFilesSelected($event)"
       style="display: none"
     />
     <input
       #cameraInput
       type="file"
-      accept="image/jpeg,image/jpg,image/png,image/webp"
+      accept="image/jpeg,image/jpg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
       capture="environment"
       (change)="onFilesSelected($event)"
       style="display: none"
@@ -136,7 +136,7 @@
         </svg>
       </div>
       <h3 class="dropzone-title">Click to upload or drag & drop photographs</h3>
-      <p class="dropzone-subtitle">JPG, PNG, or WebP up to 15MB each. Multiple photos supported.</p>
+      <p class="dropzone-subtitle">JPG, PNG, WebP, or HEIC up to 15MB each. Multiple photos supported.</p>
 
       <div class="dropzone-actions" (click)="$event.stopPropagation()">
         <button type="button" class="btn-dropzone-pick" (click)="triggerGalleryPicker()">

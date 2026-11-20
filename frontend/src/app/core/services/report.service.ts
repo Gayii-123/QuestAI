@@ -123,90 +123,167 @@ export class ReportService {
   // --- User-Scoped Firestore Sync ---
 
   loadInspectionHistory(): void {
-    const uid = this.getCurrentUserId();
-    if (!uid) {
-      this.clearUserReports();
-      return;
-    }
-    void this.syncUserReports(uid);
-  }
-
-  async syncUserReports(uid: string): Promise<void> {
-    if (!uid) return;
-    this.activeSyncUid = uid;
-    this.isLoadingReports.set(true);
-    this.reportSyncError.set(null);
-
     try {
-      const reportsRef = this.getUserReportsCollection(uid);
-      const q = query(reportsRef, orderBy('updatedAt', 'desc'));
-      const snapshot = await getDocs(q);
+      const siteRaw = localStorage.getItem('questai_finalized_inspections');
+      const iaRaw = localStorage.getItem('questai_finalized_internal_audits');
+      const siteList = siteRaw ? JSON.parse(siteRaw) : [];
+      let iaList = iaRaw ? JSON.parse(iaRaw) : [];
 
-      // Guard against account switch or logout while request was in-flight
-      if (this.activeSyncUid !== uid) {
-        return;
+      // Seed initial sample audit matching official screenshot if none exists
+      if (!Array.isArray(iaList) || iaList.length === 0) {
+        iaList = [this.getSampleInternalAudit()];
+        try {
+          localStorage.setItem('questai_finalized_internal_audits', JSON.stringify(iaList));
+        } catch { }
       }
 
-      const reports: any[] = [];
-      for (const d of snapshot.docs) {
-        reports.push(this.deserializeReport(d.id, d.data()));
-      }
+      const normalizedIaList = (Array.isArray(iaList) ? iaList : []).map((audit: any) => {
+        const obs = Array.isArray(audit.observations) ? audit.observations : [];
+        const compliantCount = obs.filter((o: any) => o.rating === 'Compliant' || o.rating === 'Good Practice').length;
+        const carCount = obs.filter((o: any) => o.hasCar === 'Yes').length;
+        const obsCount = obs.filter((o: any) => o.rating === 'Observations only').length;
 
-      // Stable client-side sort by finalizedAt / updatedAt descending
-      reports.sort((a, b) => {
-        const tA = new Date(a.updatedAt || a.finalizedAt || 0).getTime();
-        const tB = new Date(b.updatedAt || b.finalizedAt || 0).getTime();
-        return tB - tA;
+        const dateStr = audit.completedAt || audit.createdAt || new Date().toISOString();
+        const dateObj = new Date(dateStr);
+        const formattedDate = dateObj.toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+        });
+        const formattedDateTime = dateObj.toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+
+        const formattedObs = obs.map((o: any) => {
+          let resolveByDateFormatted = o.resolveByDateFormatted;
+          if (o.hasCar === 'Yes' && !resolveByDateFormatted) {
+            const rDate = o.resolveByDate ? new Date(o.resolveByDate) : new Date(dateObj.getTime() + 30 * 24 * 60 * 60 * 1000);
+            resolveByDateFormatted = rDate.toLocaleDateString('en-GB', {
+              day: '2-digit',
+              month: 'short',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+            });
+          }
+          return {
+            ...o,
+            resolveByDateFormatted,
+            who: o.who || o.assignedTo || audit.siteIncharge || 'Warrick Oliver',
+          };
+        });
+
+        return {
+          ...audit,
+          id: audit.referenceNumber || audit.sessionId,
+          isInternalAudit: true,
+          type: 'internal_audit',
+          bankName: 'Internal Audit',
+          department: 'HSEQ / Compliance',
+          jobNo: audit.jobNo || audit.jobReference || 'LBH/01/200',
+          siteLocation: audit.location || audit.siteName || 'Buckingham Road',
+          contract: audit.contract || 'LB Hackney',
+          auditedBy: audit.auditorName || audit.auditedBy || 'Dean Willsher',
+          siteIncharge: audit.siteIncharge || audit.foreman || 'Warrick Oliver',
+          managerSupervisor: audit.managerSupervisor || audit.supervisor || 'Tom Davis',
+          auditedDateFormatted: formattedDateTime,
+          reportDateFormatted: formattedDate,
+          finalizedAt: dateStr,
+          auditorComment: audit.auditorSummary || audit.comment || '',
+          observations: formattedObs,
+          photos: audit.photos || [],
+          stats: {
+            total: obs.length,
+            answered: obs.length,
+            passCount: compliantCount,
+            carCount: carCount,
+            naCount: 0,
+            obsCount: obsCount,
+          },
+          totalScore: obs.length > 0 ? Math.round((compliantCount / obs.length) * 100) : 100,
+        };
       });
 
-      this.inspectionHistoryList.set(reports);
-
-      // Keep selected record in sync if currently open
-      const openRef = this.selectedHistoryRecord()?.referenceNumber;
-      if (openRef) {
-        const updated = reports.find((r) => r.referenceNumber === openRef);
-        if (updated) {
-          this.selectedHistoryRecord.set({ ...updated });
-        }
-      }
-    } catch (err) {
-      console.error('[ReportService] Error loading reports from Firestore:', err);
-      this.reportSyncError.set('Unable to load inspection reports from Firebase.');
-    } finally {
-      if (this.activeSyncUid === uid) {
-        this.isLoadingReports.set(false);
-      }
+      const combined = [...normalizedIaList, ...(Array.isArray(siteList) ? siteList : [])];
+      combined.sort((a, b) => new Date(b.finalizedAt || 0).getTime() - new Date(a.finalizedAt || 0).getTime());
+      this.inspectionHistoryList.set(combined);
+    } catch (e) {
+      console.error('Failed to load inspection history:', e);
+      this.inspectionHistoryList.set([]);
     }
-  }
-
-  clearUserReports(): void {
-    this.activeSyncUid = null;
-    this.inspectionHistoryList.set([]);
-    this.selectedHistoryRecord.set(null);
-    this.cancelEditingHistoryQuestion();
-    this.reportSyncError.set(null);
   }
 
   deleteHistoryRecord(referenceNumber: string): void {
-    if (!referenceNumber) return;
+    try {
+      const siteRaw = localStorage.getItem('questai_finalized_inspections');
+      if (siteRaw) {
+        const siteList = JSON.parse(siteRaw);
+        const filtered = siteList.filter((item: any) => item.referenceNumber !== referenceNumber && item.id !== referenceNumber);
+        localStorage.setItem('questai_finalized_inspections', JSON.stringify(filtered));
+      }
 
-    // Optimistically remove from in-memory list
-    this.inspectionHistoryList.update((list) =>
-      list.filter((item) => item.referenceNumber !== referenceNumber)
-    );
-    if (this.selectedHistoryRecord()?.referenceNumber === referenceNumber) {
-      this.closeHistoryRecord();
+      const iaRaw = localStorage.getItem('questai_finalized_internal_audits');
+      if (iaRaw) {
+        const iaList = JSON.parse(iaRaw);
+        const filtered = iaList.filter((item: any) => item.referenceNumber !== referenceNumber && item.sessionId !== referenceNumber);
+        localStorage.setItem('questai_finalized_internal_audits', JSON.stringify(filtered));
+      }
+
+      this.loadInspectionHistory();
+      if (this.selectedHistoryRecord()?.referenceNumber === referenceNumber) {
+        this.closeHistoryRecord();
+      }
+    } catch (e) {
+      console.error('Failed to delete inspection record', e);
     }
+  }
 
-    // Delete from Firestore under questai/data/users/{uid}/reports/{referenceNumber}
-    const uid = this.getCurrentUserId();
-    if (uid) {
-      const docRef = this.getReportDoc(uid, referenceNumber);
-      void deleteDoc(docRef).catch((err) => {
-        console.error('[ReportService] Failed to delete report in Firestore:', err);
-        this.reportSyncError.set('Failed to delete report from Firebase.');
-        void this.syncUserReports(uid);
+  saveInternalAuditRecord(record: any): void {
+    try {
+      const iaRaw = localStorage.getItem('questai_finalized_internal_audits');
+      const iaList = iaRaw ? JSON.parse(iaRaw) : [];
+      const idx = iaList.findIndex(
+        (item: any) => item.referenceNumber === record.referenceNumber || item.sessionId === record.sessionId
+      );
+
+      const obs = Array.isArray(record.observations) ? record.observations : [];
+      const compliantCount = obs.filter((o: any) => o.rating === 'Compliant' || o.rating === 'Good Practice').length;
+      const carCount = obs.filter((o: any) => o.hasCar === 'Yes').length;
+      const obsCount = obs.filter((o: any) => o.rating === 'Observations only').length;
+
+      record.stats = {
+        total: obs.length,
+        answered: obs.length,
+        passCount: compliantCount,
+        carCount: carCount,
+        naCount: 0,
+        obsCount: obsCount,
+      };
+      record.totalScore = obs.length > 0 ? Math.round((compliantCount / obs.length) * 100) : 100;
+      record.updatedAt = new Date().toISOString();
+      record.isInternalAudit = true;
+
+      if (idx >= 0) {
+        iaList[idx] = record;
+      } else {
+        iaList.unshift(record);
+      }
+
+      localStorage.setItem('questai_finalized_internal_audits', JSON.stringify(iaList));
+      this.loadInspectionHistory();
+      this.selectedHistoryRecord.set({ ...record });
+
+      // Sync to Firebase Cloud Functions backend
+      this.apiService.saveFinalizedInternalAudit(record).subscribe({
+        next: (res) => console.log('[QuestAI IA] Edited audit synced to backend:', res),
+        error: (err) => console.warn('[QuestAI IA] Background sync notice:', err.message),
       });
+    } catch (e) {
+      console.error('Failed to save edited internal audit:', e);
     }
   }
 
@@ -399,8 +476,8 @@ export class ReportService {
           },
           answers: record.answers,
         })
-        .subscribe({ error: () => {} });
-    } catch {}
+        .subscribe({ error: () => { } });
+    } catch { }
 
     // 6. Temporary success indicator
     this.historyRowSaveSuccess.set(questionId);
@@ -420,303 +497,126 @@ export class ReportService {
     summary: InspectionDraftSummaryViewModel,
     conversationId?: string
   ): void {
-    const authMeta = this.getAuthenticatedInspectorMeta();
-    const nowIso = summary.confirmedAt || new Date().toISOString();
-    const photos = session?.uploadedPhotos ? [...session.uploadedPhotos] : [];
+    try {
+      const existing = JSON.parse(
+        localStorage.getItem('questai_finalized_inspections') || '[]'
+      );
+      const idx = existing.findIndex(
+        (item: any) => item.referenceNumber === summary.referenceNumber
+      );
 
-    // Cache photo previews in sessionStorage for in-session PDF & report viewing
-    for (const p of photos) {
-      if (p.id && p.url) {
-        try {
-          sessionStorage.setItem('questai_photo_' + p.id, p.url);
-        } catch {}
-      }
-    }
-
-    const questions = session
-      ? Object.values(session.questionAssessments).map((q) => ({
+      const photos = session?.uploadedPhotos ? [...session.uploadedPhotos] : [];
+      const questions = session
+        ? Object.values(session.questionAssessments).map((q) => ({
           id: q.questionId,
           qnum: q.qnum,
           headername: q.headername,
           qtext: q.qtext,
-          isDynamicObservation: !!q.isDynamicObservation,
-          supportingPhotoIds: q.supportingPhotoIds || [],
+          isDynamicObservation: q.isDynamicObservation,
+          supportingPhotoIds: q.supportingPhotoIds,
         }))
-      : [];
+        : [];
 
-    const total = summary.totalApplicable || 0;
-    const passCount = summary.passCount || 0;
-    const carCount = summary.carCount || 0;
-    const naCount = summary.naCount || 0;
-    const answered = passCount + carCount + naCount;
-    const passRate = total > 0 ? Math.round((passCount / total) * 100) : 0;
+      const total = summary.totalApplicable || 0;
+      const passCount = summary.passCount || 0;
+      const carCount = summary.carCount || 0;
+      const naCount = summary.naCount || 0;
+      const answered = passCount + carCount + naCount;
+      const passRate = total > 0 ? Math.round((passCount / total) * 100) : 0;
 
-    const existingRecord = this.inspectionHistoryList().find(
-      (item) => item.referenceNumber === summary.referenceNumber
-    );
+      const existingRecord = this.inspectionHistoryList().find(
+        (item) => item.referenceNumber === summary.referenceNumber
+      );
 
-    const record = {
-      id: summary.referenceNumber,
-      referenceNumber: summary.referenceNumber,
-      userId: authMeta.userId,
-      userEmail: authMeta.userEmail,
-      inspectionId: session?.inspectionId || summary.inspectionId || '',
-      conversationId: conversationId || '',
-      jobNo: 'LBN-0029',
-      jobReference: 'LBN-0029',
-      bankId: summary.bankId,
-      bankName: summary.bankName,
-      department: summary.department,
-      status: 'completed',
-      finalizedAt: nowIso,
-      updatedAt: nowIso,
-      inspectorName: authMeta.inspectorName,
-      inspectorRole: authMeta.inspectorRole,
-      contractor: authMeta.contractor,
-      supervisorName: authMeta.inspectorName,
-      foremanName: 'Bekim Aliaj',
-      contract: '140-Newham',
-      operatives: `1. ${authMeta.inspectorName}, 2. Bekim Aliaj`,
-      jobDescription: `${summary.bankName} - Highway safety & compliance inspection`,
-      siteLocation: 'Romford Road',
-      depot: 'N/A',
-      totalScore: passCount,
-      passRate,
-      editCount: existingRecord?.editCount || 0,
-      lastEditedBy: existingRecord?.lastEditedBy || null,
-      stats: {
-        total,
-        answered,
-        passCount,
-        carCount,
-        naCount,
-        needsReviewCount: summary.needsVerificationCount || 0,
-        unresolvedCount: Math.max(0, total - answered),
-        verifiedCount: passCount,
-      },
-      answers: summary.answers || session?.answers || {},
-      photoCount: photos.length,
-      photos,
-      questions,
-      modelIdentifier: 'QuestAI Vision',
-      isMock: false,
-    };
+      const record = {
+        id: summary.referenceNumber,
+        referenceNumber: summary.referenceNumber,
+        userId: authMeta.userId,
+        userEmail: authMeta.userEmail,
+        inspectionId: session?.inspectionId || summary.inspectionId || '',
+        conversationId: conversationId || '',
+        jobNo: 'LBN-0029',
+        jobReference: 'LBN-0029',
+        bankId: summary.bankId,
+        bankName: summary.bankName,
+        department: summary.department,
+        status: 'completed',
+        finalizedAt: nowIso,
+        updatedAt: nowIso,
+        inspectorName: authMeta.inspectorName,
+        inspectorRole: authMeta.inspectorRole,
+        contractor: authMeta.contractor,
+        supervisorName: authMeta.inspectorName,
+        foremanName: 'Bekim Aliaj',
+        contract: '140-Newham',
+        operatives: `1. ${authMeta.inspectorName}, 2. Bekim Aliaj`,
+        jobDescription: `${summary.bankName} - Highway safety & compliance inspection`,
+        siteLocation: 'Romford Road',
+        depot: 'N/A',
+        totalScore: passCount,
+        passRate,
+        editCount: existingRecord?.editCount || 0,
+        lastEditedBy: existingRecord?.lastEditedBy || null,
+        stats: {
+          total,
+          answered,
+          passCount,
+          carCount,
+          naCount,
+          needsReviewCount: summary.needsVerificationCount || 0,
+          unresolvedCount: Math.max(0, total - answered),
+          verifiedCount: passCount,
+        },
+        answers: summary.answers || session?.answers || {},
+        photoCount: photos.length,
+        photos,
+        questions,
+        modelIdentifier: 'QuestAI Vision',
+        isMock: false,
+      };
 
-    // 1. Update in-memory list immediately
-    this.inspectionHistoryList.update((list) => {
-      const idx = list.findIndex((item) => item.referenceNumber === record.referenceNumber);
-      if (idx >= 0) {
-        const next = [...list];
-        next[idx] = record;
-        return next;
-      }
-      return [record, ...list];
-    });
+      // 1. Update in-memory list immediately
+      this.inspectionHistoryList.update((list) => {
+        const idx = list.findIndex((item) => item.referenceNumber === record.referenceNumber);
+        if (idx >= 0) {
+          existing[idx] = record;
+        } else {
+          existing.unshift(record);
+        }
 
-    // 2. Persist directly to Firestore under questai/data/users/{uid}/reports/{referenceNumber}
-    const uid = this.getCurrentUserId();
-    if (uid && record.referenceNumber) {
-      const docRef = this.getReportDoc(uid, record.referenceNumber);
-      const payload = this.serializeReportForFirestore(record, !existingRecord);
-      void setDoc(docRef, payload, { merge: true }).catch((err) => {
-        console.error('[ReportService] Failed to save finalized report to Firestore:', err);
-        this.reportSyncError.set('Failed to save report to Firebase.');
-      });
+        localStorage.setItem(
+          'questai_finalized_inspections',
+          JSON.stringify(existing)
+        );
+        this.loadInspectionHistory();
+      } catch { }
+
+      // 3. Optionally sync to backend API in background
+      try {
+        this.apiService
+          .saveFinalizedInspection({
+            inspectionId: session?.inspectionId || summary.inspectionId,
+            referenceNumber: summary.referenceNumber,
+            bankId: summary.bankId,
+            bankName: summary.bankName,
+            department: summary.department,
+            status: 'completed',
+            summary,
+            answers: summary.answers || session?.answers || {},
+          })
+          .subscribe({
+            error: () => { },
+          });
+      } catch { }
     }
-
-    // 3. Optionally sync to backend API in background
-    try {
-      this.apiService
-        .saveFinalizedInspection({
-          inspectionId: session?.inspectionId || summary.inspectionId,
-          referenceNumber: summary.referenceNumber,
-          bankId: summary.bankId,
-          bankName: summary.bankName,
-          department: summary.department,
-          status: 'completed',
-          summary,
-          answers: summary.answers || session?.answers || {},
-        })
-        .subscribe({
-          error: () => {},
-        });
-    } catch {}
-  }
-
-  // --- Firestore Serialization & Deserialization ---
-
-  private serializeReportForFirestore(
-    record: any,
-    isCreate: boolean
-  ): Record<string, any> {
-    // Strip large Base64 data URLs to stay well within Firestore's 1 MiB document limit
-    const sanitizedPhotos = Array.isArray(record.photos)
-      ? record.photos.map((p: any) => ({
-          id: String(p?.id || ''),
-          name: String(p?.name || 'photograph.jpg'),
-          size: typeof p?.size === 'number' ? p.size : 0,
-          timestamp: String(p?.timestamp || new Date().toISOString()),
-          url: p?.url && typeof p.url === 'string' && !p.url.startsWith('data:') ? p.url : '',
-        }))
-      : [];
-
-    const payload: Record<string, any> = {
-      id: record.referenceNumber,
-      referenceNumber: record.referenceNumber,
-      userId: record.userId || this.getCurrentUserId() || '',
-      userEmail: record.userEmail || null,
-      inspectionId: record.inspectionId || '',
-      conversationId: record.conversationId || '',
-      jobNo: record.jobNo || 'LBN-0029',
-      jobReference: record.jobReference || record.jobNo || 'LBN-0029',
-      bankId: record.bankId || '',
-      bankName: record.bankName || 'Site Inspection',
-      department: record.department || 'Civil',
-      status: record.status || 'completed',
-      finalizedAt: record.finalizedAt || new Date().toISOString(),
-      inspectorName: record.inspectorName || 'Quest Inspector',
-      inspectorRole: record.inspectorRole || 'QHSE',
-      contractor: record.contractor || 'Marlborough Highways',
-      supervisorName: record.supervisorName || record.inspectorName || 'Quest Inspector',
-      foremanName: record.foremanName || '',
-      contract: record.contract || '',
-      operatives: record.operatives || '',
-      jobDescription: record.jobDescription || '',
-      siteLocation: record.siteLocation || '',
-      depot: record.depot || 'N/A',
-      totalScore: typeof record.totalScore === 'number' ? record.totalScore : 0,
-      passRate:
-        typeof record.passRate === 'number'
-          ? record.passRate
-          : this.getRecordPassRate(record),
-      editCount: typeof record.editCount === 'number' ? record.editCount : 0,
-      lastEditedBy: record.lastEditedBy || null,
-      stats: record.stats || {},
-      answers: record.answers || {},
-      photoCount:
-        typeof record.photoCount === 'number'
-          ? record.photoCount
-          : sanitizedPhotos.length,
-      photos: sanitizedPhotos,
-      questions: Array.isArray(record.questions) ? record.questions : [],
-      modelIdentifier: record.modelIdentifier || 'QuestAI Vision',
-      isMock: !!record.isMock,
-      updatedAt: serverTimestamp(),
-    };
-
-    if (isCreate) {
-      payload['createdAt'] = serverTimestamp();
-    }
-
-    return this.cleanForFirestore(payload);
-  }
-
-  private deserializeReport(docId: string, data: any): any {
-    const resolveTimestampIso = (raw: any): string => {
-      if (raw?.toDate && typeof raw.toDate === 'function') {
-        return raw.toDate().toISOString();
-      }
-      if (raw instanceof Date) return raw.toISOString();
-      if (typeof raw === 'string' && raw) return raw;
-      if (typeof raw === 'number') return new Date(raw).toISOString();
-      return '';
-    };
-
-    const photos = Array.isArray(data?.photos)
-      ? data.photos.map((p: any) => {
-          let url = String(p?.url || '');
-          if (!url && p?.id) {
-            try {
-              url = sessionStorage.getItem('questai_photo_' + p.id) || '';
-            } catch {}
-          }
-          return {
-            id: String(p?.id || ''),
-            name: String(p?.name || 'photograph.jpg'),
-            size: Number(p?.size || 0),
-            timestamp: String(p?.timestamp || ''),
-            url,
-          };
-        })
-      : [];
-
-    const finalizedAt =
-      resolveTimestampIso(data?.finalizedAt) ||
-      resolveTimestampIso(data?.createdAt) ||
-      new Date().toISOString();
-    const updatedAt = resolveTimestampIso(data?.updatedAt) || finalizedAt;
-
-    return {
-      id: String(data?.id || docId),
-      referenceNumber: String(data?.referenceNumber || docId),
-      userId: String(data?.userId || ''),
-      userEmail: data?.userEmail || null,
-      inspectionId: String(data?.inspectionId || ''),
-      conversationId: String(data?.conversationId || ''),
-      jobNo: String(data?.jobNo || 'LBN-0029'),
-      jobReference: String(data?.jobReference || data?.jobNo || 'LBN-0029'),
-      bankId: String(data?.bankId || ''),
-      bankName: String(data?.bankName || 'Site Inspection'),
-      department: String(data?.department || 'Civil'),
-      status: String(data?.status || 'completed'),
-      finalizedAt,
-      updatedAt,
-      inspectorName: String(data?.inspectorName || 'Quest Inspector'),
-      inspectorRole: String(data?.inspectorRole || 'QHSE'),
-      contractor: String(data?.contractor || 'Marlborough Highways'),
-      supervisorName: String(data?.supervisorName || data?.inspectorName || 'Quest Inspector'),
-      foremanName: String(data?.foremanName || ''),
-      contract: String(data?.contract || ''),
-      operatives: String(data?.operatives || ''),
-      jobDescription: String(data?.jobDescription || ''),
-      siteLocation: String(data?.siteLocation || ''),
-      depot: String(data?.depot || 'N/A'),
-      totalScore: typeof data?.totalScore === 'number' ? data.totalScore : 0,
-      passRate: typeof data?.passRate === 'number' ? data.passRate : 0,
-      editCount: typeof data?.editCount === 'number' ? data.editCount : 0,
-      lastEditedBy: data?.lastEditedBy || null,
-      stats: data?.stats || {
-        total: 0,
-        answered: 0,
-        passCount: 0,
-        carCount: 0,
-        naCount: 0,
-        needsReviewCount: 0,
-        unresolvedCount: 0,
-        verifiedCount: 0,
-      },
-      answers: data?.answers || {},
-      photoCount:
-        typeof data?.photoCount === 'number' ? data.photoCount : photos.length,
-      photos,
-      questions: Array.isArray(data?.questions) ? data.questions : [],
-      modelIdentifier: String(data?.modelIdentifier || 'QuestAI Vision'),
-      isMock: !!data?.isMock,
-    };
-  }
-
-  private cleanForFirestore(obj: any): any {
-    if (obj === null || obj === undefined) return null;
-    if (typeof obj !== 'object') return obj;
-    if (obj instanceof Date) return obj;
-    if (Array.isArray(obj)) {
-      return obj.map((item) => this.cleanForFirestore(item));
-    }
-    // Preserve Firestore FieldValue sentinels (e.g. serverTimestamp())
-    if (typeof obj.constructor === 'function' && obj.constructor.name !== 'Object') {
-      return obj;
-    }
-    const result: Record<string, any> = {};
-    for (const [key, val] of Object.entries(obj)) {
-      if (val !== undefined) {
-        result[key] = this.cleanForFirestore(val);
-      }
-    }
-    return result;
-  }
 
   downloadReportPdf(summaryOrRecord: any): void {
-    if (!summaryOrRecord) return;
+      if(!summaryOrRecord) return;
+
+      if(summaryOrRecord.isInternalAudit || summaryOrRecord.type === 'internal_audit') {
+      this.pdfExportService.downloadInternalAuditPdf(summaryOrRecord);
+      return;
+    }
 
     const ref = summaryOrRecord.referenceNumber || 'SI638150';
     const jobNo = summaryOrRecord.jobNo || summaryOrRecord.jobReference || 'LBN-0029';
@@ -889,5 +789,89 @@ export class ReportService {
     if (rating === '-1') return 'Action Required';
     if (rating === '0') return 'N/A';
     return 'Pending';
+  }
+
+  /**
+   * Authoritative sample internal audit matching official screenshots (IA104368)
+   */
+  getSampleInternalAudit(): any {
+    return {
+      referenceNumber: 'IA104368',
+      sessionId: 'ia_session_104368',
+      jobNo: 'LBH/01/200',
+      location: 'Buckingham Road',
+      siteLocation: 'Buckingham Road',
+      contract: 'LB Hackney',
+      auditorName: 'Dean Willsher',
+      auditedBy: 'Dean Willsher',
+      siteIncharge: 'Warrick Oliver',
+      foreman: 'Warrick Oliver',
+      managerSupervisor: 'Tom Davis',
+      supervisor: 'Tom Davis',
+      auditedDateFormatted: '18 Nov, 2026, 04:40 PM',
+      reportDateFormatted: '18 Nov, 2026',
+      finalizedAt: '2026-11-18T16:40:00.000Z',
+      completedAt: '2026-11-18T16:40:00.000Z',
+      createdAt: '2026-11-18T16:40:00.000Z',
+      auditorSummary:
+        'This internal audit focused on a site undertaking the relaying of paving slabs and the application of tarmac around tree roots. The previous audit had raised a Corrective Action Request (CAR) regarding safety zones, which has reportedly been addressed, with cones now observed to be evenly spaced at no more than 9-meter intervals. However, during this visit, it was noted that several sections of the site barriers were displaced by a gust of wind, primarily due to the absence of sandbags or other securing measures. The primary focus of this audit was on safe working practices and traffic management. It was noted that all necessary paperwork, including Method Statements (MS), statistics, and permits, were audited during the last visit and found to be in place, as was emergency equipment.',
+      comment:
+        'This internal audit focused on a site undertaking the relaying of paving slabs and the application of tarmac around tree roots. The previous audit had raised a Corrective Action Request (CAR) regarding safety zones, which has reportedly been addressed, with cones now observed to be evenly spaced at no more than 9-meter intervals. However, during this visit, it was noted that several sections of the site barriers were displaced by a gust of wind, primarily due to the absence of sandbags or other securing measures. The primary focus of this audit was on safe working practices and traffic management. It was noted that all necessary paperwork, including Method Statements (MS), statistics, and permits, were audited during the last visit and found to be in place, as was emergency equipment.',
+      photos: [
+        { id: 'photo_1', name: 'Barriers & Cones Demarcation', url: 'https://images.unsplash.com/photo-1541888946425-d0fbb18615f8?auto=format&fit=crop&w=400&q=80' },
+        { id: 'photo_2', name: 'Tarmac & Tree Pit Zone', url: 'https://images.unsplash.com/photo-1508873696983-2df57046475a?auto=format&fit=crop&w=400&q=80' },
+        { id: 'photo_3', name: 'Temporary Footway Clearance', url: 'https://images.unsplash.com/photo-1581094794329-c8112a89af12?auto=format&fit=crop&w=400&q=80' },
+        { id: 'photo_4', name: 'Pavement Barrier Alignment', url: 'https://images.unsplash.com/photo-1590496793929-36417d3117de?auto=format&fit=crop&w=400&q=80' },
+        { id: 'photo_5', name: 'Pedestrian Walkway Segregation', url: 'https://images.unsplash.com/photo-1584467735871-8e85353a8413?auto=format&fit=crop&w=400&q=80' },
+        { id: 'photo_6', name: 'Road Works Access Point', url: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=400&q=80' },
+        { id: 'photo_7', name: 'Site Housekeeping & Leaves', url: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=400&q=80' },
+        { id: 'photo_8', name: 'Excavation Perimeter Fencing', url: 'https://images.unsplash.com/photo-1541888946425-d0fbb18615f8?auto=format&fit=crop&w=400&q=80' },
+        { id: 'photo_9', name: 'Traffic Guidance Signage', url: 'https://images.unsplash.com/photo-1508873696983-2df57046475a?auto=format&fit=crop&w=400&q=80' },
+        { id: 'photo_10', name: 'Plant Parking & Storage', url: 'https://images.unsplash.com/photo-1581094794329-c8112a89af12?auto=format&fit=crop&w=400&q=80' },
+      ],
+      observations: [
+        {
+          focusArea: 'Appropriate PPE',
+          focusAreaRef: 'FA01',
+          finding:
+            'Operatives on site were observed wearing appropriate high-visibility vests and trousers. No instances of shorts or inadequate high-visibility clothing were noted.',
+          suggestedAction:
+            'Ensure all operatives consistently wear full 6-point PPE, including high-visibility trousers and vests (shorts are strictly not permitted), safety footwear, and other required protective equipment relevant to the task.',
+          rating: 'Compliant',
+          hasCar: 'No',
+          carStatus: 'Not Required',
+          supportingPhotoIds: ['photo_1', 'photo_2', 'photo_3', 'photo_4', 'photo_5'],
+        },
+        {
+          focusArea: 'Public is kept separate',
+          focusAreaRef: 'FA02',
+          finding:
+            'The work area was generally demarcated using a combination of barriers and cones to separate the public from operatives. Signage, including \'PEDESTRIANS\' with an arrow and \'FOOTPATH CLOSED\', was in place to guide pedestrians safely around the works. The cone spacing appeared to be compliant with the previously raised CAR.',
+          suggestedAction:
+            'Continue to ensure that the public is effectively separated from the work area using appropriate fencing or cones. Pedestrian routes must be safely signed and protected, with barriers securely placed to prevent displacement.',
+          rating: 'Compliant',
+          hasCar: 'No',
+          carStatus: 'Not Required',
+          supportingPhotoIds: ['photo_1', 'photo_2', 'photo_3', 'photo_4', 'photo_5'],
+        },
+        {
+          focusArea: 'Slips/Trips',
+          focusAreaRef: 'FA18',
+          finding:
+            'The presence of numerous fallen leaves on both the pavement and road surfaces creates potential slip hazards, particularly if wet. Furthermore, the displaced temporary barriers, as observed in several images and noted in the audit context, could pose trip hazards to both operatives and the public.',
+          suggestedAction:
+            'Implement a proactive housekeeping regime to regularly clear fallen leaves and other debris from all walking and working surfaces. Ensure all temporary barriers are securely weighted or anchored to prevent displacement and eliminate potential trip hazards.',
+          rating: 'Area for Improvement',
+          hasCar: 'Yes',
+          carStatus: 'Open',
+          carRef: 'CA35138973',
+          resolveByDate: '2026-12-18T17:05:00.000Z',
+          resolveByDateFormatted: '18 Dec, 2026, 05:05 PM',
+          assignedTo: 'Warrick Oliver',
+          who: 'Warrick Oliver',
+          supportingPhotoIds: ['photo_1', 'photo_2', 'photo_3', 'photo_4', 'photo_5', 'photo_6', 'photo_7', 'photo_8', 'photo_9', 'photo_10'],
+        },
+      ],
+    };
   }
 }
