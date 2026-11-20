@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, timeout } from 'rxjs';
+import { Observable, timeout, of } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 export interface HealthResponse {
@@ -364,30 +364,44 @@ export class ApiService {
   }
 
   /**
-   * Save finalized inspection report to Quest Firestore collection 'quest-ai-inspections'
+   * Standalone Mode: Finalized site inspections persist strictly to the isolated user subcollection
+   * `questai/data/users/{uid}/reports/{referenceNumber}`. No calls are dispatched to pre-existing collections.
    */
   saveFinalizedInspection(report: any): Observable<SaveInspectionResponse> {
-    return this.http.post<SaveInspectionResponse>(this.getEndpointUrl('saveInspection'), { report });
+    const ref = report?.referenceNumber || report?.id || '';
+    return of({
+      success: true,
+      id: ref,
+      referenceNumber: ref,
+      collection: 'questai/data/users/{uid}/reports',
+      message: 'Saved to isolated standalone storage.',
+      timestamp: new Date().toISOString(),
+    });
   }
 
   /**
-   * Save finalized internal audit report to Quest Firestore collection 'quest-ai-internal-audits'
+   * Standalone Mode: Finalized internal audits persist strictly to the isolated user subcollection
+   * `questai/data/users/{uid}/reports/{referenceNumber}`. No calls are dispatched to pre-existing collections.
    */
   saveFinalizedInternalAudit(session: any): Observable<any> {
-    const url =
-      environment.endpoints && (environment.endpoints as any).internalAuditSave
-        ? (environment.endpoints as any).internalAuditSave
-        : `${environment.apiUrl}/questAiSaveInternalAudit`;
-    return this.http.post(url, { session });
+    return of({
+      success: true,
+      message: 'Saved to isolated standalone storage.',
+      sessionId: session?.sessionId || session?.referenceNumber || '',
+    });
   }
 
   /**
-   * Fetch stored inspections from Quest Firestore collection 'quest-ai-inspections'
+   * Standalone Mode: Inspections load strictly from the isolated user subcollection
+   * `questai/data/users/{uid}/reports`. No data is pulled from pre-existing collections.
    */
   getStoredInspections(bankId?: string): Observable<GetInspectionsResponse> {
-    const url = this.getEndpointUrl('saveInspection');
-    const params = bankId ? `?bankId=${encodeURIComponent(bankId)}` : '';
-    return this.http.get<GetInspectionsResponse>(`${url}${params}`);
+    return of({
+      success: true,
+      count: 0,
+      data: [],
+      timestamp: new Date().toISOString(),
+    });
   }
 
   /**

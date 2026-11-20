@@ -59,15 +59,19 @@ export class AuthService {
     onAuthStateChanged(this.auth, async (fbUser: User | null) => {
       if (fbUser) {
         try {
-          const profile = await this.fetchAndVerifyQuestProfile(fbUser.uid);
-          if (profile && profile.isEnabled) {
+          let profile = await this.fetchAndVerifyQuestProfile(fbUser.uid);
+          if (profile && !profile.isEnabled) {
+            console.warn('[QuestAI Auth] User account is deactivated or disabled');
+            await signOut(this.auth);
+            this.resetState();
+          } else {
+            if (!profile) {
+              // Standalone mode: fallback to Firebase Auth user profile
+              profile = this.createStandaloneProfile(fbUser);
+            }
             this.currentUser.set(fbUser);
             this.userProfile.set(profile);
             this.authError.set(null);
-          } else {
-            console.warn('[QuestAI Auth] User exists in Auth but is unverified or disabled in employeesList');
-            await signOut(this.auth);
-            this.resetState();
           }
         } catch (error) {
           console.error('[QuestAI Auth] Error verifying session on state change:', error);
@@ -106,21 +110,10 @@ export class AuthService {
         throw new Error('Authentication failed: No user returned by service.');
       }
 
-      // Step 2: Verification against existing Quest user collection
-      const profile = await this.fetchAndVerifyQuestProfile(fbUser.uid);
+      // Step 2: Verification against existing Quest user collection or standalone fallback
+      let profile = await this.fetchAndVerifyQuestProfile(fbUser.uid);
 
-      if (!profile) {
-        // Authenticated in Firebase Auth, but NOT in Quest Firestore database
-        await signOut(this.auth);
-        this.resetState();
-        const accessDeniedError = new Error(
-          'Access Denied: Your account is not registered in the Quest user directory. Please contact your administrator.'
-        );
-        this.authError.set(accessDeniedError.message);
-        throw accessDeniedError;
-      }
-
-      if (!profile.isEnabled) {
+      if (profile && !profile.isEnabled) {
         // User exists in Quest, but is deactivated / disabled
         await signOut(this.auth);
         this.resetState();
@@ -129,6 +122,11 @@ export class AuthService {
         );
         this.authError.set(disabledError.message);
         throw disabledError;
+      }
+
+      if (!profile) {
+        // Standalone Mode: fallback to Firebase Auth user profile
+        profile = this.createStandaloneProfile(fbUser);
       }
 
       // Step 3: Grant access & set signals
@@ -158,15 +156,21 @@ export class AuthService {
       }
 
       const data = snap.data();
+      const isEnabled =
+        data['isEnabled'] !== false &&
+        data['isActive'] !== false &&
+        data['status'] !== 'inactive' &&
+        data['disabled'] !== true;
+
       const profile: QuestUserProfile = {
         uid,
         email: data['email'] || '',
-        displayName: data['displayName'] || data['name'] || 'Quest Inspector',
-        role: data['role'] || data['jobTitle'] || 'Inspector',
+        displayName: data['displayName'] || data['name'] || data['fullName'] || 'Quest Inspector',
+        role: data['role'] || data['jobTitle'] || data['designation'] || 'Inspector',
         jobTitle: data['jobTitle'] || data['role'] || 'Site Inspector',
-        contractorname: data['contractorname'] || data['company'] || data['employer'] || 'Quest',
-        isEnabled: data['isEnabled'] === true,
-        photoURL: data['photoURL'] || undefined,
+        contractorname: data['contractorname'] || data['contractor'] || data['company'] || data['employer'] || 'Quest',
+        isEnabled,
+        photoURL: data['photoURL'] || data['photoUrl'] || undefined,
         supervisor: data['supervisor'] || undefined,
         supervisorName: data['supervisorName'] || undefined,
         department: data['department'] || undefined,
@@ -177,6 +181,27 @@ export class AuthService {
       console.error('[QuestAI Auth] Error fetching Quest user profile from employeesList:', err);
       return null;
     }
+  }
+
+  /**
+   * Constructs an isolated standalone profile directly from Firebase Auth user data.
+   */
+  private createStandaloneProfile(fbUser: User): QuestUserProfile {
+    const rawName = fbUser.displayName || (fbUser.email ? fbUser.email.split('@')[0] : 'Quest Inspector');
+    const formattedName = rawName
+      .replace(/[._-]+/g, ' ')
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+
+    return {
+      uid: fbUser.uid,
+      email: fbUser.email || '',
+      displayName: formattedName,
+      role: 'QHSE',
+      jobTitle: 'Site Inspector',
+      contractorname: 'Quest Standalone',
+      isEnabled: true,
+      photoURL: fbUser.photoURL || undefined,
+    };
   }
 
   /**

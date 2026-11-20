@@ -37,6 +37,9 @@ import {
   PhotoInspectionResult,
   QuestionAiEvaluation,
 } from '../../core/services/api.service';
+import { ReportService } from '../../core/services/report.service';
+import { AuthService } from '../../core/services/auth.service';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import {
   isLegacyMockAnswerEntry,
   isLegacyMockString,
@@ -80,6 +83,8 @@ export interface DraftMigrationReport {
 })
 export class SiteInspectionComponent implements OnInit, OnDestroy {
   private readonly apiService = inject(ApiService);
+  private readonly reportService = inject(ReportService, { optional: true });
+  private readonly authService = inject(AuthService, { optional: true });
 
   @Input() embeddedInChat = false;
   @Input() conversationId?: string;
@@ -555,6 +560,17 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
   });
 
   ngOnInit(): void {
+    // Populate inspector name with current user name or email if available
+    const currentUser = this.authService?.currentUser?.();
+    const currentProfile = this.authService?.userProfile?.() as any;
+    const currentName = currentProfile?.name || currentUser?.displayName || currentUser?.email;
+    if (currentName) {
+      this.inspectionMetadata.update((m) => ({
+        ...m,
+        inspectorName: currentName,
+      }));
+    }
+
     // If an initial bank ID was provided, apply it before loading the draft
     if (this.initialBankId) {
       this.selectedBankId.set(this.initialBankId);
@@ -1771,6 +1787,15 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
     const bank = this.currentBank();
     const st = this.stats();
 
+    const currentUser = this.authService?.currentUser?.();
+    const currentProfile = this.authService?.userProfile?.() as any;
+    const inspectorName =
+      this.inspectionMetadata().inspectorName ||
+      currentProfile?.name ||
+      currentUser?.displayName ||
+      currentUser?.email ||
+      'Inspector';
+
     const report: FinalizedInspectionReport = {
       referenceNumber: ref,
       conversationId: this.conversationId,
@@ -1778,9 +1803,14 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
       bankName: bank.name,
       department: bank.department,
       finalizedAt: new Date().toISOString(),
-      inspectorName: this.inspectionMetadata().inspectorName,
+      inspectorName: inspectorName,
       siteLocation: this.inspectionMetadata().siteLocation,
       jobReference: this.inspectionMetadata().jobReference,
+      userId: currentUser?.uid || '',
+      userEmail: currentUser?.email || currentProfile?.email || null,
+      createdBy: currentUser?.uid || '',
+      createdByEmail: currentUser?.email || currentProfile?.email || '',
+      createdByName: inspectorName,
       stats: {
         total: st.total,
         answered: st.answered,
@@ -1796,25 +1826,35 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
       isMock: this.isMockEngine(),
     };
 
-    // 1. Persist to Quest Firestore collection 'quest-ai-inspections' via Cloud Function
-    this.apiService.saveFinalizedInspection(report).subscribe({
-      next: (res) => {
-        console.log(`[QuestAI] Finalized inspection stored in Quest Firestore:`, res);
-        this.showToast(`Inspection ${ref} successfully saved to Quest Firestore!`);
-      },
-      error: (err) => {
-        console.warn(`[QuestAI] Could not save to Firestore (offline fallback used):`, err);
-      },
-    });
+    // 1. Save and isolate via ReportService (handles user-scoped local storage + Firestore)
+    if (this.reportService) {
+      this.reportService.saveFinalizedSiteInspection(report);
+    } else {
+      // Offline / fallback direct persistence to new collection
+      try {
+        const uid = currentUser?.uid;
+        const storageKey = uid ? `questai_finalized_inspections_${uid}` : 'questai_finalized_inspections';
+        const existingRaw = localStorage.getItem(storageKey);
+        const existingList = existingRaw ? JSON.parse(existingRaw) : [];
+        existingList.unshift(report);
+        localStorage.setItem(storageKey, JSON.stringify(existingList));
 
-    // 2. Store in local storage as offline fallback (Key: questai_finalized_inspections)
-    try {
-      const existingRaw = localStorage.getItem('questai_finalized_inspections');
-      const existingList = existingRaw ? JSON.parse(existingRaw) : [];
-      existingList.unshift(report);
-      localStorage.setItem('questai_finalized_inspections', JSON.stringify(existingList));
-    } catch (e) {
-      console.warn('Storage save error:', e);
+        if (uid && this.authService?.firestore && report.referenceNumber) {
+          const safeRef = report.referenceNumber.replace(/\//g, '-');
+          const docRef = doc(
+            this.authService.firestore,
+            'questai',
+            'data',
+            'users',
+            uid,
+            'reports',
+            safeRef
+          );
+          void setDoc(docRef, { ...report, updatedAt: serverTimestamp() }, { merge: true }).catch(() => { });
+        }
+      } catch (e) {
+        console.warn('Storage save error:', e);
+      }
     }
 
     this.finalizedReport.set(report);
@@ -2146,7 +2186,9 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
           this.finalizedReport.set(parsed.finalizedReport);
         } else {
           try {
-            const finalizedRaw = localStorage.getItem('questai_finalized_inspections');
+            const uid = this.authService?.currentUser?.()?.uid;
+            const storageKey = uid ? `questai_finalized_inspections_${uid}` : 'questai_finalized_inspections';
+            const finalizedRaw = localStorage.getItem(storageKey);
             if (finalizedRaw) {
               const list: FinalizedInspectionReport[] = JSON.parse(finalizedRaw);
               const match = list.find(

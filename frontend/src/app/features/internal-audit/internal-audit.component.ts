@@ -11,9 +11,11 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import {
   InternalAuditService,
 } from './internal-audit.service';
+import { ReportService } from '../../core/services/report.service';
 import {
   InternalAuditPhoto,
   InternalAuditObservation,
@@ -37,7 +39,9 @@ export type InternalAuditViewStep = 'upload' | 'analyzing' | 'review' | 'complet
   styleUrls: ['./internal-audit.component.css'],
 })
 export class InternalAuditComponent implements OnInit {
+  private readonly router = inject(Router);
   private readonly auditService = inject(InternalAuditService);
+  private readonly reportService = inject(ReportService, { optional: true });
 
   @Output() exitAudit = new EventEmitter<void>();
 
@@ -408,19 +412,15 @@ export class InternalAuditComponent implements OnInit {
     this.currentStep.set('completed');
     this.showToast(`Internal Audit ${finalized.referenceNumber} successfully completed.`);
 
-    // Persist to backend Firestore in background
-    this.auditService.saveAuditToBackend(finalized).subscribe({
-      next: (res) => {
-        console.log('[QuestAI IA] Persisted to backend Firestore:', res);
-      },
-      error: (err) => {
-        console.warn('[QuestAI IA] Backend persistence notice:', err.message);
-      },
-    });
+    // Persist to user's reports collection in Firestore (questai/data/users/{uid}/reports/{ref})
+    if (this.reportService) {
+      this.reportService.saveInternalAuditRecord(finalized);
+    }
   }
 
   onExit(): void {
     this.exitAudit.emit();
+    this.router.navigate(['/chat']);
   }
 
   private showToast(msg: string): void {

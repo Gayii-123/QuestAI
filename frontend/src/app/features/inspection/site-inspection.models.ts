@@ -88,6 +88,11 @@ export interface FinalizedInspectionReport {
   inspectorName: string;
   siteLocation: string;
   jobReference: string;
+  userId?: string;
+  userEmail?: string;
+  createdBy?: string;
+  createdByEmail?: string;
+  createdByName?: string;
   stats: {
     total: number;
     answered: number;

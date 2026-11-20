@@ -25,6 +25,7 @@ export interface InspectionPdfData {
   siteLocation?: string;
   depot?: string;
   inspectorName?: string;
+  createdByName?: string;
   supervisorName?: string;
   foremanName?: string;
   contract?: string;
@@ -152,11 +153,11 @@ export class PdfExportService {
     const siteLocation = data.siteLocation || 'Romford Road';
     const depot = data.depot || 'N/A';
     const department = data.department || 'Civil';
-    const inspector = data.inspectorName || 'Dan Kennett';
-    const supervisor = data.supervisorName || inspector || 'Dan Kennett';
+    const inspector = data.inspectorName || data.createdByName || 'Inspector';
+    const supervisor = data.supervisorName || inspector || 'Supervisor';
     const foreman = data.foremanName || 'Bekim Aliaj';
     const contract = data.contract || '140-Newham';
-    const operatives = data.operatives || '1. Dan Kennett, 2. Bekim Aliaj';
+    const operatives = data.operatives || (inspector ? `1. ${inspector}, 2. Bekim Aliaj` : 'Operatives');
     const jobDescription = data.jobDescription || `${data.bankName} - Highway safety & compliance inspection`;
     const totalScore = data.totalScore !== undefined ? data.totalScore : data.stats?.passCount || 50;
 
@@ -775,7 +776,7 @@ export class PdfExportService {
     const jobNo = audit.jobNo || audit.jobReference || 'LBH/01/200';
     const location = audit.siteLocation || audit.location || 'Buckingham Road';
     const contract = audit.contract || 'LB Hackney';
-    const auditedBy = audit.auditedBy || audit.auditorName || 'Dean Willsher';
+    const auditedBy = audit.auditedBy || audit.auditorName || audit.createdByName || 'Auditor';
     const siteIncharge = audit.siteIncharge || audit.foreman || 'Warrick Oliver';
     const managerSupervisor = audit.managerSupervisor || audit.supervisor || 'Tom Davis';
     const auditedDate = audit.auditedDateFormatted || '18 Nov, 2026, 04:40 PM';
