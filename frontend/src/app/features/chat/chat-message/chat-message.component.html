@@ -18,11 +18,8 @@
         aria-label="Attached site photographs">
         <div *ngFor="let photo of msg.photos" class="user-msg-photo-card" [title]="photo.name">
           <!-- Real image thumbnail if URL is available -->
-          <img *ngIf="getResolvedPhotoUrl(photo)"
-               [src]="getResolvedPhotoUrl(photo)"
-               [alt]="photo.name"
-               class="user-msg-photo-thumb"
-               (error)="onPhotoError(photo)" />
+          <img *ngIf="getResolvedPhotoUrl(photo)" [src]="getResolvedPhotoUrl(photo)" [alt]="photo.name"
+            class="user-msg-photo-thumb" (error)="onPhotoError(photo)" />
 
           <!-- Fallback photo badge if binary is stripped or unavailable -->
           <div *ngIf="!getResolvedPhotoUrl(photo)" class="user-msg-photo-fallback">
@@ -66,8 +63,8 @@
     </div>
 
     <!-- AI Answer: Pure Text / Markdown Flow (like ChatGPT) -->
-    <div *ngIf="!msg.isError && msg.content && !msg.singleQuestion"
-      class="assistant-text-content" [innerHTML]="formatStructuredMessage(msg.content)"></div>
+    <div *ngIf="!msg.isError && msg.content && !msg.singleQuestion" class="assistant-text-content"
+      [innerHTML]="formatStructuredMessage(msg.content)"></div>
 
     <!-- Reports, Checklists & Workflows in Square Box (Like ChatGPT Cards) -->
     <div class="assistant-cards-flow">
@@ -82,7 +79,8 @@
         (dismiss)="onSingleQuestionSkip($event)"></app-inspection-single-question-card>
 
       <!-- 2. Assistant Evidence Observations (Square Box Card) -->
-      <app-inspection-evidence-message *ngIf="msg.evidenceMessage" [evidence]="msg.evidenceMessage"></app-inspection-evidence-message>
+      <app-inspection-evidence-message *ngIf="msg.evidenceMessage"
+        [evidence]="msg.evidenceMessage"></app-inspection-evidence-message>
 
       <!-- 3. Adaptive Grouped Follow-Up Question Batch (Square Box Card) -->
       <app-inspection-question-batch *ngIf="msg.questionBatch" [batch]="msg.questionBatch"
@@ -99,8 +97,7 @@
       <div *ngIf="msg.showInspectionCategories && !msg.isError" class="chat-category-chips-wrap" role="group"
         aria-label="Site inspection categories">
         <button *ngFor="let bank of siteInspectionBanks" type="button" class="chat-category-chip"
-          [class.selected]="msg.selectedBankId === bank.id"
-          (click)="onSelectCategoryChip(bank)">
+          [class.selected]="msg.selectedBankId === bank.id" (click)="onSelectCategoryChip(bank)">
           {{ bank.name }}
         </button>
         <button type="button" class="chat-category-chip cancel-chip" (click)="cancelCategorySelection()"
@@ -111,15 +108,14 @@
 
       <!-- Direct Inline Photo Upload Card (Square Box Card) -->
       <div *ngIf="msg.showInlinePhotoUpload && !msg.isError" class="chat-direct-upload-wrap">
-        <input #directUploadInput type="file" multiple accept="image/*"
-          (change)="onDirectPhotosSelected($event)" style="display: none" />
+        <input #directUploadInput type="file" multiple accept="image/*,.heic,.heif" (change)="onDirectPhotosSelected($event)"
+          style="display: none" />
 
-        <div class="direct-upload-card" (click)="directUploadInput.click()"
-          (dragover)="onDirectPhotoDragOver($event)" (drop)="onDirectPhotoDrop($event)">
+        <div class="direct-upload-card" (click)="directUploadInput.click()" (dragover)="onDirectPhotoDragOver($event)"
+          (drop)="onDirectPhotoDrop($event)">
 
           <div class="direct-upload-icon-circle">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-              class="direct-camera-svg">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="direct-camera-svg">
               <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z">
               </path>
               <circle cx="12" cy="13" r="4"></circle>
@@ -131,13 +127,125 @@
             <span class="direct-upload-sub">Click here or drag &amp; drop photos from your device</span>
           </div>
 
-          <button type="button" class="btn-direct-choose"
-            (click)="$event.stopPropagation(); directUploadInput.click()">
+          <button type="button" class="btn-direct-choose" (click)="$event.stopPropagation(); directUploadInput.click()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="choose-icon">
               <line x1="12" y1="5" x2="12" y2="19"></line>
               <line x1="5" y1="12" x2="19" y2="12"></line>
             </svg>
             <span>Choose Photos</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Direct Internal Audit Photo Upload Card -->
+      <div *ngIf="msg.showInternalAuditUpload && !msg.isError" class="chat-direct-upload-wrap ia-upload-wrap">
+        <input #iaUploadInput type="file" multiple accept="image/*,.heic,.heif" (change)="onInternalAuditPhotosSelected($event)"
+          style="display: none" />
+
+        <div class="direct-upload-card ia-card" (click)="iaUploadInput.click()"
+          (dragover)="onDirectPhotoDragOver($event)" (drop)="onIaPhotoDrop($event)">
+
+          <div class="direct-upload-icon-circle ia-circle">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="direct-camera-svg">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+              <circle cx="12" cy="13" r="4"></circle>
+            </svg>
+          </div>
+
+          <div class="direct-upload-text">
+            <span class="direct-upload-title">Upload Photographs for Internal Audit</span>
+            <span class="direct-upload-sub">Click to choose or drop photos to evaluate all 27 audit criteria
+              (FA01–FA27)</span>
+          </div>
+
+          <div class="ia-btn-group" (click)="$event.stopPropagation()">
+            <button type="button" class="btn-direct-choose" (click)="iaUploadInput.click()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="choose-icon">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              <span>Upload Photos</span>
+            </button>
+
+            <button type="button" class="btn-ia-open-workspace secondary" (click)="openInternalAuditWorkspace()">
+              <span>Go to Audit Workspace</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Finalized Internal Audit Result Card -->
+      <div *ngIf="msg.internalAuditResult" class="chat-ia-result-card">
+        <div class="chat-ia-card-header">
+          <div class="chat-ia-title-row">
+            <div class="chat-ia-badge">INTERNAL AUDIT REPORT</div>
+            <div class="chat-ia-ref-badge" *ngIf="msg.internalAuditSession?.referenceNumber">
+              {{ msg.internalAuditSession.referenceNumber }}
+            </div>
+          </div>
+          <div class="chat-ia-score-pill"
+            [class.score-pass]="(msg.internalAuditResult.overallComplianceScore || 100) >= 80">
+            Compliance Score: {{ msg.internalAuditResult.overallComplianceScore || 100 }}%
+          </div>
+        </div>
+
+        <div class="chat-ia-stats-grid">
+          <div class="ia-stat-box compliant">
+            <span class="ia-stat-val">{{ (msg.internalAuditResult.compliantCount || 0) +
+              (msg.internalAuditResult.goodPracticeCount || 0) }}</span>
+            <span class="ia-stat-lbl">Compliant</span>
+          </div>
+          <div class="ia-stat-box obs">
+            <span class="ia-stat-val">{{ msg.internalAuditResult.observationsOnlyCount || 0 }}</span>
+            <span class="ia-stat-lbl">Observations</span>
+          </div>
+          <div class="ia-stat-box afi" *ngIf="(msg.internalAuditResult.areaForImprovementCount || 0) > 0">
+            <span class="ia-stat-val">{{ msg.internalAuditResult.areaForImprovementCount }}</span>
+            <span class="ia-stat-lbl">Improvement</span>
+          </div>
+          <div class="ia-stat-box ncr"
+            *ngIf="((msg.internalAuditResult.minorNcrCount || 0) + (msg.internalAuditResult.majorNcrCount || 0)) > 0">
+            <span class="ia-stat-val">{{ (msg.internalAuditResult.minorNcrCount || 0) +
+              (msg.internalAuditResult.majorNcrCount || 0) }}</span>
+            <span class="ia-stat-lbl">NCR</span>
+          </div>
+          <div class="ia-stat-box car" [class.has-car]="msg.internalAuditResult.totalCarCount > 0">
+            <span class="ia-stat-val">{{ msg.internalAuditResult.totalCarCount || 0 }}</span>
+            <span class="ia-stat-lbl">CAR Triggered</span>
+          </div>
+        </div>
+
+        <div class="chat-ia-obs-preview-list" *ngIf="msg.internalAuditResult.observations?.length > 0">
+          <div *ngFor="let obs of msg.internalAuditResult.observations" class="chat-ia-obs-row"
+            [class.car-row]="obs.hasCar === 'Yes'">
+            <div class="chat-ia-obs-header">
+              <span class="obs-fa-ref">{{ obs.focusAreaRef }}</span>
+              <span class="obs-fa-title">{{ obs.focusArea }}</span>
+              <span class="obs-rating-chip" [attr.data-rating]="obs.rating">{{ obs.rating }}</span>
+            </div>
+            <p class="obs-finding-text">{{ obs.finding }}</p>
+            <p class="obs-action-text" *ngIf="obs.suggestedAction">
+              <strong>Corrective Action:</strong> {{ obs.suggestedAction }}
+            </p>
+            <div class="obs-car-meta" *ngIf="obs.hasCar === 'Yes'">
+              <span class="car-badge-pill">CAR: {{ obs.carRefNo || 'Generated' }}</span>
+              <span class="car-due-pill">Due in 30 days</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="chat-ia-card-footer">
+          <button type="button" class="btn-ia-open-workspace primary" (click)="viewInMyReports()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+            </svg>
+            <span>View & Edit in My Reports</span>
+          </button>
+          <button type="button" class="btn-ia-open-workspace secondary" (click)="openInternalAuditWorkspace()">
+            <span>Open Audit Workspace</span>
           </button>
         </div>
       </div>

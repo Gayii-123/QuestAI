@@ -1,8 +1,8 @@
 <div class="composer-container">
   <!-- Hidden Native File & Camera Inputs for Chat Composer -->
-  <input #chatGalleryInput type="file" multiple accept="image/jpeg,image/jpg,image/png,image/webp"
+  <input #chatGalleryInput type="file" multiple accept="image/jpeg,image/jpg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
     (change)="onComposerFilesSelected($event)" style="display: none" />
-  <input #chatCameraInput type="file" accept="image/jpeg,image/jpg,image/png,image/webp" capture="environment"
+  <input #chatCameraInput type="file" accept="image/jpeg,image/jpg,image/png,image/webp,image/heic,image/heif,.heic,.heif" capture="environment"
     (change)="onComposerCameraCaptured($event)" style="display: none" />
 
   <!-- Photo Upload Error Alert -->

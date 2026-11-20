@@ -7,6 +7,7 @@ import {
   computed,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ChatMessage } from '../../../core/models/chat.models';
 import {
@@ -43,6 +44,7 @@ import { InspectionDraftSummaryComponent } from '../../inspection/draft-summary/
 })
 export class ChatMessageComponent {
   private readonly sanitizer = inject(DomSanitizer);
+  private readonly router = inject(Router);
   readonly chatState = inject(ChatStateService);
   readonly reportService = inject(ReportService);
   readonly authService = inject(AuthService);
@@ -218,6 +220,35 @@ export class ChatMessageComponent {
     event.stopPropagation();
     if (event.dataTransfer?.files && event.dataTransfer.files.length > 0) {
       await this.chatState.processFiles(event.dataTransfer.files);
+    }
+  }
+
+  openInternalAuditWorkspace(): void {
+    if (this.msg.internalAuditSession) {
+      this.chatState.openSessionInInternalAudit(this.msg.internalAuditSession);
+    }
+    void this.router.navigate(['/internal-audit']);
+  }
+
+  viewInMyReports(): void {
+    void this.router.navigate(['/reports']);
+  }
+
+  async onInternalAuditPhotosSelected(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files.length > 0) {
+      await this.chatState.processFiles(input.files);
+      input.value = '';
+      this.chatState.runInternalAuditFromUploadedPhotos();
+    }
+  }
+
+  async onIaPhotoDrop(event: DragEvent): Promise<void> {
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.dataTransfer?.files && event.dataTransfer.files.length > 0) {
+      await this.chatState.processFiles(event.dataTransfer.files);
+      this.chatState.runInternalAuditFromUploadedPhotos();
     }
   }
 

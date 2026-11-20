@@ -26,5 +26,7 @@ export const environment = {
     getSession: 'https://us-central1-quest-uk898.cloudfunctions.net/questAiGetSession',
     prepareDraft: 'https://us-central1-quest-uk898.cloudfunctions.net/questAiPrepareDraft',
     confirmDraft: 'https://us-central1-quest-uk898.cloudfunctions.net/questAiConfirmDraft',
+    internalAuditInspect: 'https://us-central1-quest-uk898.cloudfunctions.net/questAiInspectInternalAudit',
+    internalAuditSave: 'https://us-central1-quest-uk898.cloudfunctions.net/questAiSaveInternalAudit',
   },
 };

@@ -31,33 +31,166 @@ export class ReportService {
 
   loadInspectionHistory(): void {
     try {
-      const raw = localStorage.getItem('questai_finalized_inspections');
-      if (raw) {
-        const list = JSON.parse(raw);
-        this.inspectionHistoryList.set(Array.isArray(list) ? list : []);
-      } else {
-        this.inspectionHistoryList.set([]);
+      const siteRaw = localStorage.getItem('questai_finalized_inspections');
+      const iaRaw = localStorage.getItem('questai_finalized_internal_audits');
+      const siteList = siteRaw ? JSON.parse(siteRaw) : [];
+      let iaList = iaRaw ? JSON.parse(iaRaw) : [];
+
+      // Seed initial sample audit matching official screenshot if none exists
+      if (!Array.isArray(iaList) || iaList.length === 0) {
+        iaList = [this.getSampleInternalAudit()];
+        try {
+          localStorage.setItem('questai_finalized_internal_audits', JSON.stringify(iaList));
+        } catch { }
       }
-    } catch {
+
+      const normalizedIaList = (Array.isArray(iaList) ? iaList : []).map((audit: any) => {
+        const obs = Array.isArray(audit.observations) ? audit.observations : [];
+        const compliantCount = obs.filter((o: any) => o.rating === 'Compliant' || o.rating === 'Good Practice').length;
+        const carCount = obs.filter((o: any) => o.hasCar === 'Yes').length;
+        const obsCount = obs.filter((o: any) => o.rating === 'Observations only').length;
+
+        const dateStr = audit.completedAt || audit.createdAt || new Date().toISOString();
+        const dateObj = new Date(dateStr);
+        const formattedDate = dateObj.toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+        });
+        const formattedDateTime = dateObj.toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+
+        const formattedObs = obs.map((o: any) => {
+          let resolveByDateFormatted = o.resolveByDateFormatted;
+          if (o.hasCar === 'Yes' && !resolveByDateFormatted) {
+            const rDate = o.resolveByDate ? new Date(o.resolveByDate) : new Date(dateObj.getTime() + 30 * 24 * 60 * 60 * 1000);
+            resolveByDateFormatted = rDate.toLocaleDateString('en-GB', {
+              day: '2-digit',
+              month: 'short',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+            });
+          }
+          return {
+            ...o,
+            resolveByDateFormatted,
+            who: o.who || o.assignedTo || audit.siteIncharge || 'Warrick Oliver',
+          };
+        });
+
+        return {
+          ...audit,
+          id: audit.referenceNumber || audit.sessionId,
+          isInternalAudit: true,
+          type: 'internal_audit',
+          bankName: 'Internal Audit',
+          department: 'HSEQ / Compliance',
+          jobNo: audit.jobNo || audit.jobReference || 'LBH/01/200',
+          siteLocation: audit.location || audit.siteName || 'Buckingham Road',
+          contract: audit.contract || 'LB Hackney',
+          auditedBy: audit.auditorName || audit.auditedBy || 'Dean Willsher',
+          siteIncharge: audit.siteIncharge || audit.foreman || 'Warrick Oliver',
+          managerSupervisor: audit.managerSupervisor || audit.supervisor || 'Tom Davis',
+          auditedDateFormatted: formattedDateTime,
+          reportDateFormatted: formattedDate,
+          finalizedAt: dateStr,
+          auditorComment: audit.auditorSummary || audit.comment || '',
+          observations: formattedObs,
+          photos: audit.photos || [],
+          stats: {
+            total: obs.length,
+            answered: obs.length,
+            passCount: compliantCount,
+            carCount: carCount,
+            naCount: 0,
+            obsCount: obsCount,
+          },
+          totalScore: obs.length > 0 ? Math.round((compliantCount / obs.length) * 100) : 100,
+        };
+      });
+
+      const combined = [...normalizedIaList, ...(Array.isArray(siteList) ? siteList : [])];
+      combined.sort((a, b) => new Date(b.finalizedAt || 0).getTime() - new Date(a.finalizedAt || 0).getTime());
+      this.inspectionHistoryList.set(combined);
+    } catch (e) {
+      console.error('Failed to load inspection history:', e);
       this.inspectionHistoryList.set([]);
     }
   }
 
   deleteHistoryRecord(referenceNumber: string): void {
     try {
-      const existing = JSON.parse(
-        localStorage.getItem('questai_finalized_inspections') || '[]'
-      );
-      const filtered = existing.filter(
-        (item: any) => item.referenceNumber !== referenceNumber
-      );
-      localStorage.setItem('questai_finalized_inspections', JSON.stringify(filtered));
+      const siteRaw = localStorage.getItem('questai_finalized_inspections');
+      if (siteRaw) {
+        const siteList = JSON.parse(siteRaw);
+        const filtered = siteList.filter((item: any) => item.referenceNumber !== referenceNumber && item.id !== referenceNumber);
+        localStorage.setItem('questai_finalized_inspections', JSON.stringify(filtered));
+      }
+
+      const iaRaw = localStorage.getItem('questai_finalized_internal_audits');
+      if (iaRaw) {
+        const iaList = JSON.parse(iaRaw);
+        const filtered = iaList.filter((item: any) => item.referenceNumber !== referenceNumber && item.sessionId !== referenceNumber);
+        localStorage.setItem('questai_finalized_internal_audits', JSON.stringify(filtered));
+      }
+
       this.loadInspectionHistory();
       if (this.selectedHistoryRecord()?.referenceNumber === referenceNumber) {
         this.closeHistoryRecord();
       }
     } catch (e) {
       console.error('Failed to delete inspection record', e);
+    }
+  }
+
+  saveInternalAuditRecord(record: any): void {
+    try {
+      const iaRaw = localStorage.getItem('questai_finalized_internal_audits');
+      const iaList = iaRaw ? JSON.parse(iaRaw) : [];
+      const idx = iaList.findIndex(
+        (item: any) => item.referenceNumber === record.referenceNumber || item.sessionId === record.sessionId
+      );
+
+      const obs = Array.isArray(record.observations) ? record.observations : [];
+      const compliantCount = obs.filter((o: any) => o.rating === 'Compliant' || o.rating === 'Good Practice').length;
+      const carCount = obs.filter((o: any) => o.hasCar === 'Yes').length;
+      const obsCount = obs.filter((o: any) => o.rating === 'Observations only').length;
+
+      record.stats = {
+        total: obs.length,
+        answered: obs.length,
+        passCount: compliantCount,
+        carCount: carCount,
+        naCount: 0,
+        obsCount: obsCount,
+      };
+      record.totalScore = obs.length > 0 ? Math.round((compliantCount / obs.length) * 100) : 100;
+      record.updatedAt = new Date().toISOString();
+      record.isInternalAudit = true;
+
+      if (idx >= 0) {
+        iaList[idx] = record;
+      } else {
+        iaList.unshift(record);
+      }
+
+      localStorage.setItem('questai_finalized_internal_audits', JSON.stringify(iaList));
+      this.loadInspectionHistory();
+      this.selectedHistoryRecord.set({ ...record });
+
+      // Sync to Firebase Cloud Functions backend
+      this.apiService.saveFinalizedInternalAudit(record).subscribe({
+        next: (res) => console.log('[QuestAI IA] Edited audit synced to backend:', res),
+        error: (err) => console.warn('[QuestAI IA] Background sync notice:', err.message),
+      });
+    } catch (e) {
+      console.error('Failed to save edited internal audit:', e);
     }
   }
 
@@ -245,8 +378,8 @@ export class ReportService {
           },
           answers: record.answers,
         })
-        .subscribe({ error: () => {} });
-    } catch {}
+        .subscribe({ error: () => { } });
+    } catch { }
 
     // 6. Temporary success indicator
     this.historyRowSaveSuccess.set(questionId);
@@ -277,13 +410,13 @@ export class ReportService {
       const photos = session?.uploadedPhotos ? [...session.uploadedPhotos] : [];
       const questions = session
         ? Object.values(session.questionAssessments).map((q) => ({
-            id: q.questionId,
-            qnum: q.qnum,
-            headername: q.headername,
-            qtext: q.qtext,
-            isDynamicObservation: q.isDynamicObservation,
-            supportingPhotoIds: q.supportingPhotoIds,
-          }))
+          id: q.questionId,
+          qnum: q.qnum,
+          headername: q.headername,
+          qtext: q.qtext,
+          isDynamicObservation: q.isDynamicObservation,
+          supportingPhotoIds: q.supportingPhotoIds,
+        }))
         : [];
 
       const record = {
@@ -333,7 +466,7 @@ export class ReportService {
         JSON.stringify(existing)
       );
       this.loadInspectionHistory();
-    } catch {}
+    } catch { }
 
     // Optionally save to Firebase backend in background
     try {
@@ -349,13 +482,18 @@ export class ReportService {
           answers: summary.answers || session?.answers || {},
         })
         .subscribe({
-          error: () => {},
+          error: () => { },
         });
-    } catch {}
+    } catch { }
   }
 
   downloadReportPdf(summaryOrRecord: any): void {
     if (!summaryOrRecord) return;
+
+    if (summaryOrRecord.isInternalAudit || summaryOrRecord.type === 'internal_audit') {
+      this.pdfExportService.downloadInternalAuditPdf(summaryOrRecord);
+      return;
+    }
 
     const ref = summaryOrRecord.referenceNumber || 'SI638150';
     const jobNo = summaryOrRecord.jobNo || summaryOrRecord.jobReference || 'LBN-0029';
@@ -519,5 +657,89 @@ export class ReportService {
     if (rating === '-1') return 'Action Required';
     if (rating === '0') return 'N/A';
     return 'Pending';
+  }
+
+  /**
+   * Authoritative sample internal audit matching official screenshots (IA104368)
+   */
+  getSampleInternalAudit(): any {
+    return {
+      referenceNumber: 'IA104368',
+      sessionId: 'ia_session_104368',
+      jobNo: 'LBH/01/200',
+      location: 'Buckingham Road',
+      siteLocation: 'Buckingham Road',
+      contract: 'LB Hackney',
+      auditorName: 'Dean Willsher',
+      auditedBy: 'Dean Willsher',
+      siteIncharge: 'Warrick Oliver',
+      foreman: 'Warrick Oliver',
+      managerSupervisor: 'Tom Davis',
+      supervisor: 'Tom Davis',
+      auditedDateFormatted: '18 Nov, 2026, 04:40 PM',
+      reportDateFormatted: '18 Nov, 2026',
+      finalizedAt: '2026-11-18T16:40:00.000Z',
+      completedAt: '2026-11-18T16:40:00.000Z',
+      createdAt: '2026-11-18T16:40:00.000Z',
+      auditorSummary:
+        'This internal audit focused on a site undertaking the relaying of paving slabs and the application of tarmac around tree roots. The previous audit had raised a Corrective Action Request (CAR) regarding safety zones, which has reportedly been addressed, with cones now observed to be evenly spaced at no more than 9-meter intervals. However, during this visit, it was noted that several sections of the site barriers were displaced by a gust of wind, primarily due to the absence of sandbags or other securing measures. The primary focus of this audit was on safe working practices and traffic management. It was noted that all necessary paperwork, including Method Statements (MS), statistics, and permits, were audited during the last visit and found to be in place, as was emergency equipment.',
+      comment:
+        'This internal audit focused on a site undertaking the relaying of paving slabs and the application of tarmac around tree roots. The previous audit had raised a Corrective Action Request (CAR) regarding safety zones, which has reportedly been addressed, with cones now observed to be evenly spaced at no more than 9-meter intervals. However, during this visit, it was noted that several sections of the site barriers were displaced by a gust of wind, primarily due to the absence of sandbags or other securing measures. The primary focus of this audit was on safe working practices and traffic management. It was noted that all necessary paperwork, including Method Statements (MS), statistics, and permits, were audited during the last visit and found to be in place, as was emergency equipment.',
+      photos: [
+        { id: 'photo_1', name: 'Barriers & Cones Demarcation', url: 'https://images.unsplash.com/photo-1541888946425-d0fbb18615f8?auto=format&fit=crop&w=400&q=80' },
+        { id: 'photo_2', name: 'Tarmac & Tree Pit Zone', url: 'https://images.unsplash.com/photo-1508873696983-2df57046475a?auto=format&fit=crop&w=400&q=80' },
+        { id: 'photo_3', name: 'Temporary Footway Clearance', url: 'https://images.unsplash.com/photo-1581094794329-c8112a89af12?auto=format&fit=crop&w=400&q=80' },
+        { id: 'photo_4', name: 'Pavement Barrier Alignment', url: 'https://images.unsplash.com/photo-1590496793929-36417d3117de?auto=format&fit=crop&w=400&q=80' },
+        { id: 'photo_5', name: 'Pedestrian Walkway Segregation', url: 'https://images.unsplash.com/photo-1584467735871-8e85353a8413?auto=format&fit=crop&w=400&q=80' },
+        { id: 'photo_6', name: 'Road Works Access Point', url: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=400&q=80' },
+        { id: 'photo_7', name: 'Site Housekeeping & Leaves', url: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=400&q=80' },
+        { id: 'photo_8', name: 'Excavation Perimeter Fencing', url: 'https://images.unsplash.com/photo-1541888946425-d0fbb18615f8?auto=format&fit=crop&w=400&q=80' },
+        { id: 'photo_9', name: 'Traffic Guidance Signage', url: 'https://images.unsplash.com/photo-1508873696983-2df57046475a?auto=format&fit=crop&w=400&q=80' },
+        { id: 'photo_10', name: 'Plant Parking & Storage', url: 'https://images.unsplash.com/photo-1581094794329-c8112a89af12?auto=format&fit=crop&w=400&q=80' },
+      ],
+      observations: [
+        {
+          focusArea: 'Appropriate PPE',
+          focusAreaRef: 'FA01',
+          finding:
+            'Operatives on site were observed wearing appropriate high-visibility vests and trousers. No instances of shorts or inadequate high-visibility clothing were noted.',
+          suggestedAction:
+            'Ensure all operatives consistently wear full 6-point PPE, including high-visibility trousers and vests (shorts are strictly not permitted), safety footwear, and other required protective equipment relevant to the task.',
+          rating: 'Compliant',
+          hasCar: 'No',
+          carStatus: 'Not Required',
+          supportingPhotoIds: ['photo_1', 'photo_2', 'photo_3', 'photo_4', 'photo_5'],
+        },
+        {
+          focusArea: 'Public is kept separate',
+          focusAreaRef: 'FA02',
+          finding:
+            'The work area was generally demarcated using a combination of barriers and cones to separate the public from operatives. Signage, including \'PEDESTRIANS\' with an arrow and \'FOOTPATH CLOSED\', was in place to guide pedestrians safely around the works. The cone spacing appeared to be compliant with the previously raised CAR.',
+          suggestedAction:
+            'Continue to ensure that the public is effectively separated from the work area using appropriate fencing or cones. Pedestrian routes must be safely signed and protected, with barriers securely placed to prevent displacement.',
+          rating: 'Compliant',
+          hasCar: 'No',
+          carStatus: 'Not Required',
+          supportingPhotoIds: ['photo_1', 'photo_2', 'photo_3', 'photo_4', 'photo_5'],
+        },
+        {
+          focusArea: 'Slips/Trips',
+          focusAreaRef: 'FA18',
+          finding:
+            'The presence of numerous fallen leaves on both the pavement and road surfaces creates potential slip hazards, particularly if wet. Furthermore, the displaced temporary barriers, as observed in several images and noted in the audit context, could pose trip hazards to both operatives and the public.',
+          suggestedAction:
+            'Implement a proactive housekeeping regime to regularly clear fallen leaves and other debris from all walking and working surfaces. Ensure all temporary barriers are securely weighted or anchored to prevent displacement and eliminate potential trip hazards.',
+          rating: 'Area for Improvement',
+          hasCar: 'Yes',
+          carStatus: 'Open',
+          carRef: 'CA35138973',
+          resolveByDate: '2026-12-18T17:05:00.000Z',
+          resolveByDateFormatted: '18 Dec, 2026, 05:05 PM',
+          assignedTo: 'Warrick Oliver',
+          who: 'Warrick Oliver',
+          supportingPhotoIds: ['photo_1', 'photo_2', 'photo_3', 'photo_4', 'photo_5', 'photo_6', 'photo_7', 'photo_8', 'photo_9', 'photo_10'],
+        },
+      ],
+    };
   }
 }

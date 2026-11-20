@@ -59,8 +59,13 @@ export class PdfExportService {
    * - Question text with embedded supporting photo thumbnails
    * - Legislative status ('Yes / Good', 'Action Required', 'N/A') and Rating (1, -1, 0)
    */
-  downloadPdf(data: InspectionPdfData): void {
+  downloadPdf(data: InspectionPdfData | any): void {
     if (typeof window === 'undefined') return;
+
+    if (data.isInternalAudit || data.type === 'internal_audit') {
+      this.downloadInternalAuditPdf(data);
+      return;
+    }
 
     const printWindow = window.open('', '_blank', 'width=1000,height=900');
     if (!printWindow) {
@@ -83,31 +88,63 @@ export class PdfExportService {
   }
 
   /**
+   * Generates and triggers download / print of the official Marlborough Highways Internal Audit Report.
+   * Matches the official 6-screen format:
+   * - Top Bar with Ref No & Print Pill Button
+   * - Internal Audit Report title with Marlborough red M logo
+   * - Summary strip: Ref No, Job No, Location, Auditor, Date
+   * - Audit Details 2-column key-value table including Comments & Photos grid
+   * - Observations & Action Points tables for each condition with CAR details & photos
+   * - Document footer with Printed By, Printed On, and Marlborough tagline
+   */
+  downloadInternalAuditPdf(audit: any): void {
+    if (typeof window === 'undefined') return;
+
+    const printWindow = window.open('', '_blank', 'width=1050,height=920');
+    if (!printWindow) {
+      alert('Please allow popups to download or print the PDF report.');
+      return;
+    }
+
+    const html = this.buildInternalAuditReportHtml(audit);
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+
+    printWindow.onload = () => {
+      setTimeout(() => {
+        printWindow.focus();
+        printWindow.print();
+      }, 350);
+    };
+  }
+
+  /**
    * Builds pixel-perfect printable HTML for the Site Inspection Report.
    */
   public buildReportHtml(data: InspectionPdfData): string {
     const formattedDate = data.finalizedAt
       ? new Date(data.finalizedAt).toLocaleDateString('en-GB', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-        })
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
       : new Date().toLocaleDateString('en-GB', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-        });
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
 
     const reportDateOnly = data.finalizedAt
       ? new Date(data.finalizedAt).toLocaleDateString('en-GB', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-        })
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      })
       : new Date().toLocaleDateString('en-GB');
 
     const jobNo = data.jobNo || 'LBN-0029';
@@ -727,5 +764,509 @@ export class PdfExportService {
       .join('');
 
     return tablesHtml;
+  }
+
+  /**
+   * Builds the pixel-perfect printable HTML for the Internal Audit Report.
+   * Matches the official 6-screen format exactly.
+   */
+  public buildInternalAuditReportHtml(audit: any): string {
+    const refNo = audit.referenceNumber || audit.id || 'IA104368';
+    const jobNo = audit.jobNo || audit.jobReference || 'LBH/01/200';
+    const location = audit.siteLocation || audit.location || 'Buckingham Road';
+    const contract = audit.contract || 'LB Hackney';
+    const auditedBy = audit.auditedBy || audit.auditorName || 'Dean Willsher';
+    const siteIncharge = audit.siteIncharge || audit.foreman || 'Warrick Oliver';
+    const managerSupervisor = audit.managerSupervisor || audit.supervisor || 'Tom Davis';
+    const auditedDate = audit.auditedDateFormatted || '18 Nov, 2026, 04:40 PM';
+    const reportDate = audit.reportDateFormatted || '18 Nov, 2026';
+    const comment = audit.auditorComment || audit.comment || audit.auditorSummary || '';
+    const photos: any[] = audit.photos || [];
+    const observations: any[] = audit.observations || [];
+
+    const now = new Date();
+    const printTimestamp = now.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    }) + ' ' + now.toLocaleTimeString('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    // Helper to generate photo grid HTML
+    const renderPhotoGrid = (photoList: any[]) => {
+      if (!photoList || photoList.length === 0) return '';
+      return `
+        <div class="ia-photos-grid">
+          ${photoList
+          .map(
+            (p, idx) => `
+            <div class="ia-photo-box">
+              <img src="${p.url}" alt="${p.name || 'Site Photo ' + (idx + 1)}" onerror="this.parentElement.style.display='none'" />
+            </div>`
+          )
+          .join('')}
+        </div>
+      `;
+    };
+
+    // Build Audit Details all-photos gallery
+    const detailsPhotosHtml = renderPhotoGrid(photos);
+
+    // Build Observations tables
+    const observationsHtml = observations
+      .map((obs) => {
+        const isCar = obs.hasCar === 'Yes' ||
+          obs.rating === 'Area for Improvement' ||
+          obs.rating === 'Minor Non-Conformance' ||
+          obs.rating === 'Major Non-Conformance';
+
+        // Rating pill class
+        let ratingClass = 'rating-compliant';
+        const rLower = (obs.rating || '').toLowerCase();
+        if (rLower.includes('improvement')) ratingClass = 'rating-improvement';
+        else if (rLower.includes('minor')) ratingClass = 'rating-minor-ncr';
+        else if (rLower.includes('major')) ratingClass = 'rating-major-ncr';
+        else if (rLower.includes('practice')) ratingClass = 'rating-practice';
+        else if (rLower.includes('observation')) ratingClass = 'rating-observations';
+
+        // Supporting photos for this observation
+        let obsPhotos: any[] = [];
+        if (obs.supportingPhotoIds && obs.supportingPhotoIds.length > 0 && photos.length > 0) {
+          const idSet = new Set(obs.supportingPhotoIds);
+          obsPhotos = photos.filter((p) => idSet.has(p.id) || idSet.has(p.name));
+        }
+        if (obsPhotos.length === 0 && photos.length > 0) {
+          obsPhotos = photos.slice(0, 5);
+        }
+        const obsPhotosHtml = renderPhotoGrid(obsPhotos);
+
+        const carRowsHtml = isCar
+          ? `
+            <tr>
+              <td class="ia-label-col">CAR Generated Ref No</td>
+              <td class="ia-val-col car-ref-val">${obs.carRef || 'CA35138973'}</td>
+            </tr>
+            <tr>
+              <td class="ia-label-col">Resolve By Date</td>
+              <td class="ia-val-col">${obs.resolveByDateFormatted || '18 Dec, 2026, 05:05 PM'}</td>
+            </tr>
+            <tr>
+              <td class="ia-label-col">Assigned To</td>
+              <td class="ia-val-col">${obs.who || obs.assignedTo || siteIncharge}</td>
+            </tr>
+          `
+          : '';
+
+        return `
+          <div class="ia-obs-block">
+            <div class="ia-obs-header">
+              <div class="ia-obs-title">${obs.focusArea || 'Safety Condition'}</div>
+              <div class="ia-obs-ref">Ref: ${obs.focusAreaRef || 'FA01'}</div>
+            </div>
+            <table class="ia-data-table">
+              <tbody>
+                <tr>
+                  <td class="ia-label-col">Audit Finding</td>
+                  <td class="ia-val-col">${obs.finding || 'Compliant with standards.'}</td>
+                </tr>
+                <tr>
+                  <td class="ia-label-col">Suggestion</td>
+                  <td class="ia-val-col">${obs.suggestedAction || obs.suggestion || 'Continue regular inspections and monitoring.'}</td>
+                </tr>
+                <tr>
+                  <td class="ia-label-col">Audit Rating</td>
+                  <td class="ia-val-col">
+                    <span class="ia-rating-pill ${ratingClass}">${(obs.rating || 'Compliant').toUpperCase()}</span>
+                  </td>
+                </tr>
+                ${carRowsHtml}
+                ${obsPhotos.length > 0
+            ? `
+                  <tr>
+                    <td class="ia-label-col">Images</td>
+                    <td class="ia-val-col">${obsPhotosHtml}</td>
+                  </tr>`
+            : ''
+          }
+              </tbody>
+            </table>
+          </div>
+        `;
+      })
+      .join('');
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Internal Audit Report - ${refNo}</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 12mm 10mm 14mm 10mm;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: #1e293b;
+      background: #ffffff;
+      padding: 24px;
+      line-height: 1.45;
+      font-size: 13px;
+    }
+
+    /* Top Red Bar matching screenshot */
+    .ia-topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: #fbf8f7;
+      padding: 10px 20px;
+      border-radius: 8px 8px 0 0;
+      border-bottom: 1px solid #f1e7e7;
+      margin-bottom: 24px;
+    }
+    .ia-topbar-ref {
+      font-size: 18px;
+      font-weight: 700;
+      color: #88132B;
+      letter-spacing: -0.01em;
+    }
+    .ia-print-btn {
+      background-color: #c41632;
+      color: #ffffff;
+      border: none;
+      border-radius: 20px;
+      padding: 6px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Document Header */
+    .ia-brand-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 16px;
+    }
+    .ia-brand-title {
+      font-size: 24px;
+      font-weight: 800;
+      color: #88132B;
+      letter-spacing: -0.02em;
+    }
+    .ia-marlborough-logo svg {
+      width: 74px;
+      height: 48px;
+    }
+
+    /* Summary Strip */
+    .ia-summary-strip {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-top: 1.5px solid #88132B;
+      border-bottom: 1px solid #e2e8f0;
+      margin-bottom: 24px;
+      font-size: 13px;
+      color: #1e293b;
+    }
+    .ia-summary-item {
+      font-weight: 600;
+    }
+    .ia-summary-ref {
+      color: #88132B;
+    }
+
+    /* Section Headings */
+    .ia-section-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: #88132B;
+      margin-top: 24px;
+      margin-bottom: 12px;
+    }
+
+    /* Data Tables */
+    .ia-data-table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1px solid #e2e8f0;
+      margin-bottom: 20px;
+      background: #ffffff;
+    }
+    .ia-data-table td {
+      border: 1px solid #e2e8f0;
+      padding: 9px 14px;
+      font-size: 12.5px;
+      vertical-align: top;
+    }
+    .ia-label-col {
+      width: 220px;
+      background-color: #f8fafc;
+      color: #334155;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .ia-val-col {
+      color: #1e293b;
+    }
+    .car-ref-val {
+      font-weight: 700;
+      color: #88132B;
+    }
+
+    /* Rating Pills */
+    .ia-rating-pill {
+      display: inline-block;
+      padding: 4px 14px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .rating-compliant {
+      background-color: #eff6ff;
+      color: #1e3a8a;
+    }
+    .rating-improvement {
+      background-color: #eff6ff;
+      color: #1e3a8a;
+    }
+    .rating-practice {
+      background-color: #ecfdf5;
+      color: #065f46;
+    }
+    .rating-observations {
+      background-color: #f1f5f9;
+      color: #475569;
+    }
+    .rating-minor-ncr {
+      background-color: #fff7ed;
+      color: #c2410c;
+    }
+    .rating-major-ncr {
+      background-color: #fef2f2;
+      color: #991b1b;
+    }
+
+    /* Photos Grid (5 Columns) */
+    .ia-photos-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      margin-top: 4px;
+    }
+    .ia-photo-box {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid #cbd5e1;
+      background: #f1f5f9;
+    }
+    .ia-photo-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* Observations Block */
+    .ia-obs-block {
+      margin-top: 20px;
+      page-break-inside: avoid;
+    }
+    .ia-obs-header {
+      margin-bottom: 8px;
+    }
+    .ia-obs-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #88132B;
+    }
+    .ia-obs-ref {
+      font-size: 12px;
+      color: #64748b;
+      margin-top: 2px;
+    }
+
+    /* Footer */
+    .ia-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 36px;
+      padding-top: 16px;
+      border-top: 1px solid #e2e8f0;
+      font-size: 12px;
+      color: #475569;
+    }
+    .ia-footer-brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .ia-footer-brand-text {
+      text-align: right;
+    }
+    .ia-footer-logo-title {
+      font-weight: 800;
+      color: #88132B;
+      font-size: 15px;
+      line-height: 1.1;
+    }
+    .ia-footer-tagline {
+      font-size: 10.5px;
+      color: #88132B;
+      font-weight: 500;
+    }
+
+    @media print {
+      body {
+        padding: 0;
+      }
+      .no-print {
+        display: none !important;
+      }
+      .ia-topbar {
+        background-color: transparent !important;
+        padding: 0 0 10px 0 !important;
+        border-bottom: 1.5px solid #88132B !important;
+      }
+      .ia-print-btn {
+        display: none !important;
+      }
+      .ia-data-table {
+        page-break-inside: avoid;
+      }
+      .ia-obs-block {
+        page-break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Top Bar -->
+  <div class="ia-topbar">
+    <div class="ia-topbar-ref">${refNo}</div>
+    <button class="ia-print-btn no-print" onclick="window.print()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="6 9 6 2 18 2 18 9"></polyline>
+        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+        <rect x="6" y="14" width="12" height="8"></rect>
+      </svg>
+      Print
+    </button>
+  </div>
+
+  <!-- Header -->
+  <div class="ia-brand-header">
+    <h1 class="ia-brand-title">Internal Audit Report</h1>
+    <div class="ia-marlborough-logo">
+      <svg viewBox="0 0 120 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 78 L52 14 L76 56 L64 56 L52 34 L25 78 Z" fill="#88132B"/>
+        <path d="M46 78 L70 36 L108 78 L95 78 L70 50 L58 78 Z" fill="#A82038"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Summary Strip -->
+  <div class="ia-summary-strip">
+    <div class="ia-summary-item ia-summary-ref">Ref No: ${refNo}</div>
+    <div class="ia-summary-item">Job No: ${jobNo}</div>
+    <div class="ia-summary-item">${location}</div>
+    <div class="ia-summary-item">${auditedBy}</div>
+    <div class="ia-summary-item">${reportDate}</div>
+  </div>
+
+  <!-- Section 1: Audit Details -->
+  <h2 class="ia-section-title">Audit Details</h2>
+  <table class="ia-data-table">
+    <tbody>
+      <tr>
+        <td class="ia-label-col">Ref No</td>
+        <td class="ia-val-col"><strong>${refNo}</strong></td>
+      </tr>
+      <tr>
+        <td class="ia-label-col">Audited Date & Time</td>
+        <td class="ia-val-col">${auditedDate}</td>
+      </tr>
+      <tr>
+        <td class="ia-label-col">Report Date</td>
+        <td class="ia-val-col">${reportDate}</td>
+      </tr>
+      <tr>
+        <td class="ia-label-col">Job No</td>
+        <td class="ia-val-col">${jobNo}</td>
+      </tr>
+      <tr>
+        <td class="ia-label-col">Audited By</td>
+        <td class="ia-val-col">${auditedBy}</td>
+      </tr>
+      <tr>
+        <td class="ia-label-col">Site Incharge / Foreman</td>
+        <td class="ia-val-col">${siteIncharge}</td>
+      </tr>
+      <tr>
+        <td class="ia-label-col">Manager / Supervisor</td>
+        <td class="ia-val-col">${managerSupervisor}</td>
+      </tr>
+      <tr>
+        <td class="ia-label-col">Location</td>
+        <td class="ia-val-col">${location}</td>
+      </tr>
+      <tr>
+        <td class="ia-label-col">Contract</td>
+        <td class="ia-val-col">${contract}</td>
+      </tr>
+      <tr>
+        <td class="ia-label-col">Comment</td>
+        <td class="ia-val-col" style="white-space: pre-wrap;">${comment}</td>
+      </tr>
+      ${photos.length > 0
+        ? `
+        <tr>
+          <td class="ia-label-col">Images</td>
+          <td class="ia-val-col">${detailsPhotosHtml}</td>
+        </tr>`
+        : ''
+      }
+    </tbody>
+  </table>
+
+  <!-- Section 2: Observations & Action Points -->
+  <h2 class="ia-section-title">Observations & Action Points</h2>
+  ${observationsHtml}
+
+  <!-- Footer -->
+  <div class="ia-footer">
+    <div>Printed by: ${auditedBy}</div>
+    <div>Printed on: ${printTimestamp}</div>
+    <div class="ia-footer-brand">
+      <div class="ia-footer-brand-text">
+        <div class="ia-footer-logo-title">marlborough</div>
+        <div class="ia-footer-tagline">we understand, we deliver</div>
+      </div>
+      <svg width="28" height="22" viewBox="0 0 120 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 78 L52 14 L76 56 L64 56 L52 34 L25 78 Z" fill="#88132B"/>
+        <path d="M46 78 L70 36 L108 78 L95 78 L70 50 L58 78 Z" fill="#A82038"/>
+      </svg>
+    </div>
+  </div>
+</body>
+</html>`;
   }
 }
