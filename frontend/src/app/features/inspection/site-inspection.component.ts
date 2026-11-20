@@ -1,4 +1,4 @@
-﻿import {
+import {
   Component,
   OnInit,
   OnDestroy,
@@ -41,15 +41,24 @@ import {
   isLegacyMockAnswerEntry,
   isLegacyMockString,
 } from '../../core/services/ai-inspection-fill.service';
+import {
+  isHeicFile,
+  isSupportedImageFile,
+  convertHeicToJpeg,
+} from '../../core/utils/image-utils';
 
-export const MAX_INSPECTION_PHOTOS = 10;
-export const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB per image
-export const MAX_TOTAL_IMAGES_BYTES = 25 * 1024 * 1024; // 25 MB total
+export const MAX_INSPECTION_PHOTOS = 35;
+export const MAX_IMAGE_SIZE_BYTES = 15 * 1024 * 1024; // 15 MB per image
+export const MAX_TOTAL_IMAGES_BYTES = 80 * 1024 * 1024; // 80 MB total
 const ALLOWED_IMAGE_MIMES = new Set([
   'image/jpeg',
   'image/jpg',
   'image/png',
   'image/webp',
+  'image/heic',
+  'image/heif',
+  'image/heic-sequence',
+  'image/heif-sequence',
 ]);
 const DRAFT_SCHEMA_VERSION = 3;
 
@@ -709,11 +718,9 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
   }
 
   private async processFileList(files: File[]): Promise<void> {
-    const validFiles = files.filter((f) =>
-      ALLOWED_IMAGE_MIMES.has((f.type || '').toLowerCase())
-    );
+    const validFiles = files.filter((f) => isSupportedImageFile(f));
     if (validFiles.length === 0) {
-      this.showToast('Please select valid JPG, PNG, or WebP photographs.');
+      this.showToast('Please select valid JPG, PNG, WebP, or HEIC photographs.');
       return;
     }
 
@@ -729,20 +736,24 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
     );
     let addedCount = 0;
 
-    for (const file of validFiles) {
-      if (file.size > MAX_IMAGE_SIZE_BYTES) {
-        this.showToast(`"${file.name}" exceeds the 10 MB per-photo limit.`);
+    for (const rawFile of validFiles) {
+      if (rawFile.size > MAX_IMAGE_SIZE_BYTES) {
+        this.showToast(`"${rawFile.name}" exceeds the 15 MB per-photo limit.`);
         continue;
       }
       try {
+        let file = rawFile;
+        if (isHeicFile(rawFile)) {
+          file = await convertHeicToJpeg(rawFile);
+        }
         const { dataUrl, mimeType, byteLength, normalizedName } =
           await this.readFileAsOptimizedDataUrl(file);
         if (byteLength > MAX_IMAGE_SIZE_BYTES) {
-          this.showToast(`"${file.name}" exceeds the 10 MB per-photo limit.`);
+          this.showToast(`"${file.name}" exceeds the 15 MB per-photo limit.`);
           continue;
         }
         if (runningTotalBytes + byteLength > MAX_TOTAL_IMAGES_BYTES) {
-          this.showToast('Total photo size exceeds the 25 MB limit.');
+          this.showToast('Total photo size exceeds the allowed limit.');
           break;
         }
         runningTotalBytes += byteLength;
@@ -815,7 +826,7 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
       if (!ALLOWED_IMAGE_MIMES.has(mime)) {
         return {
           valid: false,
-          error: `Photograph "${p.name}" has unsupported format "${mime || 'unknown'}". Use JPG, PNG, or WebP.`,
+          error: `Photograph "${p.name}" has unsupported format "${mime || 'unknown'}". Use JPG, PNG, WebP, or HEIC.`,
         };
       }
       const bytes = this.estimateDataUrlBytes(p.url);
@@ -1033,7 +1044,7 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
       return "The photo analysis took a bit too long to respond. Please try again in a moment.";
     }
     if (err?.status === 400) {
-      return "I couldn't process one or more of the attached photographs. Please make sure they are valid JPG, PNG, or WebP images under 10 MB.";
+      return "I couldn't process one or more of the attached photographs. Please make sure they are valid JPG, PNG, WebP, or HEIC images under 15 MB.";
     }
     return "I'm having trouble completing the photo analysis right now. The AI service may be temporarily unavailable.";
   }
@@ -1611,8 +1622,16 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
     const existing = current[questionId] || {};
     const existingPhotos = existing.photos ? [...existing.photos] : [];
 
-    for (const file of files) {
+    for (const rawFile of files) {
+      if (!isSupportedImageFile(rawFile)) {
+        this.showToast(`Unsupported format for "${rawFile.name}". Please upload JPG, PNG, WebP, or HEIC.`);
+        continue;
+      }
       try {
+        let file = rawFile;
+        if (isHeicFile(rawFile)) {
+          file = await convertHeicToJpeg(rawFile);
+        }
         const { dataUrl, mimeType, byteLength, normalizedName } =
           await this.readFileAsOptimizedDataUrl(file);
         existingPhotos.push({
@@ -1624,8 +1643,9 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
           timestamp: new Date().toISOString(),
           attachedBy: 'inspector',
         });
-      } catch (err) {
+      } catch (err: any) {
         console.error('Failed to load image', err);
+        this.showToast(err?.message || `Failed to process image "${rawFile.name}".`);
       }
     }
 
@@ -2218,6 +2238,9 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
     byteLength: number;
     normalizedName: string;
   }> {
+    if (isHeicFile(file)) {
+      file = await convertHeicToJpeg(file);
+    }
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => {

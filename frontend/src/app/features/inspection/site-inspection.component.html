@@ -128,7 +128,7 @@
       (dragleave)="onDragLeave($event)" (drop)="onDropPhotos($event)" (click)="fileUploadInput.click()" role="button"
       tabindex="0">
 
-      <input #fileUploadInput type="file" multiple accept="image/*" capture="environment"
+      <input #fileUploadInput type="file" multiple accept="image/*,.heic,.heif" capture="environment"
         (change)="onUploadFilesSelected($event)" style="display: none" />
 
       <div class="dropzone-inner">
@@ -140,7 +140,7 @@
         </div>
         <h3 class="dropzone-headline">Drag and drop site photos here, or click to browse</h3>
         <p class="dropzone-subtext">
-          Supports multiple JPG, PNG, and WebP images. Mobile camera capture supported.
+          Supports multiple JPG, PNG, WebP, and HEIC images. Mobile camera capture supported.
         </p>
         <span class="dropzone-btn-pill">Select Files from Device</span>
       </div>
@@ -557,7 +557,7 @@
 
                 <label class="btn-add-q-photo">
                   <span>+ Attach Photo</span>
-                  <input type="file" multiple accept="image/*" capture="environment"
+                  <input type="file" multiple accept="image/*,.heic,.heif" capture="environment"
                     (change)="onAddPhotoToQuestion(q.id, $event)" style="display: none" />
                 </label>
               </div>
