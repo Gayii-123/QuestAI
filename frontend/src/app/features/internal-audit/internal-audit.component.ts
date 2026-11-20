@@ -11,6 +11,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import {
   InternalAuditService,
 } from './internal-audit.service';
@@ -37,6 +38,7 @@ export type InternalAuditViewStep = 'upload' | 'analyzing' | 'review' | 'complet
   styleUrls: ['./internal-audit.component.css'],
 })
 export class InternalAuditComponent implements OnInit {
+  private readonly router = inject(Router);
   private readonly auditService = inject(InternalAuditService);
 
   @Output() exitAudit = new EventEmitter<void>();
@@ -421,6 +423,7 @@ export class InternalAuditComponent implements OnInit {
 
   onExit(): void {
     this.exitAudit.emit();
+    this.router.navigate(['/chat']);
   }
 
   private showToast(msg: string): void {
