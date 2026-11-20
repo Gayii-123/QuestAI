@@ -15,6 +15,22 @@ export class InspectionDraftSummaryComponent {
   @Output() openReview = new EventEmitter<InspectionDraftSummaryViewModel>();
   @Output() downloadPdf = new EventEmitter<InspectionDraftSummaryViewModel>();
 
+  get complianceScore(): number {
+    if (!this.summary) return 100;
+    const evaluated = (this.summary.passCount || 0) + (this.summary.carCount || 0);
+    if (evaluated === 0) return 100;
+    return Math.round(((this.summary.passCount || 0) / evaluated) * 100);
+  }
+
+  get isCompliant(): boolean {
+    return (this.summary?.carCount || 0) === 0;
+  }
+
+  get displayReference(): string {
+    if (!this.summary?.referenceNumber) return 'SI-2026';
+    return this.summary.referenceNumber.replace(/--+/g, '-');
+  }
+
   onReviewClick(): void {
     this.openReview.emit(this.summary);
   }
