@@ -168,11 +168,11 @@ export class ReportService {
       // Filter: only return audits belonging strictly to targetUid
       const filtered = targetUid
         ? iaList.filter(
-            (item: any) =>
-              item.referenceNumber !== 'IA104368' &&
-              item.sessionId !== 'ia_session_104368' &&
-              item.userId === targetUid
-          )
+          (item: any) =>
+            item.referenceNumber !== 'IA104368' &&
+            item.sessionId !== 'ia_session_104368' &&
+            item.userId === targetUid
+        )
         : [];
 
       return filtered.map((audit: any) => {
@@ -330,7 +330,7 @@ export class ReportService {
 
         if (LEGACY_MOCK_REFERENCES.has(ref) || isForeignInspector) {
           const docRef = this.getReportDoc(uid, ref);
-          void deleteDoc(docRef).catch(() => {});
+          void deleteDoc(docRef).catch(() => { });
           continue;
         }
 
@@ -1024,8 +1024,8 @@ export class ReportService {
         timestamp: String(p?.timestamp || new Date().toISOString()),
         url:
           p?.url &&
-          typeof p.url === 'string' &&
-          !p.url.startsWith('data:')
+            typeof p.url === 'string' &&
+            !p.url.startsWith('data:')
             ? p.url
             : '',
       }))
