@@ -581,32 +581,51 @@ export class ChatStateService {
   healInternalAuditMessages(messages: ChatMessage[]): void {
     if (!Array.isArray(messages)) return;
     for (const m of messages) {
+      // Reconstruct missing visual result cards in memory ONLY -- NEVER perform writes to Firestore or storage when browsing chats
       if (
         m.sender === 'assistant' &&
         !m.internalAuditResult &&
         m.content &&
         m.content.includes('Internal Audit')
       ) {
-        const completed = this.internalAuditService.getStoredCompletedList();
-        const matched =
-          completed.find(
+        if (m.internalAuditSession?.analysisResult) {
+          m.internalAuditResult = m.internalAuditSession.analysisResult;
+        } else {
+          const completed = this.internalAuditService.getStoredCompletedList();
+          const matched = completed.find(
             (s) =>
               (s.location && m.content.includes(s.location)) ||
               (s.auditorSummary && m.content.includes(s.auditorSummary.substring(0, 30)))
-          ) || completed[0];
+          );
 
-        if (matched) {
-          m.internalAuditSession = matched;
-          m.internalAuditResult = matched.analysisResult || {
-            location: matched.location || 'Site Location',
-            auditorSummary: matched.auditorSummary || 'Internal Audit completed.',
-            observations: matched.observations || [],
-            totalPhotosAnalyzed: matched.photos?.length || 0,
-            totalCarCount: (matched.observations || []).filter((o) => o.hasCar === 'Yes').length,
-            overallComplianceScore: 100,
-            analyzedAt: matched.completedAt || new Date().toISOString(),
-          };
+          if (matched) {
+            m.internalAuditSession = matched;
+            m.internalAuditResult = matched.analysisResult || {
+              location: matched.location || 'Site Location',
+              auditorSummary: matched.auditorSummary || 'Internal Audit completed.',
+              observations: matched.observations || [],
+              totalPhotosAnalyzed: matched.photos?.length || 0,
+              totalCarCount: (matched.observations || []).filter((o) => o.hasCar === 'Yes').length,
+              overallComplianceScore: (matched as any).complianceScore || ((matched as any).analysisResult?.overallComplianceScore ?? 100),
+              analyzedAt: matched.completedAt || new Date().toISOString(),
+            };
+          }
         }
+      } else if (
+        m.internalAuditSession &&
+        !m.internalAuditResult &&
+        Array.isArray(m.internalAuditSession.observations) &&
+        m.internalAuditSession.observations.length > 0
+      ) {
+        m.internalAuditResult = m.internalAuditSession.analysisResult || {
+          location: m.internalAuditSession.location || 'Site Location',
+          auditorSummary: m.internalAuditSession.auditorSummary || 'Internal Audit completed.',
+          observations: m.internalAuditSession.observations || [],
+          totalPhotosAnalyzed: m.internalAuditSession.photos?.length || 0,
+          totalCarCount: (m.internalAuditSession.observations || []).filter((o: any) => o.hasCar === 'Yes').length,
+          overallComplianceScore: (m.internalAuditSession as any).complianceScore || (m.internalAuditSession.analysisResult?.overallComplianceScore ?? 100),
+          analyzedAt: m.internalAuditSession.completedAt || new Date().toISOString(),
+        };
       }
     }
   }
@@ -992,10 +1011,6 @@ export class ChatStateService {
 
             this.internalAuditService.finalizeAudit(iaSession);
             this.reportService.saveInternalAuditRecord(iaSession);
-            this.internalAuditService.saveAuditToBackend(iaSession).subscribe({
-              next: () => {},
-              error: (e) => console.warn('[QuestAI IA] Background save notice:', e.message),
-            });
 
             this.isGenerating.set(false);
             this.clearThinkingAnimation();
@@ -1731,13 +1746,23 @@ export class ChatStateService {
 
     this.reportService.saveFinalizedReportToStorage(session, updatedSummary, this.activeConversationId());
 
-    const confirmedMsg: ChatMessage = {
-      id: 'msg-' + Date.now(),
-      sender: 'assistant',
-      content: `Inspection assessment ${updatedSummary.referenceNumber} for ${updatedSummary.bankName} has been confirmed. ${updatedSummary.passCount} passed, ${updatedSummary.carCount} defect(s) recorded.`,
-      timestamp: new Date(),
-    };
-    this.appendMessageToActive(confirmedMsg);
+    // Only append confirmation chat message if this assessment confirmation was not already posted
+    const activeMessages = this.activeConversation()?.messages || [];
+    const alreadyConfirmed = activeMessages.some(
+      (m) =>
+        m.content &&
+        m.content.includes(updatedSummary.referenceNumber) &&
+        m.content.includes('has been confirmed')
+    );
+    if (!alreadyConfirmed) {
+      const confirmedMsg: ChatMessage = {
+        id: 'msg-' + Date.now(),
+        sender: 'assistant',
+        content: `Inspection assessment ${updatedSummary.referenceNumber} for ${updatedSummary.bankName} has been confirmed. ${updatedSummary.passCount} passed, ${updatedSummary.carCount} defect(s) recorded.`,
+        timestamp: new Date(),
+      };
+      this.appendMessageToActive(confirmedMsg);
+    }
   }
 
   onAssessmentReopened(draftSummary: InspectionDraftSummaryViewModel): void {

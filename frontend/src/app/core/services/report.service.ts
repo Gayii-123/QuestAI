@@ -96,6 +96,7 @@ export class ReportService {
   }
 
   private getReportDoc(uid: string, referenceNumber: string) {
+    const safeRef = (referenceNumber || '').replace(/\//g, '-');
     return doc(
       this.firestore,
       ROOT_COLLECTION,
@@ -103,7 +104,7 @@ export class ReportService {
       USERS_COLLECTION,
       uid,
       REPORTS_COLLECTION,
-      referenceNumber
+      safeRef
     );
   }
 
@@ -139,8 +140,12 @@ export class ReportService {
         email ||
         this.authService.currentUser()?.email ||
         (this.authService.userProfile() as any)?.email;
+      const currentUserName =
+        (this.authService.userProfile() as any)?.name ||
+        this.authService.currentUser()?.displayName ||
+        'Auditor';
 
-      // 1. Try user-scoped storage key
+      // 1. User-scoped storage key ONLY
       const key = this.getInternalAuditStorageKey(targetUid || undefined);
       let iaList: any[] = [];
       const userRaw = localStorage.getItem(key);
@@ -148,53 +153,25 @@ export class ReportService {
         try {
           const parsed = JSON.parse(userRaw);
           if (Array.isArray(parsed)) {
-            iaList = parsed;
+            iaList = parsed.filter(
+              (item) =>
+                item.referenceNumber !== 'IA104368' &&
+                item.sessionId !== 'ia_session_104368' &&
+                item.userId === targetUid
+            );
           }
         } catch { }
       }
 
-      // 2. If checking global/legacy key, only migrate records that explicitly match this user
-      if (targetUid) {
-        try {
-          const legacyRaw = localStorage.getItem('questai_finalized_internal_audits');
-          if (legacyRaw) {
-            const legacyList = JSON.parse(legacyRaw);
-            if (Array.isArray(legacyList)) {
-              for (const leg of legacyList) {
-                // NEVER import sample audit IA104368 as another user's audit
-                if (leg.referenceNumber === 'IA104368' || leg.sessionId === 'ia_session_104368') {
-                  continue;
-                }
-                const isUserMatch =
-                  (leg.userId && leg.userId === targetUid) ||
-                  (!leg.userId && targetEmail && (leg.userEmail === targetEmail || leg.createdByEmail === targetEmail));
-                if (isUserMatch) {
-                  const alreadyExists = iaList.some(
-                    (i) =>
-                      (i.referenceNumber && i.referenceNumber === leg.referenceNumber) ||
-                      (i.sessionId && i.sessionId === leg.sessionId)
-                  );
-                  if (!alreadyExists) {
-                    leg.userId = targetUid;
-                    if (targetEmail && !leg.userEmail) leg.userEmail = targetEmail;
-                    iaList.push(leg);
-                  }
-                }
-              }
-            }
-          }
-        } catch { }
-      }
-
-      // Do NOT auto-seed sample internal audit into user storage.
-      // Filter strictly:
+      // Filter: only return audits belonging strictly to targetUid
       const filtered = targetUid
         ? iaList.filter(
-            (item) =>
-              item.userId === targetUid ||
-              (!item.userId && targetEmail && (item.userEmail === targetEmail || item.createdByEmail === targetEmail))
+            (item: any) =>
+              item.referenceNumber !== 'IA104368' &&
+              item.sessionId !== 'ia_session_104368' &&
+              item.userId === targetUid
           )
-        : iaList;
+        : [];
 
       return filtered.map((audit: any) => {
         const obs = Array.isArray(audit.observations) ? audit.observations : [];
@@ -307,8 +284,27 @@ export class ReportService {
       this.authService.currentUser()?.email ||
       (this.authService.userProfile() as any)?.email ||
       '';
+    const currentUserName =
+      (this.authService.userProfile() as any)?.name ||
+      this.authService.currentUser()?.displayName ||
+      'Inspector';
 
     try {
+      // Purge legacy un-scoped storage keys so they never cross-contaminate user sessions
+      try {
+        localStorage.removeItem('questai_finalized_inspections');
+        localStorage.removeItem('questai_finalized_internal_audits');
+        localStorage.removeItem('questai_internal_audit_drafts');
+      } catch { }
+
+      const LEGACY_MOCK_REFERENCES = new Set([
+        'SI-2026--J265C',
+        'SI-2026--GVCT3',
+        'SI-2026--OSYGw',
+        'SI-2026--1U5VQ',
+        'IA104368',
+      ]);
+
       const reportsRef = this.getUserReportsCollection(uid);
       const q = query(reportsRef, orderBy('updatedAt', 'desc'));
       const snapshot = await getDocs(q);
@@ -320,18 +316,32 @@ export class ReportService {
       const remoteReports: any[] = [];
       for (const d of snapshot.docs) {
         const deserialized = this.deserializeReport(d.id, d.data());
-        // Verify user ownership
-        if (
-          !deserialized.userId ||
+        const ref = deserialized.referenceNumber || d.id;
+
+        // If this report belongs to a different inspector (e.g. Subhash Kumar while logged in as another user)
+        // or is a legacy unassigned mock report, purge it from this user's Firestore collection
+        const isForeignInspector =
+          deserialized.inspectorName &&
+          currentUserName &&
+          deserialized.inspectorName !== currentUserName &&
+          deserialized.inspectorName === 'Subhash Kumar';
+
+        if (LEGACY_MOCK_REFERENCES.has(ref) || isForeignInspector) {
+          const docRef = this.getReportDoc(uid, ref);
+          void deleteDoc(docRef).catch(() => {});
+          continue;
+        }
+
+        // Strict user ownership verification
+        const isOwner =
           deserialized.userId === uid ||
-          (currentUserEmail && deserialized.userEmail === currentUserEmail)
-        ) {
-          deserialized.userId = uid;
+          (currentUserEmail && deserialized.userEmail === currentUserEmail);
+        if (isOwner) {
           remoteReports.push(deserialized);
         }
       }
 
-      // Local site inspections for this user
+      // Local site inspections for this user ONLY
       const localSiteReports: any[] = [];
       try {
         const siteKey = this.getSiteInspectionStorageKey(uid);
@@ -339,13 +349,22 @@ export class ReportService {
         if (raw) {
           const parsed = JSON.parse(raw);
           if (Array.isArray(parsed)) {
+            let localChanged = false;
             for (const item of parsed) {
+              const ref = item.referenceNumber || item.id;
               if (
-                item.userId === uid ||
-                (!item.userId && currentUserEmail && (item.userEmail === currentUserEmail || item.createdByEmail === currentUserEmail))
+                LEGACY_MOCK_REFERENCES.has(ref) ||
+                (item.inspectorName === 'Subhash Kumar' && currentUserName !== 'Subhash Kumar')
               ) {
+                localChanged = true;
+                continue;
+              }
+              if (item.userId === uid) {
                 localSiteReports.push(item);
               }
+            }
+            if (localChanged) {
+              localStorage.setItem(siteKey, JSON.stringify(localSiteReports));
             }
           }
         }
@@ -381,12 +400,34 @@ export class ReportService {
       const combined = Array.from(reportMap.values());
       // Strict user boundary check
       const userOnly = combined.filter((item) => {
-        const itemUid = item.userId;
-        const itemEmail = item.userEmail || item.createdByEmail;
-        if (itemUid && itemUid === uid) return true;
-        if (!itemUid && currentUserEmail && itemEmail === currentUserEmail) return true;
-        return false;
+        if (item.referenceNumber === 'IA104368' || item.sessionId === 'ia_session_104368') {
+          return false;
+        }
+        if (LEGACY_MOCK_REFERENCES.has(item.referenceNumber)) {
+          return false;
+        }
+        if (
+          item.inspectorName &&
+          currentUserName &&
+          item.inspectorName === 'Subhash Kumar' &&
+          currentUserName !== 'Subhash Kumar'
+        ) {
+          return false;
+        }
+        if (!item.userId || item.userId !== uid) {
+          return false;
+        }
+        return true;
       });
+
+      // Persist newly claimed or local reports to Firestore under this user in background
+      for (const item of userOnly) {
+        if (item.referenceNumber && !remoteReports.some((r) => r.referenceNumber === item.referenceNumber)) {
+          const docRef = this.getReportDoc(uid, item.referenceNumber);
+          const payload = this.serializeReportForFirestore(item, true);
+          void setDoc(docRef, payload, { merge: true }).catch(() => { });
+        }
+      }
 
       userOnly.sort((a, b) => {
         const tA = new Date(a.updatedAt || a.finalizedAt || 0).getTime();
@@ -536,14 +577,23 @@ export class ReportService {
         });
       }
 
+      // Update in-memory reactive list immediately
+      this.inspectionHistoryList.update((list) => {
+        const idx = list.findIndex(
+          (item) =>
+            (item.referenceNumber && item.referenceNumber === record.referenceNumber) ||
+            (item.sessionId && item.sessionId === record.sessionId)
+        );
+        if (idx >= 0) {
+          const next = [...list];
+          next[idx] = record;
+          return next;
+        }
+        return [record, ...list];
+      });
+
       this.loadInspectionHistory();
       this.selectedHistoryRecord.set({ ...record });
-
-      // 3. Sync to Firebase Cloud Functions backend
-      this.apiService.saveFinalizedInternalAudit(record).subscribe({
-        next: (res) => console.log('[QuestAI IA] Edited audit synced to backend:', res),
-        error: (err) => console.warn('[QuestAI IA] Background sync notice:', err.message),
-      });
     } catch (e) {
       console.error('Failed to save edited internal audit:', e);
     }
@@ -593,7 +643,7 @@ export class ReportService {
       return [report, ...list];
     });
 
-    // 3. Persist to Firestore under questai/data/users/{uid}/reports/{referenceNumber}
+    // 3. Persist to Firestore under new collection: questai/data/users/{uid}/reports/{referenceNumber}
     if (uid && report.referenceNumber) {
       const docRef = this.getReportDoc(uid, report.referenceNumber);
       const payload = this.serializeReportForFirestore(report, true);
@@ -601,14 +651,6 @@ export class ReportService {
         console.error('[ReportService] Failed to save site inspection to Firestore:', err);
       });
     }
-
-    // 4. Also call API service for backend processing if online
-    try {
-      this.apiService.saveFinalizedInspection(report).subscribe({
-        next: (res) => console.log('[ReportService] Site inspection synced to backend:', res),
-        error: (err) => console.warn('[ReportService] Backend sync notice:', err.message),
-      });
-    } catch { }
   }
 
   openHistoryRecord(record: any): void {
@@ -777,30 +819,18 @@ export class ReportService {
       });
     }
 
-    // 5. Background sync via apiService.saveFinalizedInspection
+    // 5. Update user-scoped local cache
     try {
-      this.apiService
-        .saveFinalizedInspection({
-          referenceNumber: record.referenceNumber,
-          bankId: record.bankId,
-          bankName: record.bankName,
-          department: record.department,
-          status: 'completed',
-          summary: {
-            referenceNumber: record.referenceNumber,
-            bankId: record.bankId,
-            bankName: record.bankName,
-            totalApplicable: record.stats.total,
-            passCount: record.stats.passCount,
-            carCount: record.stats.carCount,
-            naCount: record.stats.naCount,
-            unresolvedCount: record.stats.unresolvedCount || 0,
-            answers: record.answers,
-            isConfirmedByInspector: true,
-          },
-          answers: record.answers,
-        })
-        .subscribe({ error: () => { } });
+      const siteKey = this.getSiteInspectionStorageKey(uid || undefined);
+      const raw = localStorage.getItem(siteKey);
+      const list = raw ? JSON.parse(raw) : [];
+      const idx = list.findIndex((item: any) => item.referenceNumber === record.referenceNumber);
+      if (idx >= 0) {
+        list[idx] = { ...record };
+      } else {
+        list.unshift({ ...record });
+      }
+      localStorage.setItem(siteKey, JSON.stringify(list));
     } catch { }
 
     // 6. Temporary success indicator
@@ -936,24 +966,6 @@ export class ReportService {
         list.unshift(record);
       }
       localStorage.setItem(siteKey, JSON.stringify(list));
-    } catch { }
-
-    // 4. Optionally sync to backend API in background
-    try {
-      this.apiService
-        .saveFinalizedInspection({
-          inspectionId: session?.inspectionId || summary.inspectionId,
-          referenceNumber: summary.referenceNumber,
-          bankId: summary.bankId,
-          bankName: summary.bankName,
-          department: summary.department,
-          status: 'completed',
-          summary,
-          answers: summary.answers || session?.answers || {},
-        })
-        .subscribe({
-          error: () => { },
-        });
     } catch { }
   }
 

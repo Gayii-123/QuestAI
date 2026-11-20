@@ -25,6 +25,7 @@ import {
   getQuestionsForDepartment,
 } from '../../../core/models/site-inspection.schema';
 import { QuestionAnswer } from '../site-inspection.models';
+import { ReportService } from '../../../core/services/report.service';
 
 @Component({
   selector: 'app-inspection-review-drawer',
@@ -36,6 +37,7 @@ import { QuestionAnswer } from '../site-inspection.models';
 })
 export class InspectionReviewDrawerComponent implements OnInit, OnChanges {
   private readonly cdr = inject(ChangeDetectorRef);
+  readonly reportService = inject(ReportService);
 
   @Input({ required: true }) draftSummary!: InspectionDraftSummaryViewModel;
   @Input() session?: InspectionSessionViewModel | null;
@@ -54,7 +56,7 @@ export class InspectionReviewDrawerComponent implements OnInit, OnChanges {
 
   ngOnInit(): void {
     this.loadQuestions();
-    if (this.draftSummary?.isConfirmedByInspector) {
+    if (this.draftSummary?.isConfirmedByInspector || this.draftSummary?.referenceNumber) {
       this.isConfirmed.set(true);
     }
   }
@@ -77,6 +79,22 @@ export class InspectionReviewDrawerComponent implements OnInit, OnChanges {
           this.session?.trafficSubtype,
           this.session?.selectedRiskBanks
         );
+        if (qs && qs.length > 0) {
+          allQuestions = [...qs];
+          this.canonicalQuestions = qs;
+        }
+      }
+    }
+
+    if (allQuestions.length === 0 && this.draftSummary?.referenceNumber) {
+      const historyRec = this.reportService.inspectionHistoryList().find(
+        (r) => r.referenceNumber === this.draftSummary.referenceNumber
+      );
+      if (historyRec?.questions && historyRec.questions.length > 0) {
+        allQuestions = [...historyRec.questions];
+        this.canonicalQuestions = allQuestions;
+      } else if (historyRec?.department) {
+        const qs = getQuestionsForDepartment(historyRec.department);
         if (qs && qs.length > 0) {
           allQuestions = [...qs];
           this.canonicalQuestions = qs;
@@ -110,14 +128,23 @@ export class InspectionReviewDrawerComponent implements OnInit, OnChanges {
 
   getSupportingPhotos(questionId: string): any[] {
     const qAssessment = this.getQuestionAssessment(questionId);
-    if (!qAssessment) return [];
+    if (!qAssessment) {
+      const historyRec = this.reportService.inspectionHistoryList().find(
+        (r) => r.referenceNumber === this.draftSummary?.referenceNumber
+      );
+      if (historyRec?.photos && Array.isArray(historyRec.photos)) {
+        return historyRec.photos.filter((p: any) => p.url && p.url.trim().length > 0);
+      }
+      return [];
+    }
     // Only display inline thumbnails if this check is a dynamic observation or defect (-1)
     if (!qAssessment.isDynamicObservation && qAssessment.userAnswerRating !== '-1' && qAssessment.suggestedRating !== '-1') {
       return [];
     }
     const photoIds = qAssessment.supportingPhotoIds;
-    if (!photoIds || photoIds.length === 0 || !this.session?.uploadedPhotos) return [];
-    return this.session.uploadedPhotos.filter((p) => photoIds.includes(p.id) && p.url && p.url.trim().length > 0);
+    if (!photoIds || photoIds.length === 0) return [];
+    const photos = this.session?.uploadedPhotos || [];
+    return photos.filter((p) => photoIds.includes(p.id) && p.url && p.url.trim().length > 0);
   }
 
   getRequirementStatusText(questionId: string): string {
@@ -145,7 +172,11 @@ export class InspectionReviewDrawerComponent implements OnInit, OnChanges {
     const qAssessment = this.getQuestionAssessment(questionId);
     if (qAssessment?.evidenceObserved) return qAssessment.evidenceObserved;
     const ans = this.getAnswer(questionId);
-    return ans?.aiEvidence || '';
+    if (ans?.aiEvidence) return ans.aiEvidence;
+    const historyRec = this.reportService.inspectionHistoryList().find(
+      (r) => r.referenceNumber === this.draftSummary?.referenceNumber
+    );
+    return historyRec?.answers?.[questionId]?.aiEvidence || '';
   }
 
   getCarActionPlanText(questionId: string): string {

@@ -231,7 +231,30 @@ export class ChatMessageComponent {
   }
 
   viewInMyReports(): void {
+    const ref =
+      this.msg.internalAuditSession?.referenceNumber ||
+      this.msg.internalAuditResult?.referenceNumber;
+    if (ref) {
+      const existing = this.reportService.inspectionHistoryList().find(
+        (r) => r.referenceNumber === ref
+      );
+      if (existing) {
+        this.reportService.openHistoryRecord(existing);
+      }
+    }
     void this.router.navigate(['/reports']);
+  }
+
+  downloadIaPdf(): void {
+    const record = this.msg.internalAuditSession || {
+      ...this.msg.internalAuditResult,
+      isInternalAudit: true,
+      referenceNumber:
+        this.msg.internalAuditSession?.referenceNumber ||
+        this.msg.internalAuditResult?.referenceNumber ||
+        'IA104368',
+    };
+    this.reportService.downloadReportPdf(record);
   }
 
   async onInternalAuditPhotosSelected(event: Event): Promise<void> {

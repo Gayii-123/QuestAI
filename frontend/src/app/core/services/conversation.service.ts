@@ -438,38 +438,62 @@ export class ConversationService {
     let internalAuditSession = data?.internalAuditSession || undefined;
 
     // Self-healing: If this message represents a completed Internal Audit but internalAuditResult is missing
-    if (!internalAuditResult && data?.content && String(data.content).includes('Internal Audit')) {
-      try {
-        const rawCompleted = typeof localStorage !== 'undefined'
-          ? localStorage.getItem('questai_ia_completed_audits')
-          : null;
-        if (rawCompleted) {
-          const completedList = JSON.parse(rawCompleted);
-          if (Array.isArray(completedList) && completedList.length > 0) {
-            const matched =
-              completedList.find(
+    if (!internalAuditResult && data?.sender === 'assistant' && data?.content && String(data.content).includes('Internal Audit')) {
+      if (internalAuditSession?.analysisResult) {
+        internalAuditResult = internalAuditSession.analysisResult;
+      } else if (internalAuditSession?.observations && Array.isArray(internalAuditSession.observations)) {
+        const obs = internalAuditSession.observations;
+        const compliantCount = obs.filter((o: any) => o.rating === 'Compliant' || o.rating === 'Good Practice').length;
+        const carCount = obs.filter((o: any) => o.hasCar === 'Yes').length;
+        internalAuditResult = {
+          location: internalAuditSession.location || 'Site Location',
+          auditorSummary: internalAuditSession.auditorSummary || 'Internal Audit completed.',
+          observations: obs,
+          totalPhotosAnalyzed: internalAuditSession.photos?.length || 0,
+          totalCarCount: carCount,
+          goodPracticeCount: 0,
+          compliantCount,
+          observationsOnlyCount: obs.filter((o: any) => o.rating === 'Observations only').length,
+          areaForImprovementCount: obs.filter((o: any) => o.rating === 'Area for improvement').length,
+          minorNcrCount: obs.filter((o: any) => o.rating === 'Minor NCR').length,
+          majorNcrCount: obs.filter((o: any) => o.rating === 'Major NCR').length,
+          overallComplianceScore: obs.length > 0 ? Math.round((compliantCount / obs.length) * 100) : 100,
+          analyzedAt: internalAuditSession.completedAt || timestamp.toISOString(),
+        };
+      } else {
+        try {
+          const currentUid = this.getCurrentUserId();
+          const userKey = currentUid ? `questai_ia_completed_audits_${currentUid}` : null;
+          const rawCompleted = userKey && typeof localStorage !== 'undefined'
+            ? localStorage.getItem(userKey)
+            : null;
+          if (rawCompleted) {
+            const completedList = JSON.parse(rawCompleted);
+            if (Array.isArray(completedList) && completedList.length > 0) {
+              const matched = completedList.find(
                 (s: any) =>
                   (s.location && String(data.content).includes(s.location)) ||
                   (s.auditorSummary &&
                     String(data.content).includes(String(s.auditorSummary).substring(0, 30)))
-              ) || completedList[0];
+              );
 
-            if (matched) {
-              internalAuditSession = matched;
-              internalAuditResult = matched.analysisResult || {
-                location: matched.location || 'Site Location',
-                auditorSummary: matched.auditorSummary || 'Internal Audit completed.',
-                observations: matched.observations || [],
-                totalPhotosAnalyzed: matched.photos?.length || 0,
-                totalCarCount: (matched.observations || []).filter((o: any) => o.hasCar === 'Yes').length,
-                overallComplianceScore: matched.complianceScore || 100,
-                analyzedAt: matched.completedAt || new Date().toISOString(),
-              };
+              if (matched) {
+                internalAuditSession = matched;
+                internalAuditResult = matched.analysisResult || {
+                  location: matched.location || 'Site Location',
+                  auditorSummary: matched.auditorSummary || 'Internal Audit completed.',
+                  observations: matched.observations || [],
+                  totalPhotosAnalyzed: matched.photos?.length || 0,
+                  totalCarCount: (matched.observations || []).filter((o: any) => o.hasCar === 'Yes').length,
+                  overallComplianceScore: matched.complianceScore || 100,
+                  analyzedAt: matched.completedAt || new Date().toISOString(),
+                };
+              }
             }
           }
+        } catch {
+          // ignore storage access error
         }
-      } catch {
-        // ignore storage access error
       }
 
       // If still missing, reconstruct from the textual summary in content

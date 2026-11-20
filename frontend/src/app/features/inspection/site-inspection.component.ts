@@ -39,6 +39,7 @@ import {
 } from '../../core/services/api.service';
 import { ReportService } from '../../core/services/report.service';
 import { AuthService } from '../../core/services/auth.service';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import {
   isLegacyMockAnswerEntry,
   isLegacyMockString,
@@ -1829,7 +1830,7 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
     if (this.reportService) {
       this.reportService.saveFinalizedSiteInspection(report);
     } else {
-      // Offline fallback
+      // Offline / fallback direct persistence to new collection
       try {
         const uid = currentUser?.uid;
         const storageKey = uid ? `questai_finalized_inspections_${uid}` : 'questai_finalized_inspections';
@@ -1837,17 +1838,23 @@ export class SiteInspectionComponent implements OnInit, OnDestroy {
         const existingList = existingRaw ? JSON.parse(existingRaw) : [];
         existingList.unshift(report);
         localStorage.setItem(storageKey, JSON.stringify(existingList));
+
+        if (uid && this.authService?.firestore && report.referenceNumber) {
+          const safeRef = report.referenceNumber.replace(/\//g, '-');
+          const docRef = doc(
+            this.authService.firestore,
+            'questai',
+            'data',
+            'users',
+            uid,
+            'reports',
+            safeRef
+          );
+          void setDoc(docRef, { ...report, updatedAt: serverTimestamp() }, { merge: true }).catch(() => { });
+        }
       } catch (e) {
         console.warn('Storage save error:', e);
       }
-      this.apiService.saveFinalizedInspection(report).subscribe({
-        next: (res) => {
-          console.log(`[QuestAI] Finalized inspection stored:`, res);
-        },
-        error: (err) => {
-          console.warn(`[QuestAI] Could not save to backend:`, err);
-        },
-      });
     }
 
     this.finalizedReport.set(report);
