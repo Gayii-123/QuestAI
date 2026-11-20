@@ -31,7 +31,9 @@ export class MainLayoutComponent {
   // Layout UI State
   readonly mobileSidebarOpen = signal<boolean>(false);
   readonly desktopSidebarCollapsed = signal<boolean>(false);
-  readonly sidebarActiveSection = signal<'home' | 'recent-chats' | 'inspection-history' | 'my-reports'>('home');
+  readonly sidebarActiveSection = signal<
+    'home' | 'recent-chats' | 'inspection-history' | 'my-reports' | 'internal-audit'
+  >('home');
   readonly recentChatsExpanded = signal<boolean>(true);
 
   // Deletion modals, three-dot context menu & inline rename state
@@ -73,6 +75,14 @@ export class MainLayoutComponent {
   readonly isChatRoute = computed(() => {
     const url = this.currentUrl();
     return url === '/chat' || url.startsWith('/chat/') || url === '/';
+  });
+
+  readonly isInternalAuditRoute = computed(() => {
+    return this.currentUrl().includes('/internal-audit');
+  });
+
+  readonly isReportsRoute = computed(() => {
+    return this.currentUrl().includes('/reports');
   });
 
   constructor() {
@@ -142,6 +152,13 @@ export class MainLayoutComponent {
     this.closeConversationMenu();
     this.closeMobileSidebar();
     void this.router.navigate(['/reports']);
+  }
+
+  navigateToInternalAudit(): void {
+    this.sidebarActiveSection.set('internal-audit');
+    this.closeConversationMenu();
+    this.closeMobileSidebar();
+    void this.router.navigate(['/internal-audit']);
   }
 
   selectConversation(id: string): void {

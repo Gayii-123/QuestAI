@@ -360,7 +360,7 @@ export class ApiService {
   analyzeInspectionPhotos(payload: PhotoInspectionRequest): Observable<PhotoInspectionResponseWrapper> {
     return this.http
       .post<PhotoInspectionResponseWrapper>(this.getEndpointUrl('inspectPhotos'), payload)
-      .pipe(timeout(35000));
+      .pipe(timeout(240000));
   }
 
   /**
@@ -368,6 +368,17 @@ export class ApiService {
    */
   saveFinalizedInspection(report: any): Observable<SaveInspectionResponse> {
     return this.http.post<SaveInspectionResponse>(this.getEndpointUrl('saveInspection'), { report });
+  }
+
+  /**
+   * Save finalized internal audit report to Quest Firestore collection 'quest-ai-internal-audits'
+   */
+  saveFinalizedInternalAudit(session: any): Observable<any> {
+    const url =
+      environment.endpoints && (environment.endpoints as any).internalAuditSave
+        ? (environment.endpoints as any).internalAuditSave
+        : `${environment.apiUrl}/questAiSaveInternalAudit`;
+    return this.http.post(url, { session });
   }
 
   /**

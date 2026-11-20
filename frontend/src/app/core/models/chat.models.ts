@@ -44,6 +44,9 @@ export interface ChatMessage {
   showInspectionCategories?: boolean;
   categorySelected?: boolean;
   showInlinePhotoUpload?: boolean;
+  showInternalAuditUpload?: boolean;
+  internalAuditResult?: any;
+  internalAuditSession?: any;
   suggestedBankId?: string;
   selectedBankId?: string;
 
@@ -73,6 +76,7 @@ export interface Conversation {
   messages: ChatMessage[];
   selectedBankId?: string;
   activeInspectionId?: string;
+  isInternalAudit?: boolean;
 }
 
 export interface SuggestionPrompt {

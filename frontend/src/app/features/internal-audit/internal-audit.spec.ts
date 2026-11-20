@@ -43,8 +43,8 @@ function createMockAuditService(): InternalAuditService {
   currentSignal.update = (fn: (s: InternalAuditSession | null) => InternalAuditSession | null) => { activeSession = fn(activeSession); };
   service.currentSession = currentSignal;
   service.savedAudits = {
-    set: () => {},
-    update: () => {},
+    set: () => { },
+    update: () => { },
   };
   return service as InternalAuditService;
 }
@@ -146,16 +146,22 @@ export function runInternalAuditTests(): { total: number; passed: number; failed
   // GROUP 3: PHOTO VALIDATION & REMOVAL
   // =========================================================================
 
-  test('Group 3.1: Photo validation accepts valid JPEG, PNG, and WebP files', () => {
+  test('Group 3.1: Photo validation accepts valid JPEG, PNG, WebP, and HEIC files', () => {
     const mockService = createMockAuditService();
 
     const validJpg = { name: 'photo1.jpg', type: 'image/jpeg', size: 2 * 1024 * 1024 } as File;
     const validPng = { name: 'photo2.png', type: 'image/png', size: 4 * 1024 * 1024 } as File;
     const validWebp = { name: 'photo3.webp', type: 'image/webp', size: 1 * 1024 * 1024 } as File;
+    const validHeic = { name: 'photo4.heic', type: 'image/heic', size: 3 * 1024 * 1024 } as File;
+    const validHeicEmptyMime = { name: 'photo5.HEIC', type: '', size: 3 * 1024 * 1024 } as File;
+    const validHeif = { name: 'photo6.heif', type: 'image/heif', size: 2 * 1024 * 1024 } as File;
 
     assert(mockService.validatePhotoFile(validJpg).valid === true, 'JPEG should be valid');
     assert(mockService.validatePhotoFile(validPng).valid === true, 'PNG should be valid');
     assert(mockService.validatePhotoFile(validWebp).valid === true, 'WebP should be valid');
+    assert(mockService.validatePhotoFile(validHeic).valid === true, 'HEIC with mime should be valid');
+    assert(mockService.validatePhotoFile(validHeicEmptyMime).valid === true, 'HEIC with empty mime (Windows) should be valid');
+    assert(mockService.validatePhotoFile(validHeif).valid === true, 'HEIF should be valid');
   });
 
   test('Group 3.2: Photo validation rejects files exceeding 15MB limit', () => {

@@ -995,3 +995,749 @@
 .btn-modal-cancel:hover {
   background: #f8fafc;
 }
+
+/* ========================================================================= */
+/* Reports Page Enhancements: Filter Tabs & Header Actions                   */
+/* ========================================================================= */
+
+.reports-header-pill {
+  display: inline-block;
+  background-color: #fee2e2;
+  color: #88132B;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  margin-bottom: 0.4rem;
+}
+
+.reports-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-new-ia {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #88132B;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(136, 19, 43, 0.25);
+  transition: all 0.15s ease;
+}
+
+.btn-new-ia:hover {
+  background-color: #6e0f22;
+  transform: translateY(-1px);
+}
+
+.reports-tabs-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f1f5f9;
+  padding: 5px;
+  border-radius: 10px;
+  margin-bottom: 1.75rem;
+  width: fit-content;
+}
+
+.report-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 16px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.report-tab-btn:hover {
+  color: #1e293b;
+}
+
+.report-tab-btn.active {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.tab-count-pill {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.report-tab-btn.active .tab-count-pill {
+  background: #0f172a;
+  color: #ffffff;
+}
+
+.tab-count-pill.ia-pill {
+  background: #fee2e2;
+  color: #88132B;
+}
+
+.report-tab-btn.active .tab-count-pill.ia-pill {
+  background: #88132B;
+  color: #ffffff;
+}
+
+/* Toast Notification Banner */
+.save-toast-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+  padding: 12px 18px;
+  border-radius: 8px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.12);
+  animation: slideDown 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.toast-check-icon {
+  width: 18px;
+  height: 18px;
+  color: #059669;
+  flex-shrink: 0;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Card Enhancements for Internal Audit */
+.report-card.ia-card-border {
+  border-left: 4px solid #88132B;
+}
+
+.report-card.ia-card-border:hover {
+  border-color: #88132B;
+}
+
+.report-type-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 2px 7px;
+  border-radius: 4px;
+  margin-bottom: 4px;
+  width: fit-content;
+}
+
+.report-type-badge.badge-ia {
+  background: #fee2e2;
+  color: #88132B;
+}
+
+.report-type-badge.badge-si {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.report-ref-pill.ref-ia {
+  background: #fdf2f4;
+  color: #88132B;
+  border: 1px solid #f9d2d8;
+}
+
+.btn-card-view.btn-view-ia:hover {
+  background: #fdf2f4;
+  color: #88132B;
+}
+
+.stat-box.obs-box {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+.empty-actions-row {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.ia-empty-btn {
+  background: #88132B !important;
+}
+
+/* ========================================================================= */
+/* OFFICIAL INTERNAL AUDIT MODAL (Matches 6-Screen Reference)                 */
+/* ========================================================================= */
+
+.official-ia-modal {
+  max-width: 980px;
+  width: 95vw;
+  max-height: 94vh;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+}
+
+/* Top Bar: Cream background matching Screenshot 5 */
+.official-ia-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #fbf8f7;
+  padding: 12px 24px;
+  border-bottom: 1px solid #f1e7e7;
+  flex-shrink: 0;
+}
+
+.ia-topbar-ref {
+  font-size: 19px;
+  font-weight: 800;
+  color: #88132B;
+  letter-spacing: -0.01em;
+}
+
+.official-ia-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-ia-edit-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-ia-edit-toggle:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.official-ia-print-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #c41632;
+  color: #ffffff;
+  border: none;
+  border-radius: 20px;
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  box-shadow: 0 1px 3px rgba(196, 22, 50, 0.3);
+}
+
+.official-ia-print-pill:hover {
+  background-color: #a81028;
+}
+
+.btn-ia-save-changes {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #16a34a;
+  color: #ffffff;
+  border: none;
+  border-radius: 20px;
+  padding: 6px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 4px rgba(22, 163, 74, 0.3);
+}
+
+.btn-ia-save-changes:hover {
+  background-color: #15803d;
+  transform: translateY(-1px);
+}
+
+.btn-ia-save-changes.bottom-save {
+  border-radius: 8px;
+  padding: 8px 18px;
+}
+
+.btn-ia-cancel-edit {
+  background: #ffffff;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-ia-cancel-edit:hover {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.topbar-btn-icon {
+  width: 15px;
+  height: 15px;
+}
+
+/* Modal Scrollable Body */
+.official-ia-scroll-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 28px 36px;
+  background: #ffffff;
+  color: #1e293b;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.ia-edit-notice-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  padding: 10px 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-size: 12.5px;
+}
+
+.edit-badge {
+  background: #b45309;
+  color: #ffffff;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-weight: 800;
+  font-size: 11px;
+}
+
+/* Document Header: Title & Logo */
+.ia-brand-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.ia-brand-title {
+  font-size: 26px;
+  font-weight: 800;
+  color: #88132B;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.ia-marlborough-logo .marlborough-svg {
+  width: 80px;
+  height: 52px;
+}
+
+/* Summary Strip (Screenshot 5) */
+.ia-summary-strip {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-top: 1.5px solid #88132B;
+  border-bottom: 1px solid #e2e8f0;
+  margin-bottom: 24px;
+  font-size: 13.5px;
+  gap: 12px;
+}
+
+.ia-summary-col {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ia-summary-lbl {
+  color: #64748b;
+  font-weight: 600;
+}
+
+.ia-summary-ref {
+  color: #88132B;
+  font-weight: 800;
+}
+
+.ia-summary-val {
+  color: #1e293b;
+  font-weight: 600;
+}
+
+/* Section Headings */
+.ia-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 24px;
+  margin-bottom: 12px;
+}
+
+.ia-section-header.with-action {
+  margin-top: 28px;
+}
+
+.ia-section-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #88132B;
+  margin: 0;
+}
+
+.btn-add-observation {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #88132B;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.btn-add-observation:hover {
+  opacity: 0.9;
+}
+
+.add-obs-icon {
+  width: 14px;
+  height: 14px;
+}
+
+/* Data Tables */
+.ia-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 20px;
+  background: #ffffff;
+}
+
+.ia-data-table td {
+  border: 1px solid #e2e8f0;
+  padding: 10px 14px;
+  font-size: 13px;
+  vertical-align: top;
+}
+
+.ia-label-col {
+  width: 220px;
+  min-width: 190px;
+  background-color: #f8fafc;
+  color: #334155;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ia-val-col {
+  color: #1e293b;
+}
+
+.ia-comment-text,
+.ia-finding-text,
+.ia-suggestion-text {
+  margin: 0;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.car-ref-val {
+  font-weight: 700;
+}
+
+.ia-car-ref-text {
+  color: #88132B;
+  font-weight: 800;
+  font-size: 13.5px;
+}
+
+/* Rating Pills */
+.ia-rating-pill {
+  display: inline-block;
+  padding: 4px 14px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.pill-compliant,
+.pill-improvement {
+  background-color: #eff6ff;
+  color: #1e3a8a;
+}
+
+.pill-practice {
+  background-color: #ecfdf5;
+  color: #065f46;
+}
+
+.pill-observations {
+  background-color: #f1f5f9;
+  color: #475569;
+}
+
+.pill-minor-ncr {
+  background-color: #fff7ed;
+  color: #c2410c;
+}
+
+.pill-major-ncr {
+  background-color: #fef2f2;
+  color: #991b1b;
+}
+
+/* Photos Gallery Grid (5 Columns matching Screenshot 6) */
+.ia-photos-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.ia-photo-thumb-box {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  background: #f1f5f9;
+}
+
+.ia-photo-thumb-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Observation Cards */
+.ia-obs-card {
+  margin-top: 24px;
+  padding-bottom: 8px;
+}
+
+.ia-obs-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.ia-obs-focus-title {
+  font-size: 16.5px;
+  font-weight: 700;
+  color: #88132B;
+  margin: 0 0 2px 0;
+}
+
+.ia-obs-ref-subtitle {
+  font-size: 12.5px;
+  color: #64748b;
+}
+
+.btn-delete-obs {
+  background: transparent;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-delete-obs:hover {
+  background: #fee2e2;
+}
+
+/* Edit Mode Form Inputs */
+.ia-input-field {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #0f172a;
+  background: #ffffff;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease;
+}
+
+.ia-input-field:focus {
+  outline: none;
+  border-color: #88132B;
+  box-shadow: 0 0 0 2px rgba(136, 19, 43, 0.15);
+}
+
+.ia-car-ref-input {
+  font-weight: 700;
+  color: #88132B;
+}
+
+.ia-textarea-field {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #0f172a;
+  background: #ffffff;
+  box-sizing: border-box;
+  resize: vertical;
+  line-height: 1.5;
+  transition: border-color 0.15s ease;
+}
+
+.ia-textarea-field:focus {
+  outline: none;
+  border-color: #88132B;
+  box-shadow: 0 0 0 2px rgba(136, 19, 43, 0.15);
+}
+
+.ia-select-condition {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-size: 13px;
+  background: #ffffff;
+  color: #0f172a;
+  font-weight: 600;
+  max-width: 420px;
+}
+
+.ia-select-condition:focus {
+  outline: none;
+  border-color: #88132B;
+}
+
+.ia-edit-rating-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ia-select-rating {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-size: 13px;
+  background: #ffffff;
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.ia-select-rating:focus {
+  outline: none;
+  border-color: #88132B;
+}
+
+.ia-car-trigger-notice {
+  font-size: 12px;
+  font-weight: 700;
+  color: #b91c1c;
+  background: #fee2e2;
+  padding: 4px 9px;
+  border-radius: 4px;
+}
+
+/* Document Footer (Screenshot 2) */
+.ia-document-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 36px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+  font-size: 12px;
+  color: #475569;
+}
+
+.ia-footer-col {
+  font-weight: 500;
+}
+
+.ia-footer-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ia-footer-brand-text {
+  display: flex;
+  flex-direction: column;
+  text-align: right;
+}
+
+.brand-marlborough {
+  font-size: 15px;
+  font-weight: 800;
+  color: #88132B;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+.brand-tagline {
+  font-size: 10px;
+  color: #88132B;
+  font-weight: 500;
+}
+
+.footer-m-svg {
+  width: 28px;
+  height: 22px;
+}

@@ -4,6 +4,7 @@ import { MainLayoutComponent } from './layout/main-layout.component';
 import { ChatComponent } from './features/chat/chat.component';
 import { SiteInspectionComponent } from './features/inspection/site-inspection.component';
 import { ReportsComponent } from './features/reports/reports.component';
+import { InternalAuditComponent } from './features/internal-audit/internal-audit.component';
 import { authGuard, guestGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
@@ -37,6 +38,10 @@ export const routes: Routes = [
       {
         path: 'reports',
         component: ReportsComponent,
+      },
+      {
+        path: 'internal-audit',
+        component: InternalAuditComponent,
       },
     ],
   },

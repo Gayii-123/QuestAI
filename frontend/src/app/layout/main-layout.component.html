@@ -26,8 +26,18 @@
 
       <!-- Sidebar Primary Navigation Menu -->
       <div class="sidebar-primary-menu">
+        <!-- Internal Audit Button -->
+        <button class="sidebar-red-nav-item" [class.active]="isInternalAuditRoute()"
+          (click)="navigateToInternalAudit()" type="button" title="Internal Audit Generator">
+          <svg class="sidebar-red-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 11l3 3L22 4"></path>
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+          </svg>
+          <span class="sidebar-nav-label">Internal Audit</span>
+        </button>
+
         <!-- My Reports Button -->
-        <button class="sidebar-red-nav-item" [class.active]="!isChatRoute()"
+        <button class="sidebar-red-nav-item" [class.active]="isReportsRoute()"
           (click)="navigateToMyReports()" type="button">
           <svg class="sidebar-red-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -210,7 +220,7 @@
         <!-- Drag & Drop Upload Dropzone -->
         <div class="photo-dropzone" [class.dragover]="chatState.isDragOver()" (dragover)="onDragOver($event)"
           (dragleave)="onDragLeave($event)" (drop)="onDropPhotos($event)" (click)="fileUploadInput.click()">
-          <input #fileUploadInput type="file" multiple accept="image/*" capture="environment"
+          <input #fileUploadInput type="file" multiple accept="image/*,.heic,.heif" capture="environment"
             (change)="onFilesSelected($event)" style="display: none" />
 
           <div class="dropzone-content">
@@ -221,7 +231,7 @@
               </svg>
             </div>
             <span class="dropzone-title">Click to capture / browse photos, or drag & drop</span>
-            <span class="dropzone-sub">Upload JPG, PNG, or WebP site photographs (Multiple images supported)</span>
+            <span class="dropzone-sub">Upload JPG, PNG, WebP, or HEIC site photographs (Multiple images supported)</span>
           </div>
         </div>
 

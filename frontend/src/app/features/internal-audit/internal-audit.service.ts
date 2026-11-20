@@ -9,6 +9,8 @@ import {
   InternalAuditAnalysisResult,
   InternalAuditAnalyzeRequest,
   InternalAuditAnalyzeResponse,
+  InternalAuditSaveRequest,
+  InternalAuditSaveResponse,
 } from './internal-audit.models';
 import {
   INTERNAL_AUDIT_CONDITIONS,
@@ -17,6 +19,11 @@ import {
   normalizeAuditRating,
   ratingTriggersCar,
 } from './internal-audit-conditions.config';
+import {
+  isHeicFile,
+  isSupportedImageFile,
+  convertHeicToJpeg,
+} from '../../core/utils/image-utils';
 
 const LOCAL_STORAGE_KEY_DRAFTS = 'questai_internal_audit_drafts';
 const LOCAL_STORAGE_KEY_COMPLETED = 'questai_finalized_internal_audits';
@@ -80,9 +87,8 @@ export class InternalAuditService {
     if (!file) {
       return { valid: false, error: 'No file provided.' };
     }
-    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-    if (!validTypes.includes((file.type || '').toLowerCase())) {
-      return { valid: false, error: `Unsupported file format (${file.type || 'unknown'}). Please upload JPG, PNG, or WebP.` };
+    if (!isSupportedImageFile(file)) {
+      return { valid: false, error: `Unsupported file format (${file.type || 'unknown'}). Please upload JPG, PNG, WebP, or HEIC.` };
     }
     if (file.size > MAX_RAW_FILE_SIZE_BYTES) {
       return { valid: false, error: `File "${file.name}" exceeds maximum allowed size of 15MB.` };
@@ -90,20 +96,24 @@ export class InternalAuditService {
     return { valid: true };
   }
 
-  compressPhoto(file: File): Promise<InternalAuditPhoto> {
-    return new Promise((resolve, reject) => {
-      const validation = this.validatePhotoFile(file);
-      if (!validation.valid) {
-        reject(new Error(validation.error));
-        return;
-      }
+  async compressPhoto(file: File): Promise<InternalAuditPhoto> {
+    const validation = this.validatePhotoFile(file);
+    if (!validation.valid) {
+      throw new Error(validation.error);
+    }
 
+    let processedFile = file;
+    if (isHeicFile(file)) {
+      processedFile = await convertHeicToJpeg(file);
+    }
+
+    return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onerror = () => reject(new Error(`Failed to read file "${file.name}".`));
+      reader.onerror = () => reject(new Error(`Failed to read file "${processedFile.name}".`));
       reader.onload = (e) => {
         const rawDataUrl = e.target?.result as string;
         const img = new Image();
-        img.onerror = () => reject(new Error(`Failed to decode image data for "${file.name}".`));
+        img.onerror = () => reject(new Error(`Failed to decode image data for "${processedFile.name}".`));
         img.onload = () => {
           let { width, height } = img;
           if (width > MAX_IMAGE_DIMENSION || height > MAX_IMAGE_DIMENSION) {
@@ -124,10 +134,10 @@ export class InternalAuditService {
             // Fallback to raw data URL if canvas 2D context is unavailable
             resolve({
               id: `photo_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-              name: file.name,
+              name: processedFile.name,
               url: rawDataUrl,
-              mimeType: file.type || 'image/jpeg',
-              size: file.size,
+              mimeType: processedFile.type || 'image/jpeg',
+              size: processedFile.size,
               timestamp: new Date().toISOString(),
             });
             return;
@@ -140,7 +150,7 @@ export class InternalAuditService {
 
           resolve({
             id: `photo_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-            name: file.name.replace(/\.[^/.]+$/, '.jpg'),
+            name: processedFile.name.replace(/\.[^/.]+$/, '.jpg'),
             url: compressedDataUrl,
             mimeType: targetMime,
             size: estimatedSize,
@@ -149,7 +159,7 @@ export class InternalAuditService {
         };
         img.src = rawDataUrl;
       };
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(processedFile);
     });
   }
 
@@ -184,7 +194,7 @@ export class InternalAuditService {
     return this.http
       .post<InternalAuditAnalyzeResponse>(endpoint, requestPayload)
       .pipe(
-        timeout(45000),
+        timeout(240000),
         map((response) => {
           if (!response || !response.success || !response.data) {
             throw new Error(response?.message || 'Invalid or empty response received from backend.');
@@ -219,6 +229,29 @@ export class InternalAuditService {
           return throwError(() => err);
         })
       );
+  }
+
+  saveAuditToBackend(session: InternalAuditSession): Observable<InternalAuditSaveResponse> {
+    const endpoint =
+      environment.endpoints && (environment.endpoints as any).internalAuditSave
+        ? (environment.endpoints as any).internalAuditSave
+        : `${environment.apiUrl}/questAiSaveInternalAudit`;
+
+    const payload: InternalAuditSaveRequest = { session };
+    return this.http.post<InternalAuditSaveResponse>(endpoint, payload).pipe(
+      timeout(30000),
+      catchError((err: HttpErrorResponse | Error) => {
+        if (err instanceof HttpErrorResponse) {
+          return throwError(
+            () =>
+              new Error(
+                `Backend save error (${err.status}): ${err.error?.message || err.message || 'Save request failed.'}`
+              )
+          );
+        }
+        return throwError(() => err);
+      })
+    );
   }
 
   private mapBackendResponseToResult(
