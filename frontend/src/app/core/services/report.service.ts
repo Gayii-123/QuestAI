@@ -120,21 +120,83 @@ export class ReportService {
     };
   }
 
-  // --- User-Scoped Firestore Sync ---
+  // --- User-Scoped Firestore Sync & Storage Keys ---
 
-  private getNormalizedInternalAudits(): any[] {
+  getSiteInspectionStorageKey(uid?: string): string {
+    const id = uid || this.getCurrentUserId();
+    return id ? `questai_finalized_inspections_${id}` : 'questai_finalized_inspections';
+  }
+
+  getInternalAuditStorageKey(uid?: string): string {
+    const id = uid || this.getCurrentUserId();
+    return id ? `questai_finalized_internal_audits_${id}` : 'questai_finalized_internal_audits';
+  }
+
+  getNormalizedInternalAudits(uid?: string, email?: string): any[] {
     try {
-      const iaRaw = localStorage.getItem('questai_finalized_internal_audits');
-      let iaList = iaRaw ? JSON.parse(iaRaw) : [];
+      const targetUid = uid || this.getCurrentUserId();
+      const targetEmail =
+        email ||
+        this.authService.currentUser()?.email ||
+        (this.authService.userProfile() as any)?.email;
 
-      if (!Array.isArray(iaList) || iaList.length === 0) {
-        iaList = [this.getSampleInternalAudit()];
+      // 1. Try user-scoped storage key
+      const key = this.getInternalAuditStorageKey(targetUid || undefined);
+      let iaList: any[] = [];
+      const userRaw = localStorage.getItem(key);
+      if (userRaw) {
         try {
-          localStorage.setItem('questai_finalized_internal_audits', JSON.stringify(iaList));
+          const parsed = JSON.parse(userRaw);
+          if (Array.isArray(parsed)) {
+            iaList = parsed;
+          }
         } catch { }
       }
 
-      return iaList.map((audit: any) => {
+      // 2. If checking global/legacy key, only migrate records that explicitly match this user
+      if (targetUid) {
+        try {
+          const legacyRaw = localStorage.getItem('questai_finalized_internal_audits');
+          if (legacyRaw) {
+            const legacyList = JSON.parse(legacyRaw);
+            if (Array.isArray(legacyList)) {
+              for (const leg of legacyList) {
+                // NEVER import sample audit IA104368 as another user's audit
+                if (leg.referenceNumber === 'IA104368' || leg.sessionId === 'ia_session_104368') {
+                  continue;
+                }
+                const isUserMatch =
+                  (leg.userId && leg.userId === targetUid) ||
+                  (!leg.userId && targetEmail && (leg.userEmail === targetEmail || leg.createdByEmail === targetEmail));
+                if (isUserMatch) {
+                  const alreadyExists = iaList.some(
+                    (i) =>
+                      (i.referenceNumber && i.referenceNumber === leg.referenceNumber) ||
+                      (i.sessionId && i.sessionId === leg.sessionId)
+                  );
+                  if (!alreadyExists) {
+                    leg.userId = targetUid;
+                    if (targetEmail && !leg.userEmail) leg.userEmail = targetEmail;
+                    iaList.push(leg);
+                  }
+                }
+              }
+            }
+          }
+        } catch { }
+      }
+
+      // Do NOT auto-seed sample internal audit into user storage.
+      // Filter strictly:
+      const filtered = targetUid
+        ? iaList.filter(
+            (item) =>
+              item.userId === targetUid ||
+              (!item.userId && targetEmail && (item.userEmail === targetEmail || item.createdByEmail === targetEmail))
+          )
+        : iaList;
+
+      return filtered.map((audit: any) => {
         const obs = Array.isArray(audit.observations) ? audit.observations : [];
         const compliantCount = obs.filter(
           (o: any) => o.rating === 'Compliant' || o.rating === 'Good Practice'
@@ -174,9 +236,17 @@ export class ReportService {
           return {
             ...o,
             resolveByDateFormatted,
-            who: o.who || o.assignedTo || audit.siteIncharge || 'Warrick Oliver',
+            who: o.who || o.assignedTo || audit.siteIncharge || 'Site Supervisor',
           };
         });
+
+        const auditorDisplayName =
+          audit.auditorName ||
+          audit.auditedBy ||
+          audit.createdByName ||
+          (this.authService.currentUser()?.uid === audit.userId
+            ? this.authService.currentUser()?.displayName || 'Auditor'
+            : 'Auditor');
 
         return {
           ...audit,
@@ -186,11 +256,12 @@ export class ReportService {
           bankName: 'Internal Audit',
           department: 'HSEQ / Compliance',
           jobNo: audit.jobNo || audit.jobReference || 'LBH/01/200',
-          siteLocation: audit.location || audit.siteName || 'Buckingham Road',
-          contract: audit.contract || 'LB Hackney',
-          auditedBy: audit.auditorName || audit.auditedBy || 'Dean Willsher',
-          siteIncharge: audit.siteIncharge || audit.foreman || 'Warrick Oliver',
-          managerSupervisor: audit.managerSupervisor || audit.supervisor || 'Tom Davis',
+          siteLocation: audit.location || audit.siteName || 'Site Location',
+          contract: audit.contract || 'Highways',
+          auditedBy: auditorDisplayName,
+          auditorName: auditorDisplayName,
+          siteIncharge: audit.siteIncharge || audit.foreman || '',
+          managerSupervisor: audit.managerSupervisor || audit.supervisor || '',
           auditedDateFormatted: formattedDateTime,
           reportDateFormatted: formattedDate,
           finalizedAt: dateStr,
@@ -215,31 +286,27 @@ export class ReportService {
 
   loadInspectionHistory(): void {
     const uid = this.getCurrentUserId();
-    if (uid) {
-      void this.syncUserReports(uid);
+    if (!uid) {
+      this.inspectionHistoryList.set([]);
+      this.selectedHistoryRecord.set(null);
       return;
     }
-
-    try {
-      const siteRaw = localStorage.getItem('questai_finalized_inspections');
-      const siteList = siteRaw ? JSON.parse(siteRaw) : [];
-      const normalizedIaList = this.getNormalizedInternalAudits();
-      const combined = [...normalizedIaList, ...(Array.isArray(siteList) ? siteList : [])];
-      combined.sort(
-        (a, b) => new Date(b.finalizedAt || 0).getTime() - new Date(a.finalizedAt || 0).getTime()
-      );
-      this.inspectionHistoryList.set(combined);
-    } catch (e) {
-      console.error('Failed to load inspection history:', e);
-      this.inspectionHistoryList.set([]);
-    }
+    void this.syncUserReports(uid);
   }
 
   async syncUserReports(uid: string): Promise<void> {
-    if (!uid) return;
+    if (!uid) {
+      this.clearUserReports();
+      return;
+    }
     this.activeSyncUid = uid;
     this.isLoadingReports.set(true);
     this.reportSyncError.set(null);
+
+    const currentUserEmail =
+      this.authService.currentUser()?.email ||
+      (this.authService.userProfile() as any)?.email ||
+      '';
 
     try {
       const reportsRef = this.getUserReportsCollection(uid);
@@ -252,24 +319,90 @@ export class ReportService {
 
       const remoteReports: any[] = [];
       for (const d of snapshot.docs) {
-        remoteReports.push(this.deserializeReport(d.id, d.data()));
+        const deserialized = this.deserializeReport(d.id, d.data());
+        // Verify user ownership
+        if (
+          !deserialized.userId ||
+          deserialized.userId === uid ||
+          (currentUserEmail && deserialized.userEmail === currentUserEmail)
+        ) {
+          deserialized.userId = uid;
+          remoteReports.push(deserialized);
+        }
       }
 
-      const normalizedIaList = this.getNormalizedInternalAudits();
-      const combined = [...normalizedIaList, ...remoteReports];
-      combined.sort((a, b) => {
+      // Local site inspections for this user
+      const localSiteReports: any[] = [];
+      try {
+        const siteKey = this.getSiteInspectionStorageKey(uid);
+        const raw = localStorage.getItem(siteKey);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            for (const item of parsed) {
+              if (
+                item.userId === uid ||
+                (!item.userId && currentUserEmail && (item.userEmail === currentUserEmail || item.createdByEmail === currentUserEmail))
+              ) {
+                localSiteReports.push(item);
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Error reading local site inspections:', e);
+      }
+
+      // Local internal audits for this user
+      const normalizedIaList = this.getNormalizedInternalAudits(uid, currentUserEmail);
+
+      // Deduplicate by referenceNumber or id
+      const reportMap = new Map<string, any>();
+      // 1. Remote Firestore reports take precedence
+      for (const r of remoteReports) {
+        const key = r.referenceNumber || r.id;
+        if (key) reportMap.set(key, r);
+      }
+      // 2. Local site inspections (merge offline ones)
+      for (const r of localSiteReports) {
+        const key = r.referenceNumber || r.id;
+        if (key && !reportMap.has(key)) {
+          reportMap.set(key, r);
+        }
+      }
+      // 3. Local internal audits (merge offline ones)
+      for (const r of normalizedIaList) {
+        const key = r.referenceNumber || r.id;
+        if (key && !reportMap.has(key)) {
+          reportMap.set(key, r);
+        }
+      }
+
+      const combined = Array.from(reportMap.values());
+      // Strict user boundary check
+      const userOnly = combined.filter((item) => {
+        const itemUid = item.userId;
+        const itemEmail = item.userEmail || item.createdByEmail;
+        if (itemUid && itemUid === uid) return true;
+        if (!itemUid && currentUserEmail && itemEmail === currentUserEmail) return true;
+        return false;
+      });
+
+      userOnly.sort((a, b) => {
         const tA = new Date(a.updatedAt || a.finalizedAt || 0).getTime();
         const tB = new Date(b.updatedAt || b.finalizedAt || 0).getTime();
         return tB - tA;
       });
 
-      this.inspectionHistoryList.set(combined);
+      this.inspectionHistoryList.set(userOnly);
 
       const openRef = this.selectedHistoryRecord()?.referenceNumber;
       if (openRef) {
-        const updated = combined.find((r) => r.referenceNumber === openRef);
+        const updated = userOnly.find((r) => r.referenceNumber === openRef);
         if (updated) {
           this.selectedHistoryRecord.set({ ...updated });
+        } else {
+          this.selectedHistoryRecord.set(null);
         }
       }
     } catch (err) {
@@ -305,30 +438,40 @@ export class ReportService {
       this.closeHistoryRecord();
     }
 
+    const uid = this.getCurrentUserId();
+
+    // 1. Delete from user-scoped site inspection local storage
     try {
-      const siteRaw = localStorage.getItem('questai_finalized_inspections');
+      const siteKey = this.getSiteInspectionStorageKey(uid || undefined);
+      const siteRaw = localStorage.getItem(siteKey);
       if (siteRaw) {
         const siteList = JSON.parse(siteRaw);
         const filtered = siteList.filter(
           (item: any) => item.referenceNumber !== referenceNumber && item.id !== referenceNumber
         );
-        localStorage.setItem('questai_finalized_inspections', JSON.stringify(filtered));
+        localStorage.setItem(siteKey, JSON.stringify(filtered));
       }
+    } catch (e) {
+      console.error('Failed to delete local site inspection record', e);
+    }
 
-      const iaRaw = localStorage.getItem('questai_finalized_internal_audits');
+    // 2. Delete from user-scoped internal audit local storage
+    try {
+      const iaKey = this.getInternalAuditStorageKey(uid || undefined);
+      const iaRaw = localStorage.getItem(iaKey);
       if (iaRaw) {
         const iaList = JSON.parse(iaRaw);
         const filtered = iaList.filter(
           (item: any) =>
             item.referenceNumber !== referenceNumber && item.sessionId !== referenceNumber
         );
-        localStorage.setItem('questai_finalized_internal_audits', JSON.stringify(filtered));
+        localStorage.setItem(iaKey, JSON.stringify(filtered));
       }
     } catch (e) {
-      console.error('Failed to delete local inspection record', e);
+      console.error('Failed to delete local internal audit record', e);
     }
 
-    const uid = this.getCurrentUserId();
+    // 3. Delete from Firestore under questai/data/users/{uid}/reports/{referenceNumber}
     if (uid) {
       const docRef = this.getReportDoc(uid, referenceNumber);
       void deleteDoc(docRef).catch((err) => {
@@ -340,11 +483,15 @@ export class ReportService {
 
   saveInternalAuditRecord(record: any): void {
     try {
-      const iaRaw = localStorage.getItem('questai_finalized_internal_audits');
-      const iaList = iaRaw ? JSON.parse(iaRaw) : [];
-      const idx = iaList.findIndex(
-        (item: any) => item.referenceNumber === record.referenceNumber || item.sessionId === record.sessionId
-      );
+      const authMeta = this.getAuthenticatedInspectorMeta();
+      const uid = record.userId || authMeta.userId || this.getCurrentUserId();
+      const email = record.userEmail || authMeta.userEmail;
+
+      record.userId = uid || '';
+      record.userEmail = email || null;
+      record.createdBy = record.createdBy || uid || '';
+      record.createdByEmail = record.createdByEmail || email || '';
+      record.createdByName = record.createdByName || authMeta.inspectorName;
 
       const obs = Array.isArray(record.observations) ? record.observations : [];
       const compliantCount = obs.filter((o: any) => o.rating === 'Compliant' || o.rating === 'Good Practice').length;
@@ -362,18 +509,37 @@ export class ReportService {
       record.totalScore = obs.length > 0 ? Math.round((compliantCount / obs.length) * 100) : 100;
       record.updatedAt = new Date().toISOString();
       record.isInternalAudit = true;
+      record.type = 'internal_audit';
 
+      // 1. Save to user-scoped localStorage
+      const key = this.getInternalAuditStorageKey(uid || undefined);
+      const iaRaw = localStorage.getItem(key);
+      const iaList = iaRaw ? JSON.parse(iaRaw) : [];
+      const idx = iaList.findIndex(
+        (item: any) =>
+          (item.referenceNumber && item.referenceNumber === record.referenceNumber) ||
+          (item.sessionId && item.sessionId === record.sessionId)
+      );
       if (idx >= 0) {
         iaList[idx] = record;
       } else {
         iaList.unshift(record);
       }
+      localStorage.setItem(key, JSON.stringify(iaList));
 
-      localStorage.setItem('questai_finalized_internal_audits', JSON.stringify(iaList));
+      // 2. Persist to Firestore under questai/data/users/{uid}/reports/{referenceNumber}
+      if (uid && record.referenceNumber) {
+        const docRef = this.getReportDoc(uid, record.referenceNumber);
+        const payload = this.serializeReportForFirestore(record, false);
+        void setDoc(docRef, payload, { merge: true }).catch((err) => {
+          console.error('[ReportService] Failed to persist internal audit to Firestore:', err);
+        });
+      }
+
       this.loadInspectionHistory();
       this.selectedHistoryRecord.set({ ...record });
 
-      // Sync to Firebase Cloud Functions backend
+      // 3. Sync to Firebase Cloud Functions backend
       this.apiService.saveFinalizedInternalAudit(record).subscribe({
         next: (res) => console.log('[QuestAI IA] Edited audit synced to backend:', res),
         error: (err) => console.warn('[QuestAI IA] Background sync notice:', err.message),
@@ -381,6 +547,68 @@ export class ReportService {
     } catch (e) {
       console.error('Failed to save edited internal audit:', e);
     }
+  }
+
+  saveFinalizedSiteInspection(report: any): void {
+    const authMeta = this.getAuthenticatedInspectorMeta();
+    const uid = report.userId || authMeta.userId || this.getCurrentUserId();
+    const email = report.userEmail || authMeta.userEmail;
+
+    report.userId = uid || '';
+    report.userEmail = email || null;
+    report.createdBy = report.createdBy || uid || '';
+    report.createdByEmail = report.createdByEmail || email || '';
+    report.createdByName = report.createdByName || authMeta.inspectorName;
+    if (!report.inspectorName || report.inspectorName === 'Dan Kennett' || report.inspectorName === 'Quest Inspector') {
+      report.inspectorName = authMeta.inspectorName;
+    }
+    report.updatedAt = report.finalizedAt || new Date().toISOString();
+    report.isInternalAudit = false;
+    report.type = 'site_inspection';
+
+    // 1. Save to user-scoped localStorage
+    const localKey = this.getSiteInspectionStorageKey(uid || undefined);
+    try {
+      const existingRaw = localStorage.getItem(localKey);
+      const list = existingRaw ? JSON.parse(existingRaw) : [];
+      const idx = list.findIndex((r: any) => r.referenceNumber === report.referenceNumber);
+      if (idx >= 0) {
+        list[idx] = report;
+      } else {
+        list.unshift(report);
+      }
+      localStorage.setItem(localKey, JSON.stringify(list));
+    } catch (e) {
+      console.warn('Failed to save site inspection to local storage:', e);
+    }
+
+    // 2. Add to in-memory inspectionHistoryList if it matches current user
+    this.inspectionHistoryList.update((list) => {
+      const idx = list.findIndex((item) => item.referenceNumber === report.referenceNumber);
+      if (idx >= 0) {
+        const next = [...list];
+        next[idx] = report;
+        return next;
+      }
+      return [report, ...list];
+    });
+
+    // 3. Persist to Firestore under questai/data/users/{uid}/reports/{referenceNumber}
+    if (uid && report.referenceNumber) {
+      const docRef = this.getReportDoc(uid, report.referenceNumber);
+      const payload = this.serializeReportForFirestore(report, true);
+      void setDoc(docRef, payload, { merge: true }).catch((err) => {
+        console.error('[ReportService] Failed to save site inspection to Firestore:', err);
+      });
+    }
+
+    // 4. Also call API service for backend processing if online
+    try {
+      this.apiService.saveFinalizedInspection(report).subscribe({
+        next: (res) => console.log('[ReportService] Site inspection synced to backend:', res),
+        error: (err) => console.warn('[ReportService] Backend sync notice:', err.message),
+      });
+    } catch { }
   }
 
   openHistoryRecord(record: any): void {
@@ -696,7 +924,21 @@ export class ReportService {
       });
     }
 
-    // 3. Optionally sync to backend API in background
+    // 3. Save to user-scoped local storage
+    try {
+      const siteKey = this.getSiteInspectionStorageKey(uid || undefined);
+      const siteRaw = localStorage.getItem(siteKey);
+      const list = siteRaw ? JSON.parse(siteRaw) : [];
+      const idx = list.findIndex((r: any) => r.referenceNumber === record.referenceNumber);
+      if (idx >= 0) {
+        list[idx] = record;
+      } else {
+        list.unshift(record);
+      }
+      localStorage.setItem(siteKey, JSON.stringify(list));
+    } catch { }
+
+    // 4. Optionally sync to backend API in background
     try {
       this.apiService
         .saveFinalizedInspection({
@@ -721,6 +963,7 @@ export class ReportService {
     record: any,
     isCreate: boolean
   ): Record<string, any> {
+    const isIa = !!record.isInternalAudit || record.type === 'internal_audit';
     const sanitizedPhotos = Array.isArray(record.photos)
       ? record.photos.map((p: any) => ({
         id: String(p?.id || ''),
@@ -732,28 +975,28 @@ export class ReportService {
       : [];
 
     const payload: Record<string, any> = {
-      id: record.referenceNumber,
+      id: record.referenceNumber || record.sessionId,
       referenceNumber: record.referenceNumber,
       userId: record.userId || this.getCurrentUserId() || '',
       userEmail: record.userEmail || null,
-      inspectionId: record.inspectionId || '',
+      inspectionId: record.inspectionId || record.sessionId || '',
       conversationId: record.conversationId || '',
-      jobNo: record.jobNo || 'LBN-0029',
+      jobNo: record.jobNo || record.jobReference || 'LBN-0029',
       jobReference: record.jobReference || record.jobNo || 'LBN-0029',
-      bankId: record.bankId || '',
-      bankName: record.bankName || 'Site Inspection',
-      department: record.department || 'Civil',
+      bankId: record.bankId || (isIa ? 'internal_audit' : ''),
+      bankName: record.bankName || (isIa ? 'Internal Audit' : 'Site Inspection'),
+      department: record.department || (isIa ? 'HSEQ / Compliance' : 'Civil'),
       status: record.status || 'completed',
-      finalizedAt: record.finalizedAt || new Date().toISOString(),
-      inspectorName: record.inspectorName || 'Quest Inspector',
+      finalizedAt: record.finalizedAt || record.completedAt || new Date().toISOString(),
+      inspectorName: record.inspectorName || record.auditorName || record.auditedBy || 'Quest Inspector',
       inspectorRole: record.inspectorRole || 'QHSE',
       contractor: record.contractor || 'Marlborough Highways',
-      supervisorName: record.supervisorName || record.inspectorName || 'Quest Inspector',
-      foremanName: record.foremanName || '',
+      supervisorName: record.supervisorName || record.managerSupervisor || record.inspectorName || 'Quest Inspector',
+      foremanName: record.foremanName || record.siteIncharge || '',
       contract: record.contract || '',
       operatives: record.operatives || '',
       jobDescription: record.jobDescription || '',
-      siteLocation: record.siteLocation || '',
+      siteLocation: record.siteLocation || record.location || '',
       depot: record.depot || 'N/A',
       totalScore: typeof record.totalScore === 'number' ? record.totalScore : 0,
       passRate:
@@ -772,6 +1015,15 @@ export class ReportService {
       questions: Array.isArray(record.questions) ? record.questions : [],
       modelIdentifier: record.modelIdentifier || 'QuestAI Vision',
       isMock: !!record.isMock,
+      isInternalAudit: isIa,
+      type: isIa ? 'internal_audit' : 'site_inspection',
+      auditorName: record.auditorName || record.auditedBy || '',
+      auditedBy: record.auditedBy || record.auditorName || '',
+      siteIncharge: record.siteIncharge || record.foreman || '',
+      managerSupervisor: record.managerSupervisor || record.supervisor || '',
+      auditorComment: record.auditorComment || record.auditorSummary || record.comment || '',
+      auditorSummary: record.auditorSummary || record.auditorComment || '',
+      observations: Array.isArray(record.observations) ? record.observations : [],
       updatedAt: serverTimestamp(),
     };
 
@@ -816,6 +1068,43 @@ export class ReportService {
       resolveTimestampIso(data?.createdAt) ||
       new Date().toISOString();
     const updatedAt = resolveTimestampIso(data?.updatedAt) || finalizedAt;
+    const isInternalAudit = !!data?.isInternalAudit || data?.type === 'internal_audit';
+
+    const dateObj = new Date(finalizedAt);
+    const reportDateFormatted = dateObj.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+    const auditedDateFormatted = dateObj.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    const obs = Array.isArray(data?.observations) ? data.observations : [];
+    const formattedObs = obs.map((o: any) => {
+      let resolveByDateFormatted = o.resolveByDateFormatted;
+      if (o.hasCar === 'Yes' && !resolveByDateFormatted) {
+        const rDate = o.resolveByDate
+          ? new Date(o.resolveByDate)
+          : new Date(dateObj.getTime() + 30 * 24 * 60 * 60 * 1000);
+        resolveByDateFormatted = rDate.toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+      }
+      return {
+        ...o,
+        resolveByDateFormatted,
+        who: o.who || o.assignedTo || data.siteIncharge || 'Site Supervisor',
+      };
+    });
 
     return {
       id: String(data?.id || docId),
@@ -826,21 +1115,24 @@ export class ReportService {
       conversationId: String(data?.conversationId || ''),
       jobNo: String(data?.jobNo || 'LBN-0029'),
       jobReference: String(data?.jobReference || data?.jobNo || 'LBN-0029'),
-      bankId: String(data?.bankId || ''),
-      bankName: String(data?.bankName || 'Site Inspection'),
-      department: String(data?.department || 'Civil'),
+      bankId: String(data?.bankId || (isInternalAudit ? 'internal_audit' : '')),
+      bankName: String(data?.bankName || (isInternalAudit ? 'Internal Audit' : 'Site Inspection')),
+      department: String(data?.department || (isInternalAudit ? 'HSEQ / Compliance' : 'Civil')),
       status: String(data?.status || 'completed'),
       finalizedAt,
       updatedAt,
-      inspectorName: String(data?.inspectorName || 'Quest Inspector'),
+      reportDateFormatted,
+      auditedDateFormatted,
+      inspectorName: String(data?.inspectorName || data?.auditorName || 'Inspector'),
       inspectorRole: String(data?.inspectorRole || 'QHSE'),
       contractor: String(data?.contractor || 'Marlborough Highways'),
-      supervisorName: String(data?.supervisorName || data?.inspectorName || 'Quest Inspector'),
-      foremanName: String(data?.foremanName || ''),
+      supervisorName: String(data?.supervisorName || data?.managerSupervisor || data?.inspectorName || 'Supervisor'),
+      foremanName: String(data?.foremanName || data?.siteIncharge || ''),
       contract: String(data?.contract || ''),
       operatives: String(data?.operatives || ''),
       jobDescription: String(data?.jobDescription || ''),
-      siteLocation: String(data?.siteLocation || ''),
+      siteLocation: String(data?.siteLocation || data?.location || ''),
+      location: String(data?.location || data?.siteLocation || ''),
       depot: String(data?.depot || 'N/A'),
       totalScore: typeof data?.totalScore === 'number' ? data.totalScore : 0,
       passRate: typeof data?.passRate === 'number' ? data.passRate : 0,
@@ -863,6 +1155,15 @@ export class ReportService {
       questions: Array.isArray(data?.questions) ? data.questions : [],
       modelIdentifier: String(data?.modelIdentifier || 'QuestAI Vision'),
       isMock: !!data?.isMock,
+      isInternalAudit,
+      type: isInternalAudit ? 'internal_audit' : 'site_inspection',
+      auditorName: String(data?.auditorName || data?.auditedBy || data?.inspectorName || 'Auditor'),
+      auditedBy: String(data?.auditedBy || data?.auditorName || data?.inspectorName || 'Auditor'),
+      siteIncharge: String(data?.siteIncharge || data?.foremanName || ''),
+      managerSupervisor: String(data?.managerSupervisor || data?.supervisorName || ''),
+      auditorComment: String(data?.auditorComment || data?.auditorSummary || data?.comment || ''),
+      auditorSummary: String(data?.auditorSummary || data?.auditorComment || ''),
+      observations: formattedObs,
     };
   }
 

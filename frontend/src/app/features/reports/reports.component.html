@@ -81,7 +81,7 @@
         </div>
         <div class="meta-item">
           <span class="meta-label">Auditor/Inspector:</span>
-          <span class="meta-val">{{ rec.auditedBy || rec.inspectorName || 'Dean Willsher' }}</span>
+          <span class="meta-val">{{ rec.auditedBy || rec.inspectorName || rec.createdByName || 'Inspector' }}</span>
         </div>
         <div class="meta-item">
           <span class="meta-label">Date:</span>
@@ -253,7 +253,7 @@
           </div>
           <div class="ia-summary-col">
             <span class="ia-summary-val">{{ (isEditingInternalAudit() ? editableInternalAudit()?.auditedBy :
-              selectedRecord?.auditedBy) || 'Dean Willsher' }}</span>
+              selectedRecord?.auditedBy) || selectedRecord?.inspectorName || selectedRecord?.createdByName || 'Auditor' }}</span>
           </div>
           <div class="ia-summary-col">
             <span class="ia-summary-val">{{ (isEditingInternalAudit() ? editableInternalAudit()?.reportDateFormatted :
@@ -310,7 +310,7 @@
               <td class="ia-label-col">Audited By</td>
               <td class="ia-val-col">
                 <ng-container *ngIf="!isEditingInternalAudit()">
-                  {{ selectedRecord?.auditedBy || 'Dean Willsher' }}
+                  {{ selectedRecord?.auditedBy || selectedRecord?.inspectorName || selectedRecord?.createdByName || 'Auditor' }}
                 </ng-container>
                 <input *ngIf="isEditingInternalAudit()" type="text" class="ia-input-field"
                   [(ngModel)]="editableInternalAudit().auditedBy" placeholder="Auditor Name" />
@@ -529,7 +529,7 @@
         <div class="ia-document-footer">
           <div class="ia-footer-col">
             Printed by: {{ (isEditingInternalAudit() ? editableInternalAudit()?.auditedBy : selectedRecord?.auditedBy)
-            || 'Dean Willsher' }}
+            || selectedRecord?.inspectorName || selectedRecord?.createdByName || 'Auditor' }}
           </div>
           <div class="ia-footer-col">
             Printed on: {{ getPrintDate() }}
@@ -633,11 +633,11 @@
               <td class="official-meta-lbl">Department</td>
               <td class="official-meta-val">{{ selectedRecord?.department || 'Civil' }}</td>
               <td class="official-meta-lbl">Reported By</td>
-              <td class="official-meta-val">{{ selectedRecord?.inspectorName || 'Dan Kennett' }}</td>
+              <td class="official-meta-val">{{ selectedRecord?.inspectorName || selectedRecord?.createdByName || 'Inspector' }}</td>
             </tr>
             <tr>
               <td class="official-meta-lbl">Supervisor</td>
-              <td class="official-meta-val">{{ selectedRecord?.supervisorName || 'Dan Kennett' }}</td>
+              <td class="official-meta-val">{{ selectedRecord?.supervisorName || selectedRecord?.inspectorName || selectedRecord?.createdByName || 'Supervisor' }}</td>
               <td class="official-meta-lbl">Foreman</td>
               <td class="official-meta-val">{{ selectedRecord?.foremanName || 'Bekim Aliaj' }}</td>
             </tr>
@@ -645,7 +645,7 @@
               <td class="official-meta-lbl">Contract</td>
               <td class="official-meta-val">{{ selectedRecord?.contract || '140-Newham' }}</td>
               <td class="official-meta-lbl">Operatives</td>
-              <td class="official-meta-val">{{ selectedRecord?.operatives || '1. Dan Kennett, 2. Bekim Aliaj' }}</td>
+              <td class="official-meta-val">{{ selectedRecord?.operatives || (selectedRecord?.inspectorName ? '1. ' + selectedRecord.inspectorName : 'Operatives') }}</td>
             </tr>
             <tr>
               <td class="official-meta-lbl">Job Description</td>

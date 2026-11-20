@@ -63,6 +63,10 @@ export interface InternalAuditSession {
   sessionId: string; // e.g., 'ia_sess_1700000000000_abc'
   referenceNumber: string; // Human-readable e.g., 'IA-2026-0042'
   status: InternalAuditStatus;
+  userId?: string;
+  userEmail?: string;
+  createdBy?: string;
+  createdByEmail?: string;
   location: string;
   siteName?: string;
   auditorName: string;

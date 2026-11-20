@@ -918,11 +918,23 @@ export class ChatStateService {
         this.startThinkingAnimation(true);
         this.analyzingStepMessage.set('Conducting Internal Audit on your photographs against FA01–FA27...');
 
+        const currentUser = this.authService.currentUser();
+        const userProfile = this.authService.userProfile() as any;
+        const auditorName =
+          userProfile?.name ||
+          currentUser?.displayName ||
+          currentUser?.email ||
+          'Auditor';
+
         const iaSession = this.internalAuditService.createSession(
           'Site Walkthrough',
           '',
-          this.authService.currentUser()?.displayName || 'Auditor'
+          auditorName
         );
+        iaSession.userId = currentUser?.uid || '';
+        iaSession.userEmail = currentUser?.email || '';
+        iaSession.createdBy = currentUser?.uid || '';
+        iaSession.createdByEmail = currentUser?.email || '';
         iaSession.photos = photosToSend.map((p, idx) => ({
           id: p.id || `photo_${idx + 1}`,
           name: p.name || `Photo ${idx + 1}`,
@@ -941,7 +953,7 @@ export class ChatStateService {
             iaSession.status = 'completed';
 
             this.internalAuditService.finalizeAudit(iaSession);
-            this.reportService.loadInspectionHistory();
+            this.reportService.saveInternalAuditRecord(iaSession);
             this.internalAuditService.saveAuditToBackend(iaSession).subscribe({
               next: () => {},
               error: (e) => console.warn('[QuestAI IA] Background save notice:', e.message),

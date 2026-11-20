@@ -24,6 +24,7 @@ import {
   isSupportedImageFile,
   convertHeicToJpeg,
 } from '../../core/utils/image-utils';
+import { AuthService } from '../../core/services/auth.service';
 
 const LOCAL_STORAGE_KEY_DRAFTS = 'questai_internal_audit_drafts';
 const LOCAL_STORAGE_KEY_COMPLETED = 'questai_finalized_internal_audits';
@@ -36,6 +37,7 @@ const MAX_RAW_FILE_SIZE_BYTES = 15 * 1024 * 1024; // 15MB
 })
 export class InternalAuditService {
   private readonly http = inject(HttpClient);
+  private readonly authService = inject(AuthService, { optional: true });
 
   // Active session signal
   readonly currentSession = signal<InternalAuditSession | null>(null);
@@ -57,16 +59,27 @@ export class InternalAuditService {
     const year = new Date().getFullYear();
     const refNum = `IA-${year}-${String(Math.floor(Math.random() * 9000) + 1000)}`;
 
+    const user = this.authService?.currentUser?.() || null;
+    const profile = this.authService?.userProfile?.() as any;
+    const resolvedAuditor =
+      auditorName && auditorName !== 'Auditor'
+        ? auditorName
+        : profile?.name || user?.displayName || user?.email || 'Auditor';
+
     const newSession: InternalAuditSession = {
       sessionId: `ia_sess_${timestamp}_${randomHex}`,
       referenceNumber: refNum,
       status: 'uploading',
       location: location,
       siteName: siteName,
-      auditorName: auditorName,
+      auditorName: resolvedAuditor,
       auditorSummary: '',
       photos: [],
       observations: [],
+      userId: user?.uid || '',
+      userEmail: user?.email || profile?.email || '',
+      createdBy: user?.uid || '',
+      createdByEmail: user?.email || profile?.email || '',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -366,20 +379,49 @@ export class InternalAuditService {
   // Local Draft & Finalized Audit Persistence
   // ==========================================================================
 
+  getCurrentUserId(): string | null {
+    return this.authService?.currentUser?.()?.uid || null;
+  }
+
+  getStorageKeyDrafts(uid?: string): string {
+    const userId = uid || this.getCurrentUserId();
+    return userId ? `${LOCAL_STORAGE_KEY_DRAFTS}_${userId}` : LOCAL_STORAGE_KEY_DRAFTS;
+  }
+
+  getStorageKeyCompleted(uid?: string): string {
+    const userId = uid || this.getCurrentUserId();
+    return userId ? `${LOCAL_STORAGE_KEY_COMPLETED}_${userId}` : LOCAL_STORAGE_KEY_COMPLETED;
+  }
+
   saveDraft(session: InternalAuditSession): void {
     if (!session) return;
+    const uid = session.userId || this.getCurrentUserId();
+    if (uid && !session.userId) {
+      session.userId = uid;
+    }
+    const user = this.authService?.currentUser?.();
+    const profile = this.authService?.userProfile?.() as any;
+    if (user?.email && !session.userEmail) {
+      session.userEmail = user.email;
+    }
+    if (uid && !session.createdBy) {
+      session.createdBy = uid;
+      session.createdByEmail = user?.email || profile?.email || '';
+    }
+
     session.updatedAt = new Date().toISOString();
     session.status = 'draft_saved';
 
     try {
-      const drafts = this.getStoredDraftsList();
+      const drafts = this.getStoredDraftsList(uid || undefined);
       const existingIdx = drafts.findIndex((d) => d.sessionId === session.sessionId);
       if (existingIdx >= 0) {
         drafts[existingIdx] = session;
       } else {
         drafts.unshift(session);
       }
-      localStorage.setItem(LOCAL_STORAGE_KEY_DRAFTS, JSON.stringify(drafts));
+      const key = this.getStorageKeyDrafts(uid || undefined);
+      localStorage.setItem(key, JSON.stringify(drafts));
       this.currentSession.set({ ...session });
       this.loadSavedAuditsList();
     } catch (e) {
@@ -388,19 +430,44 @@ export class InternalAuditService {
   }
 
   finalizeAudit(session: InternalAuditSession): InternalAuditSession {
+    const uid = session.userId || this.getCurrentUserId();
+    if (uid && !session.userId) {
+      session.userId = uid;
+    }
+    const user = this.authService?.currentUser?.();
+    const profile = this.authService?.userProfile?.() as any;
+    if (user?.email && !session.userEmail) {
+      session.userEmail = user.email;
+    }
+    if (uid && !session.createdBy) {
+      session.createdBy = uid;
+      session.createdByEmail = user?.email || profile?.email || '';
+    }
+
     session.updatedAt = new Date().toISOString();
     session.completedAt = new Date().toISOString();
     session.status = 'completed';
 
     try {
       // 1. Remove from drafts
-      const drafts = this.getStoredDraftsList().filter((d) => d.sessionId !== session.sessionId);
-      localStorage.setItem(LOCAL_STORAGE_KEY_DRAFTS, JSON.stringify(drafts));
+      const draftKey = this.getStorageKeyDrafts(uid || undefined);
+      const drafts = this.getStoredDraftsList(uid || undefined).filter((d) => d.sessionId !== session.sessionId);
+      localStorage.setItem(draftKey, JSON.stringify(drafts));
 
       // 2. Add to completed
-      const completed = this.getStoredCompletedList();
-      completed.unshift(session);
-      localStorage.setItem(LOCAL_STORAGE_KEY_COMPLETED, JSON.stringify(completed));
+      const compKey = this.getStorageKeyCompleted(uid || undefined);
+      const completed = this.getStoredCompletedList(uid || undefined);
+      const existingIdx = completed.findIndex(
+        (c) =>
+          c.sessionId === session.sessionId ||
+          (session.referenceNumber && c.referenceNumber === session.referenceNumber)
+      );
+      if (existingIdx >= 0) {
+        completed[existingIdx] = session;
+      } else {
+        completed.unshift(session);
+      }
+      localStorage.setItem(compKey, JSON.stringify(completed));
 
       this.currentSession.set({ ...session });
       this.loadSavedAuditsList();
@@ -410,37 +477,49 @@ export class InternalAuditService {
     return session;
   }
 
-  getStoredDraftsList(): InternalAuditSession[] {
+  getStoredDraftsList(uid?: string): InternalAuditSession[] {
     try {
-      const raw = localStorage.getItem(LOCAL_STORAGE_KEY_DRAFTS);
-      return raw ? JSON.parse(raw) : [];
+      const key = this.getStorageKeyDrafts(uid);
+      const raw = localStorage.getItem(key);
+      const list: InternalAuditSession[] = raw ? JSON.parse(raw) : [];
+      const currentUid = uid || this.getCurrentUserId();
+      if (!currentUid) return list;
+      return list.filter((s) => !s.userId || s.userId === currentUid);
     } catch {
       return [];
     }
   }
 
-  getStoredCompletedList(): InternalAuditSession[] {
+  getStoredCompletedList(uid?: string): InternalAuditSession[] {
     try {
-      const raw = localStorage.getItem(LOCAL_STORAGE_KEY_COMPLETED);
-      return raw ? JSON.parse(raw) : [];
+      const key = this.getStorageKeyCompleted(uid);
+      const raw = localStorage.getItem(key);
+      const list: InternalAuditSession[] = raw ? JSON.parse(raw) : [];
+      const currentUid = uid || this.getCurrentUserId();
+      if (!currentUid) return list;
+      return list.filter((s) => !s.userId || s.userId === currentUid);
     } catch {
       return [];
     }
   }
 
   loadSavedAuditsList(): void {
-    const drafts = this.getStoredDraftsList();
-    const completed = this.getStoredCompletedList();
+    const uid = this.getCurrentUserId();
+    const drafts = this.getStoredDraftsList(uid || undefined);
+    const completed = this.getStoredCompletedList(uid || undefined);
     this.savedAudits.set([...completed, ...drafts]);
   }
 
   deleteAudit(sessionId: string): void {
+    const uid = this.getCurrentUserId();
     try {
-      const drafts = this.getStoredDraftsList().filter((d) => d.sessionId !== sessionId);
-      localStorage.setItem(LOCAL_STORAGE_KEY_DRAFTS, JSON.stringify(drafts));
+      const draftKey = this.getStorageKeyDrafts(uid || undefined);
+      const drafts = this.getStoredDraftsList(uid || undefined).filter((d) => d.sessionId !== sessionId);
+      localStorage.setItem(draftKey, JSON.stringify(drafts));
 
-      const completed = this.getStoredCompletedList().filter((d) => d.sessionId !== sessionId);
-      localStorage.setItem(LOCAL_STORAGE_KEY_COMPLETED, JSON.stringify(completed));
+      const compKey = this.getStorageKeyCompleted(uid || undefined);
+      const completed = this.getStoredCompletedList(uid || undefined).filter((d) => d.sessionId !== sessionId);
+      localStorage.setItem(compKey, JSON.stringify(completed));
 
       if (this.currentSession()?.sessionId === sessionId) {
         this.currentSession.set(null);
