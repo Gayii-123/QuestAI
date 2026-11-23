@@ -111,7 +111,7 @@
 }
 
 .user-bubble-time {
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   color: var(--q-faint);
   font-weight: 500;
   line-height: 1;
@@ -120,7 +120,7 @@
 .user-bubble-text {
   margin: 0;
   font-size: 16px;
-  line-height: 1.65;
+  line-height: 1.6;
   letter-spacing: -0.01em;
   color: var(--q-text);
   white-space: pre-wrap;
@@ -257,18 +257,19 @@
 
 /* Markdown typography */
 :host ::ng-deep .assistant-text-content .chat-md-heading {
-  font-size: 17.5px;
+  font-size: 17px;
   font-weight: 600;
   color: var(--q-text);
-  margin-top: 1rem;
-  margin-bottom: 0.35rem;
+  margin-top: 1.1rem;
+  margin-bottom: 0.4rem;
   padding-bottom: 0;
   border-bottom: none;
 }
 
 :host ::ng-deep .assistant-text-content .chat-md-paragraph {
-  margin: 0 0 0.65rem 0;
+  margin: 0 0 0.75rem 0;
   color: #1e293b;
+  font-size: 16px;
   line-height: 1.65;
 }
 
@@ -288,12 +289,12 @@
 }
 
 :host ::ng-deep .assistant-text-content .chat-md-num-badge {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background-color: #fee2e2;
   color: #b91c1c;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
@@ -320,14 +321,15 @@
   border-radius: 50%;
   background-color: #dc2626;
   flex-shrink: 0;
-  margin-top: 0.52rem;
+  margin-top: 0.58rem;
 }
 
 :host ::ng-deep .assistant-text-content .chat-md-item-body {
   flex: 1;
   min-width: 0;
   color: #1e293b;
-  line-height: 1.55;
+  font-size: 16px;
+  line-height: 1.6;
 }
 
 :host ::ng-deep .assistant-text-content .chat-md-strong {
@@ -342,7 +344,7 @@
 
 :host ::ng-deep .assistant-text-content .chat-md-code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 0.83rem;
+  font-size: 0.88rem;
   background-color: #f1f5f9;
   color: #b91c1c;
   padding: 1px 5px;

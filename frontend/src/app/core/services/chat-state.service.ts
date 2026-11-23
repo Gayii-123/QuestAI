@@ -4,6 +4,7 @@ import { ConversationalInspectionService } from './conversational-inspection.ser
 import { ChatPersistenceService } from './chat-persistence.service';
 import { ConversationService } from './conversation.service';
 import { AuthService } from './auth.service';
+import { PhotoStorageService } from './photo-storage.service';
 import { ReportService } from './report.service';
 import { InternalAuditService } from '../../features/internal-audit/internal-audit.service';
 import {
@@ -42,6 +43,7 @@ export class ChatStateService {
   private readonly chatPersistence = inject(ChatPersistenceService);
   private readonly conversationService = inject(ConversationService);
   private readonly authService = inject(AuthService);
+  private readonly photoStorage = inject(PhotoStorageService);
   private readonly reportService = inject(ReportService);
   private readonly internalAuditService = inject(InternalAuditService);
 
@@ -427,17 +429,11 @@ export class ChatStateService {
           const remoteMsgs = await this.conversationService.loadConversationMessages(uid, id);
           if (remoteMsgs.length > 0) {
             this.healInternalAuditMessages(remoteMsgs);
-            // Re-hydrate any cached photo data URLs for this session
+            // Re-hydrate photos from local cache or Firebase (Storage / Firestore photo store)
             for (const m of remoteMsgs) {
-              if (m.photos) {
-                for (const p of m.photos) {
-                  if (!p.url && p.id) {
-                    const cached = this.getPhotoUrl(p.id);
-                    if (cached) {
-                      p.url = cached;
-                    }
-                  }
-                }
+              if (m.photos && m.photos.length > 0) {
+                const { photos } = await this.photoStorage.resolvePhotos(uid, m.photos);
+                m.photos = photos;
               }
             }
             conv.messages = remoteMsgs;
@@ -966,6 +962,13 @@ export class ChatStateService {
         };
 
         this.appendMessageToActive(userPhotoMessage);
+        const iaUid = this.conversationService.getCurrentUserId();
+        if (iaUid && currentConv?.id) {
+          void this.photoStorage.uploadPhotos(iaUid, photosToSend).then((uploaded) => {
+            const msgForDb: ChatMessage = { ...userPhotoMessage, photos: uploaded };
+            void this.conversationService.saveMessage(iaUid, currentConv!.id, msgForDb).catch(() => { });
+          });
+        }
         this.composerText.set('');
         this.uploadSiteNotes.set('');
         this.attachedDocument.set(null);
@@ -1074,6 +1077,13 @@ export class ChatStateService {
       };
 
       this.appendMessageToActive(userPhotoMessage);
+      const siteUid = this.conversationService.getCurrentUserId();
+      if (siteUid && currentConv?.id) {
+        void this.photoStorage.uploadPhotos(siteUid, photosToSend).then((uploaded) => {
+          const msgForDb: ChatMessage = { ...userPhotoMessage, photos: uploaded };
+          void this.conversationService.saveMessage(siteUid, currentConv!.id, msgForDb).catch(() => { });
+        });
+      }
       this.composerText.set('');
       this.uploadSiteNotes.set('');
       this.attachedDocument.set(null);

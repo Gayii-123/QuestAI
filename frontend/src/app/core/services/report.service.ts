@@ -12,6 +12,7 @@ import {
 } from 'firebase/firestore';
 import { ApiService } from './api.service';
 import { AuthService } from './auth.service';
+import { PhotoStorageService } from './photo-storage.service';
 import { PdfExportService, InspectionPdfData } from './pdf-export.service';
 import {
   InspectionDraftSummaryViewModel,
@@ -39,6 +40,7 @@ const REPORTS_COLLECTION = 'reports';
 export class ReportService {
   private readonly apiService = inject(ApiService);
   private readonly authService = inject(AuthService);
+  private readonly photoStorage = inject(PhotoStorageService);
   private readonly pdfExportService = inject(PdfExportService);
   private readonly firestore: Firestore = this.authService.firestore;
 
@@ -420,12 +422,10 @@ export class ReportService {
         return true;
       });
 
-      // Persist newly claimed or local reports to Firestore under this user in background
+      // Persist newly claimed or local reports (with Firebase-backed photos) under this user in background
       for (const item of userOnly) {
         if (item.referenceNumber && !remoteReports.some((r) => r.referenceNumber === item.referenceNumber)) {
-          const docRef = this.getReportDoc(uid, item.referenceNumber);
-          const payload = this.serializeReportForFirestore(item, true);
-          void setDoc(docRef, payload, { merge: true }).catch(() => { });
+          void this.persistReportWithPhotosToFirestore(uid, item, true);
         }
       }
 
@@ -436,6 +436,9 @@ export class ReportService {
       });
 
       this.inspectionHistoryList.set(userOnly);
+
+      // Hydrate Firebase photo URLs across devices for all loaded reports
+      void Promise.all(userOnly.map((r) => this.hydrateReportPhotos(uid, r)));
 
       const openRef = this.selectedHistoryRecord()?.referenceNumber;
       if (openRef) {
@@ -568,13 +571,9 @@ export class ReportService {
       }
       localStorage.setItem(key, JSON.stringify(iaList));
 
-      // 2. Persist to Firestore under questai/data/users/{uid}/reports/{referenceNumber}
+      // 2. Persist to Firestore with Firebase-backed photos under questai/data/users/{uid}/reports/{referenceNumber}
       if (uid && record.referenceNumber) {
-        const docRef = this.getReportDoc(uid, record.referenceNumber);
-        const payload = this.serializeReportForFirestore(record, false);
-        void setDoc(docRef, payload, { merge: true }).catch((err) => {
-          console.error('[ReportService] Failed to persist internal audit to Firestore:', err);
-        });
+        void this.persistReportWithPhotosToFirestore(uid, record, false);
       }
 
       // Update in-memory reactive list immediately
@@ -643,13 +642,9 @@ export class ReportService {
       return [report, ...list];
     });
 
-    // 3. Persist to Firestore under new collection: questai/data/users/{uid}/reports/{referenceNumber}
+    // 3. Persist to Firestore with Firebase-backed photos under questai/data/users/{uid}/reports/{referenceNumber}
     if (uid && report.referenceNumber) {
-      const docRef = this.getReportDoc(uid, report.referenceNumber);
-      const payload = this.serializeReportForFirestore(report, true);
-      void setDoc(docRef, payload, { merge: true }).catch((err) => {
-        console.error('[ReportService] Failed to save site inspection to Firestore:', err);
-      });
+      void this.persistReportWithPhotosToFirestore(uid, report, true);
     }
   }
 
@@ -659,6 +654,10 @@ export class ReportService {
       this.recalculateRecordStats(record);
     }
     this.selectedHistoryRecord.set(record ? { ...record } : null);
+    const uid = this.getCurrentUserId();
+    if (uid && record?.photos?.length) {
+      void this.hydrateReportPhotos(uid, record);
+    }
   }
 
   closeHistoryRecord(): void {
@@ -936,17 +935,18 @@ export class ReportService {
     this.inspectionHistoryList.update((list) => {
       const idx = list.findIndex((item) => item.referenceNumber === record.referenceNumber);
       if (idx >= 0) {
-        existing[idx] = record;
-      } else {
-        existing.unshift(record);
+        const next = [...list];
+        next[idx] = record;
+        return next;
       }
+      return [record, ...list];
+    });
 
-      localStorage.setItem(
-        'questai_finalized_inspections',
-        JSON.stringify(existing)
-      );
-      this.loadInspectionHistory();
-    } catch { }
+    // 2. Persist directly to Firestore with Firebase-backed photos under questai/data/users/{uid}/reports/{referenceNumber}
+    const uid = this.getCurrentUserId();
+    if (uid && record.referenceNumber) {
+      void this.persistReportWithPhotosToFirestore(uid, record, !existingRecord);
+    }
 
     // 3. Save to user-scoped local storage
     try {
@@ -963,6 +963,52 @@ export class ReportService {
     } catch { }
   }
 
+  // --- Cross-Device Firebase Photo Helpers ---
+
+  private async persistReportWithPhotosToFirestore(
+    uid: string,
+    record: any,
+    isCreate: boolean
+  ): Promise<void> {
+    if (!uid || !record?.referenceNumber) return;
+    try {
+      const photosToUpload = Array.isArray(record.photos) ? record.photos : [];
+      const uploadedPhotos =
+        photosToUpload.length > 0
+          ? await this.photoStorage.uploadPhotos(uid, photosToUpload)
+          : [];
+      const recordForFirestore = {
+        ...record,
+        photos: uploadedPhotos,
+        photoCount: uploadedPhotos.length,
+      };
+      const docRef = this.getReportDoc(uid, record.referenceNumber);
+      const payload = this.serializeReportForFirestore(recordForFirestore, isCreate);
+      await setDoc(docRef, payload, { merge: true });
+    } catch (err) {
+      console.error('[ReportService] Failed to persist report & photos to Firestore:', err);
+      this.reportSyncError.set('Failed to save report to Firebase.');
+    }
+  }
+
+  private async hydrateReportPhotos(uid: string, record: any): Promise<void> {
+    if (!uid || !record?.photos?.length) return;
+    const { photos, changed } = await this.photoStorage.resolvePhotos(uid, record.photos);
+    if (!changed) return;
+
+    record.photos = photos;
+    this.inspectionHistoryList.update((list) =>
+      list.map((item) =>
+        item.referenceNumber === record.referenceNumber
+          ? { ...item, photos: [...photos] }
+          : item
+      )
+    );
+    if (this.selectedHistoryRecord()?.referenceNumber === record.referenceNumber) {
+      this.selectedHistoryRecord.set({ ...record, photos: [...photos] });
+    }
+  }
+
   // --- Firestore Serialization & Deserialization ---
 
   private serializeReportForFirestore(
@@ -976,7 +1022,12 @@ export class ReportService {
         name: String(p?.name || 'photograph.jpg'),
         size: typeof p?.size === 'number' ? p.size : 0,
         timestamp: String(p?.timestamp || new Date().toISOString()),
-        url: p?.url && typeof p.url === 'string' && !p.url.startsWith('data:') ? p.url : '',
+        url:
+          p?.url &&
+            typeof p.url === 'string' &&
+            !p.url.startsWith('data:')
+            ? p.url
+            : '',
       }))
       : [];
 

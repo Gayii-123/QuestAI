@@ -1,61 +1,125 @@
 <div class="draft-summary-card" *ngIf="summary">
-  <!-- Header -->
-  <div class="summary-card-header">
-    <div class="summary-badge-group">
-      <span class="summary-badge">Inspection Completed</span>
-      <span class="summary-ref">{{ summary.referenceNumber }}</span>
+  <!-- Top Meta Strip -->
+  <div class="summary-top-bar">
+    <div class="summary-meta-left">
+      <span class="status-badge" [class.badge-pass]="isCompliant" [class.badge-car]="!isCompliant">
+        <svg *ngIf="isCompliant" class="badge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+        <svg *ngIf="!isCompliant" class="badge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <span>Inspection Completed</span>
+      </span>
+
+      <span class="ref-badge" [title]="'Reference: ' + displayReference">
+        <svg class="ref-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+        </svg>
+        <span>{{ displayReference }}</span>
+      </span>
     </div>
-    <span class="summary-time">{{ summary.generatedAt | date:'shortTime' }}</span>
+
+    <div class="summary-meta-right">
+      <div class="score-pill" [class.score-pass]="complianceScore >= 80" [class.score-warning]="complianceScore < 80">
+        <span class="score-label">Compliance</span>
+        <span class="score-val">{{ complianceScore }}%</span>
+      </div>
+      <span class="summary-timestamp">{{ summary.generatedAt | date:'shortTime' }}</span>
+    </div>
   </div>
 
-  <h3 class="summary-title">{{ summary.bankName }} Assessment</h3>
-  <p class="summary-subtitle">All checklist questions have been evaluated and recorded. You can download the official report or review details.</p>
+  <!-- Hero Title Section -->
+  <div class="summary-hero">
+    <div class="hero-icon-box">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="hero-icon">
+        <path d="M9 11l3 3L22 4"></path>
+        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+      </svg>
+    </div>
+    <div class="hero-content">
+      <h3 class="hero-title">{{ summary.bankName }} Assessment</h3>
+      <p class="hero-subtitle">
+        All {{ summary.totalApplicable }} checklist questions evaluated and recorded. You can download the official report or review details.
+      </p>
+    </div>
+  </div>
 
-  <!-- Metric Badges Row -->
+  <!-- Metric Stat Cards Grid -->
   <div class="summary-metrics-grid">
     <div class="metric-card metric-pass">
-      <span class="metric-num">{{ summary.passCount }}</span>
+      <div class="metric-top">
+        <span class="metric-num">{{ summary.passCount }}</span>
+        <span class="metric-indicator-dot dot-pass"></span>
+      </div>
       <span class="metric-lbl">Pass / Compliant</span>
     </div>
+
     <div class="metric-card metric-car" [class.has-car]="summary.carCount > 0">
-      <span class="metric-num">{{ summary.carCount }}</span>
+      <div class="metric-top">
+        <span class="metric-num">{{ summary.carCount }}</span>
+        <span class="metric-indicator-dot dot-car" *ngIf="summary.carCount > 0"></span>
+      </div>
       <span class="metric-lbl">Defects (CAR)</span>
     </div>
+
     <div class="metric-card metric-na">
-      <span class="metric-num">{{ summary.naCount }}</span>
+      <div class="metric-top">
+        <span class="metric-num">{{ summary.naCount }}</span>
+        <span class="metric-indicator-dot dot-na"></span>
+      </div>
       <span class="metric-lbl">Not Applicable</span>
     </div>
+
     <div class="metric-card metric-total">
-      <span class="metric-num">{{ summary.totalApplicable }}</span>
+      <div class="metric-top">
+        <span class="metric-num">{{ summary.totalApplicable }}</span>
+        <span class="metric-indicator-dot dot-total"></span>
+      </div>
       <span class="metric-lbl">Total Checks</span>
     </div>
   </div>
 
-  <!-- Attention notice if human verification needed or defects present -->
-  <div class="summary-notice-box" *ngIf="summary.carCount > 0 || summary.needsVerificationCount > 0">
-    <svg class="notice-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <circle cx="12" cy="12" r="10"></circle>
-      <line x1="12" y1="8" x2="12" y2="12"></line>
-      <line x1="12" y1="16" x2="12.01" y2="16"></line>
-    </svg>
+  <!-- Notice / Remediation Box -->
+  <div class="summary-notice-box" [class.notice-car]="summary.carCount > 0" [class.notice-pass]="summary.carCount === 0">
+    <div class="notice-icon-wrap">
+      <svg *ngIf="summary.carCount > 0" class="notice-icon icon-car" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+        <line x1="12" y1="9" x2="12" y2="13"></line>
+        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+      </svg>
+      <svg *ngIf="summary.carCount === 0" class="notice-icon icon-pass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+        <polyline points="9 12 11 14 15 10"></polyline>
+      </svg>
+    </div>
     <div class="notice-text">
-      <span *ngIf="summary.carCount > 0"><strong>{{ summary.carCount }} Corrective Action(s) Required:</strong> Remediations recorded. </span>
-      <span *ngIf="summary.needsVerificationCount > 0">{{ summary.needsVerificationCount }} item(s) checked with site inspector.</span>
+      <div class="notice-heading" *ngIf="summary.carCount > 0">
+        {{ summary.carCount }} Corrective Action{{ summary.carCount > 1 ? 's' : '' }} Required (CAR)
+      </div>
+      <div class="notice-heading" *ngIf="summary.carCount === 0">
+        Full Compliance Confirmed
+      </div>
+      <div class="notice-detail">
+        <span *ngIf="summary.carCount > 0">
+          Remediation action plan recorded for site manager sign-off.
+        </span>
+        <span *ngIf="summary.carCount === 0">
+          Zero safety defects identified. All evaluated site criteria satisfy compliance standards.
+        </span>
+        <span *ngIf="summary.needsVerificationCount > 0">
+          &bull; {{ summary.needsVerificationCount }} item(s) physically checked with site inspector.
+        </span>
+      </div>
     </div>
   </div>
 
   <!-- Action Buttons Footer -->
   <div class="summary-card-footer">
-    <button type="button" class="btn-download-pdf" (click)="onDownloadPdfClick()">
-      <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-        <polyline points="7 10 12 15 17 10"></polyline>
-        <line x1="12" y1="15" x2="12" y2="3"></line>
-      </svg>
-      <span>Download PDF Report</span>
-    </button>
-
-    <button type="button" class="btn-review-draft" (click)="onReviewClick()">
+    <button type="button" class="btn-review-draft" (click)="onReviewClick()" title="Open detailed inspection review drawer">
       <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
         <polyline points="14 2 14 8 20 8"></polyline>
@@ -63,6 +127,15 @@
         <line x1="16" y1="17" x2="8" y2="17"></line>
       </svg>
       <span>Review Details</span>
+    </button>
+
+    <button type="button" class="btn-download-pdf" (click)="onDownloadPdfClick()" title="Download official Site Inspection PDF report">
+      <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="7 10 12 15 17 10"></polyline>
+        <line x1="12" y1="15" x2="12" y2="3"></line>
+      </svg>
+      <span>Download PDF Report</span>
     </button>
   </div>
 </div>
