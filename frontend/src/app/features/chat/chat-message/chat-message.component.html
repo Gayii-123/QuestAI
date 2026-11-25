@@ -258,213 +258,225 @@
         </div>
       </div>
 
-      <!-- SSRA Domain Selector Chips (Active 14 Domains) -->
-      <div *ngIf="msg.showSsraDomainSelector && !msg.isError" class="ssra-domain-selector-wrap">
-        <div class="ssra-section-header">
-          <span class="ssra-section-badge">SELECT OPERATIONAL DOMAIN</span>
-          <span class="ssra-section-count">14 Active Departments</span>
+            <!-- ================= SSRA CHAT CARDS ================= -->
+
+      <!-- SSRA Domain Selector -->
+      <div *ngIf="msg.showSsraDomainSelector && !msg.isError" class="sx-card sx-domain-card">
+        <div class="sx-head">
+          <div class="sx-head-icon sx-ic-blue">🛡️</div>
+          <div class="sx-head-text">
+            <span class="sx-eyebrow">Step 1 · Operational Domain</span>
+            <span class="sx-title">What type of work are you assessing?</span>
+          </div>
+          <span class="sx-chip sx-chip-muted">14 domains</span>
         </div>
-        <div class="ssra-domain-grid">
-          <button *ngFor="let domain of activeSsraDomains" type="button" class="ssra-domain-card"
-            [class.selected]="msg.selectedSsraDomainKey === domain.key"
-            (click)="onSelectSsraDomain(domain.key)">
-            <div class="domain-card-icon">{{ domain.icon }}</div>
-            <div class="domain-card-info">
-              <span class="domain-card-title">{{ domain.title }}</span>
-              <span class="domain-card-dept">{{ domain.department }}</span>
-            </div>
+        <div class="sx-domain-grid">
+          <button *ngFor="let domain of activeSsraDomains" type="button" class="sx-domain"
+            [class.is-selected]="msg.selectedSsraDomainKey === domain.key"
+            [disabled]="!!msg.selectedSsraDomainKey" (click)="onSelectSsraDomain(domain.key)">
+            <span class="sx-domain-dot"></span>
+            <span class="sx-domain-info">
+              <span class="sx-domain-title">{{ domain.title }}</span>
+              <span class="sx-domain-dept">{{ domain.department }}</span>
+            </span>
+            <svg *ngIf="msg.selectedSsraDomainKey === domain.key" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="3" class="sx-domain-check"><polyline points="20 6 9 17 4 12"></polyline></svg>
           </button>
         </div>
       </div>
 
-      <!-- SSRA Point-of-Work Question Card -->
-      <div *ngIf="msg.ssraQuestion && !msg.isError" class="ssra-question-card">
-        <div class="ssra-card-header">
-          <div class="ssra-header-meta">
-            <span class="ssra-pill domain-pill">{{ msg.ssraQuestion.domainTitle }}</span>
-            <span class="ssra-pill qnum-pill">Check {{ msg.ssraQuestion.questionNumber }} of {{ msg.ssraQuestion.totalQuestions }}</span>
-            <span *ngIf="msg.ssraQuestion.triggersHotWorks" class="ssra-pill hw-trigger-pill">🔥 Hot Works Trigger</span>
+      <!-- SSRA Site Details Form -->
+      <div *ngIf="msg.ssraSiteForm && !msg.isError" class="sx-card sx-form-card" [class.is-locked]="msg.ssraSiteForm.submitted">
+        <div class="sx-head">
+          <div class="sx-head-icon sx-ic-teal">📍</div>
+          <div class="sx-head-text">
+            <span class="sx-eyebrow">Step 2 · Site Details</span>
+            <span class="sx-title">{{ msg.ssraSiteForm.domainTitle }}</span>
+          </div>
+          <span *ngIf="msg.ssraSiteForm.submitted" class="sx-chip sx-chip-ok">✓ Saved</span>
+        </div>
+
+        <div class="sx-form-grid">
+          <label class="sx-field">
+            <span class="sx-label">Job Number</span>
+            <input type="text" class="sx-input" [(ngModel)]="sf.jobno" [disabled]="!!msg.ssraSiteForm.submitted"
+              placeholder="e.g. JOB-1042" />
+          </label>
+          <label class="sx-field">
+            <span class="sx-label">Contract / Client <em>(optional)</em></span>
+            <input type="text" class="sx-input" [(ngModel)]="sf.contractName" [disabled]="!!msg.ssraSiteForm.submitted"
+              placeholder="e.g. Highways Safety Framework" />
+          </label>
+          <label class="sx-field sx-span-2">
+            <span class="sx-label">Site Location <b>*</b></span>
+            <input type="text" class="sx-input" [(ngModel)]="sf.location" [disabled]="!!msg.ssraSiteForm.submitted"
+              placeholder="Street / road, town or postcode" />
+          </label>
+        </div>
+
+        <div class="sx-field">
+          <span class="sx-label">Weather Conditions</span>
+          <div class="sx-weather-row">
+            <button *ngFor="let w of weatherOptions" type="button" class="sx-weather"
+              [class.is-active]="sf.weather === w.value" [disabled]="!!msg.ssraSiteForm.submitted"
+              (click)="sf.weather = w.value">
+              <span class="sx-weather-emoji">{{ w.icon }}</span>
+              <span>{{ w.label }}</span>
+            </button>
           </div>
         </div>
 
-        <div class="ssra-question-body">
-          <h4 class="ssra-question-text">{{ msg.ssraQuestion.text }}</h4>
-          
-          <div *ngIf="msg.ssraQuestion.roText" class="ssra-ro-box">
-            <span class="ssra-ro-flag">🇷🇴</span>
-            <span class="ssra-ro-text">{{ msg.ssraQuestion.roText }}</span>
+        <div class="sx-field" *ngIf="!msg.ssraSiteForm.submitted">
+          <span class="sx-label">Pre-work Photos <em>(optional)</em></span>
+          <input #ssraPhotoInput type="file" multiple accept="image/*,.heic,.heif" style="display:none"
+            (change)="onDirectPhotosSelected($event)" />
+          <div class="sx-photo-zone" (click)="ssraPhotoInput.click()" (dragover)="onDirectPhotoDragOver($event)"
+            (drop)="onDirectPhotoDrop($event)">
+            <span class="sx-photo-icon">📷</span>
+            <span class="sx-photo-text"><b>Add site photos</b> — click or drop images</span>
           </div>
-
-          <div *ngIf="msg.ssraQuestion.cm" class="ssra-cm-box">
-            <div class="ssra-cm-label">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="cm-icon">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-              </svg>
-              <span>Safe Working Control Measure:</span>
+          <div class="sx-thumb-row" *ngIf="chatState.uploadedPhotos().length > 0">
+            <div class="sx-thumb" *ngFor="let p of chatState.uploadedPhotos(); let i = index">
+              <img [src]="p.url" [alt]="p.name" />
+              <button type="button" class="sx-thumb-x" (click)="chatState.removeUploadedPhoto(i)">×</button>
             </div>
-            <p class="ssra-cm-text">{{ msg.ssraQuestion.cm }}</p>
           </div>
         </div>
 
-        <!-- Answers row -->
-        <div class="ssra-action-row" *ngIf="!msg.ssraQuestion.currentValue">
-          <button type="button" class="btn-ssra-choice choice-yes" (click)="onAnswerSsraQuestion(msg.ssraQuestion.id, 'Yes')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="choice-icon">
-              <polyline points="20 6 9 17 4 12"></polyline>
+        <div class="sx-form-footer" *ngIf="!msg.ssraSiteForm.submitted">
+          <span class="sx-hint" *ngIf="!canSubmitSiteForm()">Location is required to continue</span>
+          <button type="button" class="sx-btn sx-btn-primary" [disabled]="!canSubmitSiteForm()"
+            (click)="submitSiteForm()">
+            Start Safety Checks
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="sx-btn-ic">
+              <line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline>
             </svg>
-            <span>Yes</span>
           </button>
-          <button type="button" class="btn-ssra-choice choice-no" (click)="onAnswerSsraQuestion(msg.ssraQuestion.id, 'No')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="choice-icon">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-            <span>No</span>
-          </button>
-          <button type="button" class="btn-ssra-choice choice-na" (click)="onAnswerSsraQuestion(msg.ssraQuestion.id, 'N/A')">
-            <span>N/A</span>
-          </button>
-          <button type="button" class="btn-ssra-toggle-note" (click)="toggleNoteInput(msg.ssraQuestion.id)">
-            <span>{{ showNoteInput[msg.ssraQuestion.id] ? 'Hide Note' : '+ Note' }}</span>
-          </button>
-        </div>
-
-        <!-- Optional note textarea if toggled -->
-        <div *ngIf="showNoteInput[msg.ssraQuestion.id] && !msg.ssraQuestion.currentValue" class="ssra-note-input-wrap">
-          <input type="text" [(ngModel)]="questionNotes[msg.ssraQuestion.id]" placeholder="Add site observations or control comments..." class="ssra-note-field" />
-        </div>
-
-        <!-- Already answered indicator -->
-        <div *ngIf="msg.ssraQuestion.currentValue" class="ssra-answered-badge">
-          <span>Answered: <strong>{{ msg.ssraQuestion.currentValue }}</strong></span>
-          <span *ngIf="msg.ssraQuestion.notes" class="answered-notes"> — {{ msg.ssraQuestion.notes }}</span>
         </div>
       </div>
 
-      <!-- SSRA Hot Works Pre-Work Verification Card -->
-      <div *ngIf="msg.ssraHotWorksCheck && !msg.isError" class="ssra-hw-card">
-        <div class="ssra-hw-header">
-          <div class="ssra-hw-badge-row">
-            <span class="ssra-pill hw-fire-pill">🔥 HOT WORKS SAFETY CHECK</span>
-            <span class="ssra-pill hw-num-pill">Check {{ msg.ssraHotWorksCheck.checkNumber }} of {{ msg.ssraHotWorksCheck.totalChecks }}</span>
+      <!-- SSRA Point-of-Work Question -->
+      <div *ngIf="msg.ssraQuestion && !msg.isError" class="sx-card sx-q-card" [class.is-locked]="msg.ssraQuestion.answered">
+        <div class="sx-progress">
+          <div class="sx-progress-bar"
+            [style.width.%]="(msg.ssraQuestion.questionNumber / msg.ssraQuestion.totalQuestions) * 100"></div>
+        </div>
+        <div class="sx-q-meta">
+          <span class="sx-chip sx-chip-blue">Check {{ msg.ssraQuestion.questionNumber }} / {{ msg.ssraQuestion.totalQuestions }}</span>
+          <span class="sx-chip sx-chip-muted">{{ msg.ssraQuestion.domainTitle }}</span>
+          <span *ngIf="msg.ssraQuestion.triggersHotWorks" class="sx-chip sx-chip-warn">🔥 Hot Works trigger</span>
+        </div>
+
+        <h4 class="sx-q-text">{{ msg.ssraQuestion.text }}</h4>
+
+        <div *ngIf="msg.ssraQuestion.roText" class="sx-ro">
+          <span class="sx-ro-tag">RO</span>
+          <span>{{ msg.ssraQuestion.roText }}</span>
+        </div>
+
+        <div *ngIf="msg.ssraQuestion.cm" class="sx-cm">
+          <div class="sx-cm-label">🛡️ Safe working control measure</div>
+          <p>{{ msg.ssraQuestion.cm }}</p>
+        </div>
+
+        <div class="sx-answers" *ngIf="!msg.ssraQuestion.answered">
+          <button type="button" class="sx-ans sx-ans-yes" (click)="onAnswerSsraQuestion(msg.ssraQuestion.id, 'Yes')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>Yes
+          </button>
+          <button type="button" class="sx-ans sx-ans-no" (click)="onAnswerSsraQuestion(msg.ssraQuestion.id, 'No')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>No
+          </button>
+          <button type="button" class="sx-ans sx-ans-na" (click)="onAnswerSsraQuestion(msg.ssraQuestion.id, 'N/A')">N/A</button>
+          <button type="button" class="sx-link" (click)="toggleNoteInput(msg.ssraQuestion.id)">
+            {{ showNoteInput[msg.ssraQuestion.id] ? 'Hide note' : '+ Add note' }}
+          </button>
+        </div>
+        <input *ngIf="showNoteInput[msg.ssraQuestion.id] && !msg.ssraQuestion.answered" type="text" class="sx-input sx-note"
+          [(ngModel)]="questionNotes[msg.ssraQuestion.id]" placeholder="Add site observation or comment…" />
+
+        <div *ngIf="msg.ssraQuestion.answered" class="sx-answered"
+          [class.is-no]="msg.ssraQuestion.currentValue === 'No'">
+          Answered: <b>{{ msg.ssraQuestion.currentValue }}</b>
+          <span *ngIf="msg.ssraQuestion.notes"> — {{ msg.ssraQuestion.notes }}</span>
+        </div>
+      </div>
+
+      <!-- SSRA Hot Works Check -->
+      <div *ngIf="msg.ssraHotWorksCheck && !msg.isError" class="sx-card sx-hw-card" [class.is-locked]="msg.ssraHotWorksCheck.answered">
+        <div class="sx-head">
+          <div class="sx-head-icon sx-ic-orange">🔥</div>
+          <div class="sx-head-text">
+            <span class="sx-eyebrow">Hot Works Pre-Check · {{ msg.ssraHotWorksCheck.checkNumber }} / {{ msg.ssraHotWorksCheck.totalChecks }}</span>
+            <span class="sx-title">{{ msg.ssraHotWorksCheck.title }}</span>
           </div>
-          <span class="ssra-hw-code">[{{ msg.ssraHotWorksCheck.checkId }}]</span>
+          <span class="sx-chip sx-chip-warn">{{ msg.ssraHotWorksCheck.checkId }}</span>
         </div>
-
-        <div class="ssra-hw-body">
-          <h4 class="ssra-hw-title">{{ msg.ssraHotWorksCheck.title }}</h4>
-          <p class="ssra-hw-desc">{{ msg.ssraHotWorksCheck.description }}</p>
+        <p class="sx-hw-desc">{{ msg.ssraHotWorksCheck.description }}</p>
+        <div class="sx-answers" *ngIf="!msg.ssraHotWorksCheck.answered">
+          <button type="button" class="sx-ans sx-ans-yes" (click)="onAnswerSsraHotWorks(msg.ssraHotWorksCheck.checkId, 'Pass')">Pass</button>
+          <button type="button" class="sx-ans sx-ans-no" (click)="onAnswerSsraHotWorks(msg.ssraHotWorksCheck.checkId, 'Fail')">Fail</button>
+          <button type="button" class="sx-ans sx-ans-na" (click)="onAnswerSsraHotWorks(msg.ssraHotWorksCheck.checkId, 'N/A')">N/A</button>
         </div>
-
-        <div class="ssra-action-row">
-          <button type="button" class="btn-ssra-choice choice-pass" (click)="onAnswerSsraHotWorks(msg.ssraHotWorksCheck.checkId, 'Pass')">
-            <span>Pass ✅</span>
-          </button>
-          <button type="button" class="btn-ssra-choice choice-fail" (click)="onAnswerSsraHotWorks(msg.ssraHotWorksCheck.checkId, 'Fail')">
-            <span>Fail ❌</span>
-          </button>
-          <button type="button" class="btn-ssra-choice choice-na" (click)="onAnswerSsraHotWorks(msg.ssraHotWorksCheck.checkId, 'N/A')">
-            <span>N/A</span>
-          </button>
+        <div *ngIf="msg.ssraHotWorksCheck.answered" class="sx-answered" [class.is-no]="msg.ssraHotWorksCheck.status === 'Fail'">
+          Result: <b>{{ msg.ssraHotWorksCheck.status }}</b>
         </div>
       </div>
 
-      <!-- SSRA Operative Briefing Confirmation Card -->
-      <div *ngIf="msg.ssraOperativesPrompt && !msg.isError" class="ssra-operatives-card">
-        <div class="ssra-operatives-header">
-          <span class="ssra-pill operatives-pill">👷 SITE OPERATIVES BRIEFING</span>
-          <span class="ssra-briefing-sub">Point-of-Work Controls Induction</span>
+      <!-- SSRA Operatives Briefing -->
+      <div *ngIf="msg.ssraOperativesPrompt && !msg.isError" class="sx-card sx-op-card" [class.is-locked]="msg.ssraOperativesPrompt.confirmed">
+        <div class="sx-head">
+          <div class="sx-head-icon sx-ic-indigo">👷</div>
+          <div class="sx-head-text">
+            <span class="sx-eyebrow">Final Step · Sign-off</span>
+            <span class="sx-title">Operatives briefing</span>
+          </div>
+          <span class="sx-chip sx-chip-muted">{{ msg.ssraOperativesPrompt.operatives.length }} on site</span>
         </div>
-
-        <div class="ssra-operatives-list">
-          <div *ngFor="let op of msg.ssraOperativesPrompt.operatives" class="ssra-op-item">
-            <div class="op-avatar-circle">{{ op.name.charAt(0) }}</div>
-            <div class="op-info">
-              <span class="op-name">{{ op.name }}</span>
-              <span class="op-role">{{ op.role }}</span>
-            </div>
-            <span class="op-status-pill">
-              {{ op.signed ? 'Signed & Briefed ✅' : 'Present' }}
+        <div class="sx-op-list">
+          <div *ngFor="let op of msg.ssraOperativesPrompt.operatives" class="sx-op">
+            <span class="sx-op-avatar">{{ op.name.charAt(0) }}</span>
+            <span class="sx-op-info"><b>{{ op.name }}</b><small>{{ op.role }}</small></span>
+            <span class="sx-chip" [class.sx-chip-ok]="op.signed" [class.sx-chip-muted]="!op.signed">
+              {{ op.signed ? '✓ Signed' : 'Present' }}
             </span>
           </div>
         </div>
+        <button *ngIf="!msg.ssraOperativesPrompt.confirmed" type="button" class="sx-btn sx-btn-primary sx-btn-block"
+          (click)="onConfirmSsraOperatives()">Confirm briefing &amp; complete assessment</button>
+        <div *ngIf="msg.ssraOperativesPrompt.confirmed" class="sx-answered">Briefing confirmed</div>
+      </div>
 
-        <div class="ssra-operatives-footer">
-          <button type="button" class="btn-ssra-confirm-briefing" (click)="onConfirmSsraOperatives()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-              <polyline points="22 4 12 14.01 9 11.01"></polyline>
-            </svg>
-            <span>Confirm Briefing &amp; Sign-Off Assessment</span>
-          </button>
+      <!-- Finalized SSRA Report -->
+      <div *ngIf="msg.ssraResult" class="sx-card sx-result">
+        <div class="sx-result-hero">
+          <div class="sx-result-top">
+            <span class="sx-result-badge">SITE SPECIFIC RISK ASSESSMENT</span>
+            <span class="sx-result-status"><i></i>Level 1 · Pre-Start Validated</span>
+          </div>
+          <div class="sx-result-ref">{{ msg.ssraResult.refno }}</div>
+          <div class="sx-result-domain">{{ msg.ssraResult.domainTitle }}</div>
+        </div>
+
+        <div class="sx-stats">
+          <div class="sx-stat"><b>{{ msg.ssraResult.answers.length }}</b><span>Checks verified</span></div>
+          <div class="sx-stat"><b>{{ msg.ssraResult.operatives.length }}</b><span>Operatives signed</span></div>
+          <div class="sx-stat"><b>{{ msg.ssraResult.hotWorks?.applicable ? 'Yes' : 'N/A' }}</b><span>Hot works</span></div>
+        </div>
+
+        <div class="sx-facts">
+          <div class="sx-fact"><span>📍 Location</span><b>{{ msg.ssraResult.siteInformation.location }}</b></div>
+          <div class="sx-fact"><span>🧾 Job No.</span><b>{{ msg.ssraResult.siteInformation.jobno }}</b></div>
+          <div class="sx-fact"><span>🌤️ Weather</span><b>{{ msg.ssraResult.siteInformation.weather }}</b></div>
+        </div>
+
+        <div class="sx-result-actions">
+          <button type="button" class="sx-btn sx-btn-primary" (click)="openSsraDetail(msg.ssraResult.id)">View full assessment</button>
+          <button type="button" class="sx-btn sx-btn-ghost" (click)="downloadSsraPdf(msg.ssraResult)">Download PDF</button>
+          <button type="button" class="sx-btn sx-btn-ghost" (click)="viewSsraInReports()">My Reports</button>
         </div>
       </div>
 
-      <!-- Finalized SSRA Result Card -->
-      <div *ngIf="msg.ssraResult" class="chat-ssra-result-card">
-        <div class="chat-ssra-card-header">
-          <div class="chat-ssra-title-row">
-            <div class="chat-ssra-badge">SITE SPECIFIC RISK ASSESSMENT (SSRA)</div>
-            <div class="chat-ssra-ref-badge">{{ msg.ssraResult.refno }}</div>
-          </div>
-          <div class="chat-ssra-status-pill">
-            <span class="status-dot"></span>
-            <span>Level 1 — Pre-Start Validated</span>
-          </div>
-        </div>
-
-        <div class="chat-ssra-details-grid">
-          <div class="ssra-detail-box">
-            <span class="detail-label">Domain</span>
-            <span class="detail-value">{{ msg.ssraResult.domainTitle }}</span>
-          </div>
-          <div class="ssra-detail-box">
-            <span class="detail-label">Location</span>
-            <span class="detail-value">{{ msg.ssraResult.siteInformation.location }}</span>
-          </div>
-          <div class="ssra-detail-box">
-            <span class="detail-label">Job Number</span>
-            <span class="detail-value">{{ msg.ssraResult.siteInformation.jobno }}</span>
-          </div>
-          <div class="ssra-detail-box">
-            <span class="detail-label">Weather</span>
-            <span class="detail-value">{{ msg.ssraResult.siteInformation.weather }}</span>
-          </div>
-          <div class="ssra-detail-box">
-            <span class="detail-label">Checks Completed</span>
-            <span class="detail-value">{{ msg.ssraResult.answers.length }} Controls Verified</span>
-          </div>
-          <div class="ssra-detail-box">
-            <span class="detail-label">Hot Works</span>
-            <span class="detail-value">{{ msg.ssraResult.hotWorks?.applicable ? '🔥 4 Checks Passed' : 'Not Applicable' }}</span>
-          </div>
-        </div>
-
-        <div class="chat-ssra-card-footer">
-          <button type="button" class="btn-ssra-action primary" (click)="openSsraDetail(msg.ssraResult.id)">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-              <circle cx="12" cy="12" r="3"></circle>
-            </svg>
-            <span>View Full Assessment</span>
-          </button>
-          <button type="button" class="btn-ssra-action secondary" (click)="downloadSsraPdf(msg.ssraResult)" title="Download PDF Report">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" class="btn-icon">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-              <polyline points="7 10 12 15 17 10"></polyline>
-              <line x1="12" y1="15" x2="12" y2="3"></line>
-            </svg>
-            <span>Download PDF</span>
-          </button>
-          <button type="button" class="btn-ssra-action secondary" (click)="viewSsraInReports()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-            </svg>
-            <span>My Reports</span>
-          </button>
-        </div>
-      </div>
+      <!-- ================= END SSRA ================= -->
 
       <!-- Retry action if message failed -->
       <div *ngIf="msg.isError && msg.retryPrompt" class="message-retry-row">

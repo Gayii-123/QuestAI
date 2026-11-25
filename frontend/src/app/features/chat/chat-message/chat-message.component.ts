@@ -289,6 +289,37 @@ export class ChatMessageComponent {
   showNoteInput: Record<string, boolean> = {};
   questionNotes: Record<string, string> = {};
 
+  readonly weatherOptions: { value: 'DRY' | 'WET' | 'ICY' | 'FOG'; label: string; icon: string }[] = [
+    { value: 'DRY', label: 'Dry', icon: '☀️' },
+    { value: 'WET', label: 'Wet', icon: '🌧️' },
+    { value: 'ICY', label: 'Icy', icon: '❄️' },
+    { value: 'FOG', label: 'Fog', icon: '🌫️' },
+  ];
+
+  private _sf: { jobno: string; location: string; contractName: string; weather: 'DRY' | 'WET' | 'ICY' | 'FOG' } | null = null;
+
+  get sf() {
+    if (!this._sf) {
+      const f = this.msg.ssraSiteForm;
+      this._sf = {
+        jobno: f?.jobno ?? f?.defaultJobno ?? '',
+        location: f?.location ?? '',
+        contractName: f?.defaultContract ?? '',
+        weather: ((f?.weather as any) || 'DRY'),
+      };
+    }
+    return this._sf;
+  }
+
+  canSubmitSiteForm(): boolean {
+    return this.sf.location.trim().length >= 2;
+  }
+
+  submitSiteForm(): void {
+    if (!this.canSubmitSiteForm() || this.msg.ssraSiteForm?.submitted) return;
+    this.chatState.onSubmitSsraSiteForm({ ...this.sf });
+  }
+
   toggleNoteInput(questionId: string): void {
     this.showNoteInput[questionId] = !this.showNoteInput[questionId];
   }

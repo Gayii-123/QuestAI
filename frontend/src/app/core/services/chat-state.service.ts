@@ -1970,9 +1970,64 @@ export class ChatStateService {
     }
   }
 
+  private markSsraCardAnswered(match: (m: ChatMessage) => boolean, apply: (m: ChatMessage) => void): void {
+    const conv = this.activeConversation();
+    if (!conv?.messages) return;
+    for (let i = conv.messages.length - 1; i >= 0; i--) {
+      if (match(conv.messages[i])) {
+        apply(conv.messages[i]);
+        break;
+      }
+    }
+    this.conversations.update((list) => [...list]);
+  }
+
+  onSubmitSsraSiteForm(form: {
+    jobno: string;
+    location: string;
+    weather: 'DRY' | 'WET' | 'ICY' | 'FOG';
+    contractName?: string;
+  }): void {
+    const conv = this.activeConversation();
+    if (!conv) return;
+
+    this.markSsraCardAnswered(
+      (m) => !!m.ssraSiteForm && !m.ssraSiteForm.submitted,
+      (m) => {
+        m.ssraSiteForm = { ...m.ssraSiteForm!, submitted: true, ...form };
+      }
+    );
+
+    const photos = this.uploadedPhotos().map((p, idx) => ({
+      id: p.id || `ev-photo-${Date.now()}-${idx}`,
+      name: p.name || `Site Photo ${idx + 1}`,
+      url: p.url,
+      category: 'pre-work',
+    }));
+    const userMsg: ChatMessage = {
+      id: 'msg-' + Date.now(),
+      sender: 'user',
+      content: `Site details — Job: ${form.jobno || '—'} • Location: ${form.location} • Weather: ${form.weather}`,
+      timestamp: new Date(),
+      photos: this.uploadedPhotos().map((p) => ({ ...p })),
+    };
+    this.appendMessageToActive(userMsg);
+    this.uploadedPhotos.set([]);
+
+    const { message } = this.conversationalSsra.submitSiteForm(conv.id, form, photos);
+    this.appendMessageToActive(message);
+  }
+
   onSelectSsraDomain(domainKey: string, messageId?: string): void {
     const conv = this.activeConversation();
     if (!conv) return;
+
+    this.markSsraCardAnswered(
+      (m) => m.id === messageId || !!m.showSsraDomainSelector,
+      (m) => {
+        m.selectedSsraDomainKey = domainKey;
+      }
+    );
 
     conv.isSsra = true;
     const domainInfo = getSsraTypeByKey(domainKey);
@@ -2006,6 +2061,13 @@ export class ChatStateService {
     const conv = this.activeConversation();
     if (!conv) return;
 
+    this.markSsraCardAnswered(
+      (m) => m.ssraQuestion?.id === questionId && !m.ssraQuestion.answered,
+      (m) => {
+        m.ssraQuestion = { ...m.ssraQuestion!, answered: true, currentValue: value, notes };
+      }
+    );
+
     const userMsg: ChatMessage = {
       id: 'msg-' + Date.now(),
       sender: 'user',
@@ -2022,6 +2084,13 @@ export class ChatStateService {
     const conv = this.activeConversation();
     if (!conv) return;
 
+    this.markSsraCardAnswered(
+      (m) => m.ssraHotWorksCheck?.checkId === checkId && !m.ssraHotWorksCheck.answered,
+      (m) => {
+        m.ssraHotWorksCheck = { ...m.ssraHotWorksCheck!, answered: true, status };
+      }
+    );
+
     const userMsg: ChatMessage = {
       id: 'msg-' + Date.now(),
       sender: 'user',
@@ -2037,6 +2106,13 @@ export class ChatStateService {
   onConfirmSsraOperatives(gangNames?: string[]): void {
     const conv = this.activeConversation();
     if (!conv) return;
+
+    this.markSsraCardAnswered(
+      (m) => !!m.ssraOperativesPrompt && !m.ssraOperativesPrompt.confirmed,
+      (m) => {
+        m.ssraOperativesPrompt = { ...m.ssraOperativesPrompt!, confirmed: true };
+      }
+    );
 
     const userMsg: ChatMessage = {
       id: 'msg-' + Date.now(),

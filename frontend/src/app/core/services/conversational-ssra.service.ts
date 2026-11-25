@@ -193,13 +193,16 @@ export class ConversationalSsraService {
     const msg: ChatMessage = {
       id: 'msg-' + Date.now(),
       sender: 'assistant',
-      content:
-        `Understood! We are preparing the **${domain.title}** safety assessment.\n\n` +
-        `Please state the **Site Location**, **Job #**, and current **Weather** (e.g. *Romford Road, Job 1042, Weather: WET*), or upload any pre-work site photographs:`,
+      content: `Understood! We are preparing the **${domain.title}** safety assessment. Please fill in the site details below.`,
       timestamp: new Date(),
       isSsraSession: true,
       ssraId,
       selectedSsraDomainKey: domain.key,
+      ssraSiteForm: {
+        domainTitle: domain.title,
+        defaultJobno: session.siteInfo.jobno,
+        defaultContract: session.siteInfo.contractName,
+      },
     };
     return { message: msg, session };
   }
@@ -223,15 +226,33 @@ export class ConversationalSsraService {
     const msg: ChatMessage = {
       id: 'msg-' + Date.now(),
       sender: 'assistant',
-      content:
-        `Great! Domain confirmed as **${session.domainTitle}** (${session.questions.length} safety verification points).\n\n` +
-        `Please provide your **Site Location**, **Job #**, and **Weather** (e.g. *A40 Oxford Road, Job 4920, DRY*), or confirm if you want to proceed with current site parameters:`,
+      content: `Great! Domain confirmed as **${session.domainTitle}** (${session.questions.length} safety verification points). Please fill in the site details below.`,
       timestamp: new Date(),
       isSsraSession: true,
       ssraId: session.ssraId,
       selectedSsraDomainKey: domainKey,
+      ssraSiteForm: {
+        domainTitle: session.domainTitle,
+        defaultJobno: session.siteInfo.jobno,
+        defaultContract: session.siteInfo.contractName,
+      },
     };
     return { message: msg, session };
+  }
+
+  submitSiteForm(
+    conversationId: string,
+    form: { jobno: string; location: string; weather: 'DRY' | 'WET' | 'ICY' | 'FOG'; contractName?: string },
+    photos?: any[]
+  ): { message: ChatMessage; session: SsraChatSession } {
+    const session = this.sessions.get(conversationId);
+    if (!session) return this.startSession(conversationId);
+    session.siteInfo.jobno = form.jobno.trim() || session.siteInfo.jobno;
+    session.siteInfo.location = form.location.trim();
+    session.siteInfo.weather = form.weather;
+    if (form.contractName?.trim()) session.siteInfo.contractName = form.contractName.trim();
+    // Reuse the shared path (adds photos / placeholders and serves question 1) with no free-text parsing
+    return this.submitSiteInfo(conversationId, '', photos);
   }
 
   // --- 3. Site Info & Photos Extraction ---

@@ -584,620 +584,146 @@
   height: 14px;
 }
 
+
 /* ========================================================
-   SSRA Conversational Cards & Interactive Components
+   SSRA Chat Cards (sx-*)
    ======================================================== */
-
-/* 1. SSRA Domain Selector */
-.ssra-domain-selector-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  background: var(--q-bg);
-  border: 1px solid var(--q-border);
-  border-radius: var(--q-r-lg);
-  padding: 16px;
-  margin-top: 8px;
-  max-width: 100%;
-}
-
-.ssra-section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--q-border);
-}
-
-.ssra-section-badge {
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  color: var(--q-muted);
-  text-transform: uppercase;
-}
-
-.ssra-section-count {
-  font-size: 0.75rem;
-  color: var(--q-faint);
-  font-weight: 500;
-}
-
-.ssra-domain-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 8px;
-}
-
-.ssra-domain-card {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  background: var(--q-surface);
-  border: 1px solid var(--q-border);
-  border-radius: var(--q-r-md);
-  text-align: left;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.ssra-domain-card:hover {
-  background: var(--q-surface-2);
-  border-color: #0284c7;
-  transform: translateY(-1px);
-}
-
-.ssra-domain-card.selected {
-  background: #f0f9ff;
-  border-color: #0284c7;
-  box-shadow: 0 0 0 1px #0284c7;
-}
-
-.domain-card-icon {
-  font-size: 1.25rem;
-  flex-shrink: 0;
-}
-
-.domain-card-info {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.domain-card-title {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--q-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.domain-card-dept {
-  font-size: 0.72rem;
-  color: var(--q-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* 2. SSRA Point-of-Work Question Card */
-.ssra-question-card {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  background: var(--q-bg);
-  border: 1px solid var(--q-border);
-  border-left: 4px solid #0284c7;
-  border-radius: var(--q-r-lg);
-  padding: 16px;
-  margin-top: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-}
-
-.ssra-card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.ssra-header-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.ssra-pill {
-  display: inline-flex;
-  align-items: center;
-  font-size: 0.72rem;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 9999px;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-
-.domain-pill {
-  background: #f1f5f9;
-  color: #334155;
-  border: 1px solid #e2e8f0;
-}
-
-.qnum-pill {
-  background: #e0f2fe;
-  color: #0369a1;
-  border: 1px solid #bae6fd;
-}
-
-.hw-trigger-pill {
-  background: #fef3c7;
-  color: #92400e;
-  border: 1px solid #fde68a;
-}
-
-.ssra-question-body {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.ssra-question-text {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--q-text);
-  line-height: 1.45;
-}
-
-.ssra-ro-box {
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-  background: #f8fafc;
-  border-radius: 6px;
-  padding: 6px 10px;
-  font-size: 0.85rem;
-  color: #475569;
-  font-style: italic;
-}
-
-.ssra-cm-box {
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  border-radius: 6px;
-  padding: 8px 12px;
-}
-
-.ssra-cm-label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: #166534;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  margin-bottom: 2px;
-}
-
-.cm-icon {
-  width: 14px;
-  height: 14px;
-  color: #16a34a;
-}
-
-.ssra-cm-text {
-  margin: 0;
-  font-size: 0.85rem;
-  color: #15803d;
-  line-height: 1.4;
-}
-
-/* SSRA Actions Row */
-.ssra-action-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  padding-top: 4px;
-}
-
-.btn-ssra-choice {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 16px;
-  border-radius: 6px;
-  font-size: 0.88rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  border: 1px solid transparent;
-}
-
-.choice-yes, .choice-pass {
-  background: #16a34a;
-  color: #ffffff;
-}
-
-.choice-yes:hover, .choice-pass:hover {
-  background: #15803d;
-}
-
-.choice-no, .choice-fail {
-  background: #dc2626;
-  color: #ffffff;
-}
-
-.choice-no:hover, .choice-fail:hover {
-  background: #b91c1c;
-}
-
-.choice-na {
-  background: #f1f5f9;
-  color: #475569;
-  border-color: #cbd5e1;
-}
-
-.choice-na:hover {
-  background: #e2e8f0;
-}
-
-.btn-ssra-toggle-note {
-  background: transparent;
-  color: var(--q-muted);
-  border: 1px dashed var(--q-border);
-  border-radius: 6px;
-  padding: 6px 12px;
-  font-size: 0.82rem;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.btn-ssra-toggle-note:hover {
-  border-color: var(--q-border-hover);
-  color: var(--q-text);
-}
-
-.ssra-note-input-wrap {
-  margin-top: 4px;
-}
-
-.ssra-note-field {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid var(--q-border);
-  border-radius: 6px;
-  font-size: 0.85rem;
-  background: var(--q-surface);
-  color: var(--q-text);
-  outline: none;
-}
-
-.ssra-note-field:focus {
-  border-color: #0284c7;
-}
-
-.ssra-answered-badge {
-  font-size: 0.82rem;
-  color: #16a34a;
-  padding-top: 4px;
-}
-
-/* 3. Hot Works Pre-Work Check Card */
-.ssra-hw-card {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  background: var(--q-bg);
-  border: 1px solid #fed7aa;
-  border-left: 4px solid #ea580c;
-  border-radius: var(--q-r-lg);
-  padding: 16px;
-  margin-top: 8px;
-}
-
-.ssra-hw-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.ssra-hw-badge-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.hw-fire-pill {
-  background: #fff7ed;
-  color: #c2410c;
-  border: 1px solid #ffedd5;
-}
-
-.hw-num-pill {
-  background: #ffedd5;
-  color: #9a3412;
-}
-
-.ssra-hw-code {
-  font-family: monospace;
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: #ea580c;
-}
-
-.ssra-hw-body {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.ssra-hw-title {
-  margin: 0;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--q-text);
-}
-
-.ssra-hw-desc {
-  margin: 0;
-  font-size: 0.85rem;
-  color: var(--q-muted);
-  line-height: 1.4;
-}
-
-/* 4. Operative Briefing Confirmation Card */
-.ssra-operatives-card {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  background: var(--q-bg);
-  border: 1px solid var(--q-border);
-  border-left: 4px solid #4f46e5;
-  border-radius: var(--q-r-lg);
-  padding: 16px;
-  margin-top: 8px;
-}
-
-.ssra-operatives-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.operatives-pill {
-  background: #eef2ff;
-  color: #4338ca;
-  border: 1px solid #e0e7ff;
-}
-
-.ssra-briefing-sub {
-  font-size: 0.75rem;
-  color: var(--q-muted);
-}
-
-.ssra-operatives-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.ssra-op-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  background: var(--q-surface);
-  border: 1px solid var(--q-border);
-  border-radius: 6px;
-}
-
-.op-avatar-circle {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: #1e293b;
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 0.75rem;
-}
-
-.op-info {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-}
-
-.op-name {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--q-text);
-}
-
-.op-role {
-  font-size: 0.72rem;
-  color: var(--q-muted);
-}
-
-.op-status-pill {
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: #16a34a;
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  padding: 2px 8px;
-  border-radius: 9999px;
-}
-
-.ssra-operatives-footer {
-  padding-top: 4px;
-}
-
-.btn-ssra-confirm-briefing {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  background: #4f46e5;
-  color: #ffffff;
-  border: none;
-  border-radius: 6px;
-  padding: 9px 18px;
-  font-size: 0.88rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.15s ease;
-}
-
-.btn-ssra-confirm-briefing:hover {
-  background: #4338ca;
-}
-
-/* 5. Finalized SSRA Result Card */
-.chat-ssra-result-card {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  background: var(--q-bg);
-  border: 1px solid #cbd5e1;
-  border-left: 5px solid #0f172a;
-  border-radius: var(--q-r-lg);
-  padding: 16px;
-  margin-top: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
-.chat-ssra-card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--q-border);
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.chat-ssra-title-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.chat-ssra-badge {
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  color: #0f172a;
-}
-
-.chat-ssra-ref-badge {
-  font-family: monospace;
-  font-size: 0.8rem;
-  font-weight: 700;
-  background: #f1f5f9;
-  color: #334155;
-  padding: 2px 8px;
-  border-radius: 4px;
-  border: 1px solid #cbd5e1;
-}
-
-.chat-ssra-status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #166534;
-  background: #dcfce7;
-  border: 1px solid #bbf7d0;
-  padding: 3px 10px;
-  border-radius: 9999px;
-}
-
-.chat-ssra-status-pill .status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #16a34a;
-}
-
-.chat-ssra-details-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 10px;
-}
-
-.ssra-detail-box {
-  display: flex;
-  flex-direction: column;
-  padding: 8px 10px;
-  background: var(--q-surface);
-  border: 1px solid var(--q-border);
-  border-radius: 6px;
-}
-
-.detail-label {
-  font-size: 0.68rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: var(--q-muted);
-  letter-spacing: 0.04em;
-}
-
-.detail-value {
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: var(--q-text);
-  margin-top: 2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.chat-ssra-card-footer {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  padding-top: 4px;
-}
-
-.btn-ssra-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 14px;
-  border-radius: 6px;
-  font-size: 0.82rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  border: 1px solid transparent;
-}
-
-.btn-ssra-action.primary {
-  background: #0f172a;
-  color: #ffffff;
-}
-
-.btn-ssra-action.primary:hover {
-  background: #1e293b;
-}
-
-.btn-ssra-action.secondary {
-  background: var(--q-surface);
-  color: var(--q-text);
-  border-color: var(--q-border);
-}
-
-.btn-ssra-action.secondary:hover {
-  background: var(--q-surface-2);
-  border-color: var(--q-border-hover);
-}
+.sx-card {
+  --sx-ink: #0f172a; --sx-sub: #64748b; --sx-line: #e2e8f0; --sx-bg: #ffffff; --sx-soft: #f8fafc;
+  --sx-blue: #2563eb; --sx-green: #16a34a; --sx-red: #dc2626; --sx-amber: #d97706;
+  width: 100%; max-width: 640px; margin-top: 10px; padding: 18px;
+  background: var(--sx-bg); border: 1px solid var(--sx-line); border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(15,23,42,.04), 0 8px 24px -12px rgba(15,23,42,.12);
+  display: flex; flex-direction: column; gap: 14px; color: var(--sx-ink);
+  animation: sx-in .25s ease both;
+}
+@keyframes sx-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.sx-card.is-locked { opacity: .78; box-shadow: none; background: var(--sx-soft); }
+
+.sx-head { display: flex; align-items: center; gap: 12px; }
+.sx-head-icon { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-size: 20px; flex-shrink: 0; }
+.sx-ic-blue { background: #dbeafe; } .sx-ic-teal { background: #ccfbf1; }
+.sx-ic-orange { background: #ffedd5; } .sx-ic-indigo { background: #e0e7ff; }
+.sx-head-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.sx-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--sx-sub); }
+.sx-title { font-size: 16px; font-weight: 700; line-height: 1.3; }
+
+.sx-chip { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+.sx-chip-blue { background: #dbeafe; color: #1d4ed8; }
+.sx-chip-muted { background: #f1f5f9; color: #475569; }
+.sx-chip-ok { background: #dcfce7; color: #15803d; }
+.sx-chip-warn { background: #fef3c7; color: #b45309; }
+
+/* Domain grid */
+.sx-domain-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+.sx-domain { display: flex; align-items: center; gap: 10px; padding: 10px 12px; text-align: left; cursor: pointer;
+  background: var(--sx-soft); border: 1px solid var(--sx-line); border-radius: 12px; transition: all .15s; font: inherit; color: inherit; }
+.sx-domain:hover:not(:disabled) { background: #eff6ff; border-color: var(--sx-blue); transform: translateY(-1px); }
+.sx-domain:disabled:not(.is-selected) { opacity: .45; cursor: default; }
+.sx-domain.is-selected { background: #eff6ff; border-color: var(--sx-blue); box-shadow: 0 0 0 1px var(--sx-blue); }
+.sx-domain-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--sx-blue); flex-shrink: 0; }
+.sx-domain-info { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.sx-domain-title { font-size: 13.5px; font-weight: 600; }
+.sx-domain-dept { font-size: 11.5px; color: var(--sx-sub); }
+.sx-domain-check { width: 16px; height: 16px; color: var(--sx-blue); }
+
+/* Form */
+.sx-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.sx-span-2 { grid-column: span 2; }
+@media (max-width: 560px) { .sx-form-grid { grid-template-columns: 1fr; } .sx-span-2 { grid-column: auto; } }
+.sx-field { display: flex; flex-direction: column; gap: 6px; }
+.sx-label { font-size: 12.5px; font-weight: 600; color: #334155; }
+.sx-label em { font-style: normal; font-weight: 500; color: var(--sx-sub); }
+.sx-label b { color: var(--sx-red); }
+.sx-input { width: 100%; box-sizing: border-box; height: 42px; padding: 0 12px; font: inherit; font-size: 14px; color: var(--sx-ink);
+  background: #fff; border: 1.5px solid var(--sx-line); border-radius: 10px; outline: none; transition: border-color .15s, box-shadow .15s; }
+.sx-input:focus { border-color: var(--sx-blue); box-shadow: 0 0 0 3px rgba(37,99,235,.15); }
+.sx-input:disabled { background: #f1f5f9; color: #64748b; }
+
+.sx-weather-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+@media (max-width: 480px) { .sx-weather-row { grid-template-columns: repeat(2, 1fr); } }
+.sx-weather { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 6px; font: inherit; font-size: 12.5px; font-weight: 600;
+  color: #475569; background: #fff; border: 1.5px solid var(--sx-line); border-radius: 12px; cursor: pointer; transition: all .15s; }
+.sx-weather:hover:not(:disabled) { border-color: #93c5fd; }
+.sx-weather.is-active { background: #eff6ff; border-color: var(--sx-blue); color: #1d4ed8; box-shadow: 0 0 0 1px var(--sx-blue); }
+.sx-weather:disabled:not(.is-active) { opacity: .5; cursor: default; }
+.sx-weather-emoji { font-size: 22px; }
+
+.sx-photo-zone { display: flex; align-items: center; gap: 10px; padding: 12px 14px; cursor: pointer; font-size: 13px; color: #475569;
+  border: 1.5px dashed #cbd5e1; border-radius: 12px; background: var(--sx-soft); transition: all .15s; }
+.sx-photo-zone:hover { border-color: var(--sx-blue); background: #eff6ff; }
+.sx-photo-icon { font-size: 20px; }
+.sx-thumb-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.sx-thumb { position: relative; width: 56px; height: 56px; border-radius: 10px; overflow: hidden; border: 1px solid var(--sx-line); }
+.sx-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.sx-thumb-x { position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; border: 0; border-radius: 50%; cursor: pointer;
+  background: rgba(15,23,42,.75); color: #fff; font-size: 13px; line-height: 1; }
+.sx-form-footer { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+.sx-hint { font-size: 12px; color: var(--sx-sub); }
+
+/* Buttons */
+.sx-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 42px; padding: 0 18px; font: inherit; font-size: 14px;
+  font-weight: 600; border-radius: 10px; border: 1.5px solid transparent; cursor: pointer; transition: all .15s; }
+.sx-btn-ic { width: 16px; height: 16px; }
+.sx-btn-primary { background: var(--sx-ink); color: #fff; }
+.sx-btn-primary:hover:not(:disabled) { background: #1e293b; transform: translateY(-1px); }
+.sx-btn-primary:disabled { opacity: .4; cursor: not-allowed; }
+.sx-btn-ghost { background: #fff; color: var(--sx-ink); border-color: var(--sx-line); }
+.sx-btn-ghost:hover { background: var(--sx-soft); border-color: #cbd5e1; }
+.sx-btn-block { width: 100%; }
+
+/* Question */
+.sx-progress { height: 5px; border-radius: 999px; background: #e2e8f0; overflow: hidden; margin: -4px 0 0; }
+.sx-progress-bar { height: 100%; background: linear-gradient(90deg, #2563eb, #06b6d4); border-radius: 999px; transition: width .3s; }
+.sx-q-meta { display: flex; flex-wrap: wrap; gap: 6px; }
+.sx-q-text { margin: 0; font-size: 17px; font-weight: 700; line-height: 1.45; }
+.sx-ro { display: flex; gap: 8px; align-items: flex-start; padding: 8px 12px; background: var(--sx-soft); border-radius: 10px; font-size: 13.5px; font-style: italic; color: #475569; }
+.sx-ro-tag { font-style: normal; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; background: #e2e8f0; color: #334155; }
+.sx-cm { padding: 10px 14px; background: #f0fdf4; border: 1px solid #bbf7d0; border-left: 4px solid var(--sx-green); border-radius: 10px; }
+.sx-cm-label { font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: #166534; }
+.sx-cm p { margin: 4px 0 0; font-size: 13.5px; color: #15803d; line-height: 1.5; }
+.sx-answers { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.sx-ans { display: inline-flex; align-items: center; gap: 6px; min-width: 84px; justify-content: center; height: 42px; padding: 0 18px; font: inherit; font-size: 14px;
+  font-weight: 700; border-radius: 10px; border: 1.5px solid transparent; cursor: pointer; transition: all .15s; }
+.sx-ans svg { width: 16px; height: 16px; }
+.sx-ans-yes { background: #dcfce7; color: #15803d; border-color: #86efac; }
+.sx-ans-yes:hover { background: var(--sx-green); color: #fff; }
+.sx-ans-no { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
+.sx-ans-no:hover { background: var(--sx-red); color: #fff; }
+.sx-ans-na { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
+.sx-ans-na:hover { background: #475569; color: #fff; }
+.sx-link { margin-left: auto; background: none; border: 0; font: inherit; font-size: 13px; font-weight: 600; color: var(--sx-blue); cursor: pointer; }
+.sx-note { height: 40px; }
+.sx-answered { font-size: 13px; padding: 8px 12px; border-radius: 10px; background: #f0fdf4; color: #15803d; }
+.sx-answered.is-no { background: #fef2f2; color: #b91c1c; }
+
+/* Hot works */
+.sx-hw-card { border-color: #fed7aa; background: linear-gradient(180deg, #fffbf5, #fff); }
+.sx-hw-desc { margin: 0; font-size: 14px; line-height: 1.55; color: #475569; }
+
+/* Operatives */
+.sx-op-list { display: flex; flex-direction: column; gap: 8px; }
+.sx-op { display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: var(--sx-soft); border: 1px solid var(--sx-line); border-radius: 12px; }
+.sx-op-avatar { width: 34px; height: 34px; border-radius: 50%; background: #1e293b; color: #fff; display: grid; place-items: center; font-weight: 700; }
+.sx-op-info { display: flex; flex-direction: column; flex: 1; font-size: 14px; }
+.sx-op-info small { color: var(--sx-sub); font-size: 12px; }
+
+/* Result */
+.sx-result { padding: 0; overflow: hidden; gap: 0; }
+.sx-result-hero { padding: 20px; color: #fff; background: radial-gradient(circle at 90% 0%, #1d4ed8 0, transparent 55%), linear-gradient(135deg, #0f172a, #1e293b); }
+.sx-result-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.sx-result-badge { font-size: 11px; font-weight: 800; letter-spacing: .08em; opacity: .75; }
+.sx-result-status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: rgba(34,197,94,.18); color: #86efac; }
+.sx-result-status i { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; }
+.sx-result-ref { margin-top: 14px; font-family: ui-monospace, Menlo, monospace; font-size: 24px; font-weight: 800; letter-spacing: .02em; }
+.sx-result-domain { margin-top: 2px; font-size: 14px; opacity: .8; }
+.sx-stats { display: grid; grid-template-columns: repeat(3, 1fr); border-bottom: 1px solid var(--sx-line); }
+.sx-stat { padding: 14px; text-align: center; display: flex; flex-direction: column; gap: 2px; }
+.sx-stat + .sx-stat { border-left: 1px solid var(--sx-line); }
+.sx-stat b { font-size: 22px; font-weight: 800; }
+.sx-stat span { font-size: 11.5px; color: var(--sx-sub); }
+.sx-facts { padding: 14px 18px; display: flex; flex-direction: column; gap: 8px; }
+.sx-fact { display: flex; justify-content: space-between; gap: 12px; font-size: 13.5px; }
+.sx-fact span { color: var(--sx-sub); }
+.sx-fact b { text-align: right; }
+.sx-result-actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 18px 18px; }

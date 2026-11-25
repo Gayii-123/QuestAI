@@ -102,6 +102,15 @@ export interface ChatMessage {
     confirmed?: boolean;
   };
   ssraResult?: any;
+  ssraSiteForm?: {
+    domainTitle: string;
+    defaultJobno: string;
+    defaultContract: string;
+    submitted?: boolean;
+    jobno?: string;
+    location?: string;
+    weather?: string;
+  };
 }
 
 export interface Conversation {
