@@ -1,0 +1,203 @@
+<div class="ssra-dashboard-container">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div>
+      <div class="breadcrumbs">
+        <span>Operations</span>
+        <span class="sep">/</span>
+        <span class="current">Site Specific Risk Assessment (SSRA)</span>
+      </div>
+      <h1 class="page-title">Safety Risk Assessments</h1>
+      <p class="page-subtitle">
+        Point-of-work operative safety assessments, site hazard verification, and shift closing reports across 14 operational domains.
+      </p>
+    </div>
+    <div class="header-actions">
+      <button type="button" class="btn btn-primary" (click)="navigateToNew()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        New Risk Assessment
+      </button>
+    </div>
+  </div>
+
+  <!-- KPI Stat Cards -->
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-icon-wrapper icon-total">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+          <polyline points="10 9 9 9 8 9"></polyline>
+        </svg>
+      </div>
+      <div class="kpi-details">
+        <span class="kpi-value">{{ stats().total }}</span>
+        <span class="kpi-label">Total Assessments</span>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-icon-wrapper icon-level1">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+      </div>
+      <div class="kpi-details">
+        <span class="kpi-value">{{ stats().level1 }}</span>
+        <span class="kpi-label">Level 1 (Pre-Start Open)</span>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-icon-wrapper icon-complete">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+          <polyline points="22 4 12 14.01 9 11.01"></polyline>
+        </svg>
+      </div>
+      <div class="kpi-details">
+        <span class="kpi-value">{{ stats().complete }}</span>
+        <span class="kpi-label">Completed (Closed Shift)</span>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-icon-wrapper icon-draft">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 20h9"></path>
+          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+        </svg>
+      </div>
+      <div class="kpi-details">
+        <span class="kpi-value">{{ stats().incomplete }}</span>
+        <span class="kpi-label">Incomplete / Drafts</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filters & Search Toolbar -->
+  <div class="toolbar-card">
+    <div class="search-input-group">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
+      <input 
+        type="text" 
+        [ngModel]="searchTerm()" 
+        (ngModelChange)="searchTerm.set($event)"
+        placeholder="Search by Ref #, Job #, Location, or Domain..." 
+        class="search-input" />
+    </div>
+
+    <div class="filters-row">
+      <!-- Domain Filter -->
+      <select 
+        [ngModel]="selectedDomain()" 
+        (ngModelChange)="selectedDomain.set($event)"
+        class="filter-select">
+        <option value="all">All Domains (14 Types)</option>
+        <option *ngFor="let d of activeDomains" [value]="d.key">{{ d.title }}</option>
+      </select>
+
+      <!-- Status Filter -->
+      <select 
+        [ngModel]="selectedStatus()" 
+        (ngModelChange)="selectedStatus.set($event)"
+        class="filter-select">
+        <option value="all">All Statuses</option>
+        <option value="Level1">Level 1 (Pre-Start Signed)</option>
+        <option value="Complete">Complete (Closed Shift)</option>
+        <option value="Incomplete">Incomplete / Draft</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Assessments Table -->
+  <div class="table-card">
+    <div *ngIf="isLoading()" class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading safety assessments...</p>
+    </div>
+
+    <div *ngIf="!isLoading() && filteredAssessments().length === 0" class="empty-state">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="8" x2="12" y2="12"></line>
+        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+      </svg>
+      <h3>No risk assessments found</h3>
+      <p>Start a new SSRA to record pre-work hazards, checklist questions, and site operative signatures.</p>
+      <button type="button" class="btn btn-primary" (click)="navigateToNew()">Create New SSRA</button>
+    </div>
+
+    <table *ngIf="!isLoading() && filteredAssessments().length > 0" class="ssra-table">
+      <thead>
+        <tr>
+          <th>Reference #</th>
+          <th>Domain / Type</th>
+          <th>Site & Job Info</th>
+          <th>Operatives</th>
+          <th>Date & Time</th>
+          <th>Status</th>
+          <th class="th-actions">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let a of filteredAssessments()" (click)="navigateToDetail(a.id)" class="clickable-row">
+          <td>
+            <span class="refno-badge">{{ a.refno }}</span>
+          </td>
+          <td>
+            <div class="domain-info">
+              <span class="domain-title">{{ a.domainTitle }}</span>
+              <span class="domain-key">{{ a.domainType }}</span>
+            </div>
+          </td>
+          <td>
+            <div class="site-info-cell">
+              <span class="job-no">Job: {{ a.siteInformation.jobno || 'N/A' }}</span>
+              <span class="site-loc">{{ a.siteInformation.location || 'No location provided' }}</span>
+            </div>
+          </td>
+          <td>
+            <div class="operatives-cell">
+              <span class="op-badge">{{ a.operatives.length || 0 }} signed</span>
+              <span *ngIf="a.hotWorks.applicable" class="hw-badge" title="Hot Works active">🔥 HW</span>
+            </div>
+          </td>
+          <td>
+            <span class="date-cell">{{ a.createdAt | date:'dd MMM yyyy, HH:mm' }}</span>
+          </td>
+          <td>
+            <span class="status-pill" [ngClass]="getStatusClass(a.lifecycleStatus)">
+              {{ getStatusLabel(a.lifecycleStatus) }}
+            </span>
+          </td>
+          <td class="td-actions" (click)="$event.stopPropagation()">
+            <!-- Level 1: Close Shift CTA -->
+            <button 
+              *ngIf="a.lifecycleStatus === 'Level1'" 
+              type="button" 
+              class="btn-action-close"
+              (click)="navigateToClose(a.id, $event)">
+              Close Shift
+            </button>
+            <button 
+              type="button" 
+              class="btn-action-view" 
+              (click)="navigateToDetail(a.id)">
+              View
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

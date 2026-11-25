@@ -65,6 +65,43 @@ export interface ChatMessage {
   draftSummary?: InspectionDraftSummaryViewModel;
   isAdditionalPhotoRequest?: boolean;
   targetQuestionId?: string;
+
+  // Conversational SSRA Properties
+  isSsraSession?: boolean;
+  ssraId?: string;
+  showSsraDomainSelector?: boolean;
+  selectedSsraDomainKey?: string;
+  ssraQuestion?: {
+    id: string;
+    domainKey: string;
+    domainTitle: string;
+    questionNumber: number;
+    totalQuestions: number;
+    text: string;
+    roText?: string;
+    cm?: string;
+    answerType: 'yes-no' | 'yes-no-na' | 'select' | 'multiselect';
+    options?: any[];
+    triggersHotWorks?: boolean;
+    currentValue?: string;
+    notes?: string;
+    answered?: boolean;
+  };
+  ssraHotWorksCheck?: {
+    checkId: string;
+    checkNumber: number;
+    totalChecks: number;
+    title: string;
+    description: string;
+    status?: 'Pass' | 'Fail' | 'N/A';
+    notes?: string;
+    answered?: boolean;
+  };
+  ssraOperativesPrompt?: {
+    operatives: { name: string; role: string; signed: boolean }[];
+    confirmed?: boolean;
+  };
+  ssraResult?: any;
 }
 
 export interface Conversation {
@@ -77,6 +114,8 @@ export interface Conversation {
   selectedBankId?: string;
   activeInspectionId?: string;
   isInternalAudit?: boolean;
+  isSsra?: boolean;
+  activeSsraId?: string;
 }
 
 export interface SuggestionPrompt {

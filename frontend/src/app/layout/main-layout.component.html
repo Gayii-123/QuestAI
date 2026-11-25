@@ -36,6 +36,15 @@
           <span class="sidebar-nav-label">Internal Audit</span>
         </button>
 
+        <!-- Risk Assessment (SSRA) Button -->
+        <button class="sidebar-red-nav-item" [class.active]="isSsraRoute()"
+          (click)="navigateToSsra()" type="button" title="Site Specific Risk Assessment (SSRA)">
+          <svg class="sidebar-red-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+          </svg>
+          <span class="sidebar-nav-label">Risk Assessment</span>
+        </button>
+
         <!-- My Reports Button -->
         <button class="sidebar-red-nav-item" [class.active]="isReportsRoute()"
           (click)="navigateToMyReports()" type="button">

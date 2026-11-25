@@ -7,6 +7,8 @@ import { AuthService } from './auth.service';
 import { PhotoStorageService } from './photo-storage.service';
 import { ReportService } from './report.service';
 import { InternalAuditService } from '../../features/internal-audit/internal-audit.service';
+import { ConversationalSsraService } from './conversational-ssra.service';
+import { getSsraTypeByKey } from '../../features/ssra/config/ssra-types.config';
 import {
   Conversation,
   ChatMessage,
@@ -46,6 +48,7 @@ export class ChatStateService {
   private readonly photoStorage = inject(PhotoStorageService);
   private readonly reportService = inject(ReportService);
   private readonly internalAuditService = inject(InternalAuditService);
+  private readonly conversationalSsra = inject(ConversationalSsraService);
 
   readonly siteInspectionBanks: SiteInspectionBankOption[] = SITE_INSPECTION_BANKS;
 
@@ -945,6 +948,40 @@ export class ChatStateService {
 
     // 1. Photos Submitted Workflow
     if (photosToSend.length > 0) {
+      if (currentConv.isSsra || this.conversationalSsra.isSsraRequest(text)) {
+        currentConv.isSsra = true;
+        currentConv.title = 'Risk Assessment (SSRA)';
+        this.conversations.update((list) =>
+          list.map((c) => (c.id === currentConv!.id ? { ...c, title: 'Risk Assessment (SSRA)', isSsra: true } : c))
+        );
+
+        const userPhotoMessage: ChatMessage = {
+          id: 'msg-' + Date.now(),
+          sender: 'user',
+          content: text || 'Uploaded site photographs for Risk Assessment (SSRA).',
+          timestamp: new Date(),
+          photos: photosToSend.map((p) => ({ ...p })),
+          attachmentName: docAttachment || undefined,
+        };
+        this.appendMessageToActive(userPhotoMessage);
+
+        const ssraPhotos: any[] = photosToSend.map((p, idx) => ({
+          id: p.id || `ev-photo-${Date.now()}-${idx}`,
+          name: p.name || `Site Photo ${idx + 1}`,
+          url: p.url,
+          category: 'pre-work',
+        }));
+
+        this.composerText.set('');
+        this.uploadSiteNotes.set('');
+        this.attachedDocument.set(null);
+        this.uploadedPhotos.set([]);
+
+        const { message } = this.conversationalSsra.submitSiteInfo(currentConv.id, text, ssraPhotos);
+        this.appendMessageToActive(message);
+        return;
+      }
+
       if (currentConv.isInternalAudit || this.isInternalAuditRequest(text)) {
         currentConv.isInternalAudit = true;
         currentConv.title = 'Internal Audit';
@@ -1258,6 +1295,13 @@ export class ChatStateService {
         timestamp: new Date(),
       };
       this.appendMessageToActive(greetingMsg);
+      return;
+    }
+
+    // Check for SSRA / Risk Assessment Request or active SSRA session
+    const activeSsraSession = this.conversationalSsra.getSession(currentConv?.id || '');
+    if (activeSsraSession || currentConv?.isSsra || this.conversationalSsra.isSsraRequest(text)) {
+      this.handleSsraTextTurn(currentConv, activeSsraSession, text);
       return;
     }
 
@@ -1802,6 +1846,208 @@ export class ChatStateService {
     if (session) {
       this.internalAuditService.setCurrentSession(session);
     }
+  }
+
+  // --- SSRA Conversational Handlers ---
+
+  handleSsraTextTurn(
+    currentConv: Conversation | null,
+    session: any,
+    text: string
+  ): void {
+    if (!currentConv) return;
+
+    currentConv.isSsra = true;
+    if (currentConv.title === 'New Chat' || this.isGreeting(currentConv.title)) {
+      currentConv.title = 'Risk Assessment (SSRA)';
+      this.conversations.update((list) =>
+        list.map((c) => (c.id === currentConv!.id ? { ...c, title: 'Risk Assessment (SSRA)', isSsra: true } : c))
+      );
+      const uid = this.conversationService.getCurrentUserId();
+      if (uid) {
+        void this.conversationService.updateConversationMeta(uid, currentConv.id, {
+          title: 'Risk Assessment (SSRA)',
+        });
+      }
+    }
+
+    if (!session) {
+      const matchedDomain = this.conversationalSsra.matchDomain(text);
+      const { message } = this.conversationalSsra.startSession(
+        currentConv.id,
+        matchedDomain?.key
+      );
+      currentConv.activeSsraId = message.ssraId;
+      this.appendMessageToActive(message);
+      return;
+    }
+
+    switch (session.stage) {
+      case 'domain-selection': {
+        const matched = this.conversationalSsra.matchDomain(text);
+        if (matched) {
+          const { message } = this.conversationalSsra.selectDomain(currentConv.id, matched.key);
+          this.appendMessageToActive(message);
+        } else {
+          const promptMsg: ChatMessage = {
+            id: 'msg-' + Date.now(),
+            sender: 'assistant',
+            content:
+              "Please choose your operational domain from the 14 active options below (or type the name, e.g. *Traffic Management*, *Road Surfacing*, *Winter Maintenance*):",
+            timestamp: new Date(),
+            isSsraSession: true,
+            ssraId: session.ssraId,
+            showSsraDomainSelector: true,
+          };
+          this.appendMessageToActive(promptMsg);
+        }
+        break;
+      }
+
+      case 'site-info': {
+        const { message } = this.conversationalSsra.submitSiteInfo(currentConv.id, text);
+        this.appendMessageToActive(message);
+        break;
+      }
+
+      case 'questions': {
+        const currentQ = session.questions[session.currentQuestionIndex];
+        if (currentQ) {
+          let ansValue = 'Yes';
+          if (/^\s*(no|n)\b/i.test(text)) ansValue = 'No';
+          else if (/^\s*(n\/?a|not\s*applicable)\b/i.test(text)) ansValue = 'N/A';
+          else if (text.trim()) ansValue = text.trim();
+
+          const { message } = this.conversationalSsra.answerQuestion(
+            currentConv.id,
+            currentQ.id,
+            ansValue,
+            text
+          );
+          this.appendMessageToActive(message);
+        }
+        break;
+      }
+
+      case 'hot-works': {
+        const currentHw = session.hotWorksChecks[session.currentHwIndex];
+        if (currentHw) {
+          let status: 'Pass' | 'Fail' | 'N/A' = 'Pass';
+          if (/fail|no|danger/i.test(text)) status = 'Fail';
+          else if (/n\/?a|not\s*applicable/i.test(text)) status = 'N/A';
+
+          const { message } = this.conversationalSsra.answerHotWorksCheck(
+            currentConv.id,
+            currentHw.id,
+            status,
+            text
+          );
+          this.appendMessageToActive(message);
+        }
+        break;
+      }
+
+      case 'operatives': {
+        const { message } = this.conversationalSsra.finalizeAssessment(currentConv.id);
+        this.appendMessageToActive(message);
+        break;
+      }
+
+      case 'completed': {
+        const completedMsg: ChatMessage = {
+          id: 'msg-' + Date.now(),
+          sender: 'assistant',
+          content:
+            "This Site Specific Safety Risk Assessment is already signed off and stored. Would you like to start another risk assessment, or review this one in **My Reports**?",
+          timestamp: new Date(),
+          isSsraSession: true,
+          ssraId: session.ssraId,
+          ssraResult: session.finalAssessment,
+        };
+        this.appendMessageToActive(completedMsg);
+        break;
+      }
+    }
+  }
+
+  onSelectSsraDomain(domainKey: string, messageId?: string): void {
+    const conv = this.activeConversation();
+    if (!conv) return;
+
+    conv.isSsra = true;
+    const domainInfo = getSsraTypeByKey(domainKey);
+    const domainTitle = domainInfo?.title || 'Risk Assessment';
+    conv.title = `SSRA: ${domainTitle}`;
+    this.conversations.update((list) =>
+      list.map((c) => (c.id === conv.id ? { ...c, title: `SSRA: ${domainTitle}`, isSsra: true } : c))
+    );
+
+    const uid = this.conversationService.getCurrentUserId();
+    if (uid) {
+      void this.conversationService.updateConversationMeta(uid, conv.id, {
+        title: `SSRA: ${domainTitle}`,
+      });
+    }
+
+    const userMsg: ChatMessage = {
+      id: 'msg-' + Date.now(),
+      sender: 'user',
+      content: `Selected Domain: ${domainTitle}`,
+      timestamp: new Date(),
+    };
+    this.appendMessageToActive(userMsg);
+
+    const { message, session } = this.conversationalSsra.selectDomain(conv.id, domainKey);
+    conv.activeSsraId = session.ssraId;
+    this.appendMessageToActive(message);
+  }
+
+  onAnswerSsraQuestion(questionId: string, value: string, notes?: string): void {
+    const conv = this.activeConversation();
+    if (!conv) return;
+
+    const userMsg: ChatMessage = {
+      id: 'msg-' + Date.now(),
+      sender: 'user',
+      content: `${value}${notes ? ` — ${notes}` : ''}`,
+      timestamp: new Date(),
+    };
+    this.appendMessageToActive(userMsg);
+
+    const { message } = this.conversationalSsra.answerQuestion(conv.id, questionId, value, notes);
+    this.appendMessageToActive(message);
+  }
+
+  onAnswerSsraHotWorksCheck(checkId: string, status: 'Pass' | 'Fail' | 'N/A'): void {
+    const conv = this.activeConversation();
+    if (!conv) return;
+
+    const userMsg: ChatMessage = {
+      id: 'msg-' + Date.now(),
+      sender: 'user',
+      content: `Hot Works [${checkId}]: ${status}`,
+      timestamp: new Date(),
+    };
+    this.appendMessageToActive(userMsg);
+
+    const { message } = this.conversationalSsra.answerHotWorksCheck(conv.id, checkId, status);
+    this.appendMessageToActive(message);
+  }
+
+  onConfirmSsraOperatives(gangNames?: string[]): void {
+    const conv = this.activeConversation();
+    if (!conv) return;
+
+    const userMsg: ChatMessage = {
+      id: 'msg-' + Date.now(),
+      sender: 'user',
+      content: 'Confirmed site operatives briefing & Point-of-Work controls sign-off.',
+      timestamp: new Date(),
+    };
+    this.appendMessageToActive(userMsg);
+
+    const { message, assessment } = this.conversationalSsra.finalizeAssessment(conv.id, gangNames);
+    this.appendMessageToActive(message);
   }
 }
 

@@ -1,0 +1,94 @@
+<div class="site-info-card">
+  <div class="card-title-row">
+    <div class="title-with-badge">
+      <h3 class="section-title">Site & Contract Information</h3>
+      <span class="phase-badge">Phase 1 Required</span>
+    </div>
+    <span class="info-note">Pre-start operational metadata</span>
+  </div>
+
+  <div class="form-grid">
+    <!-- Job Number -->
+    <div class="form-group" [class.has-error]="validationErrors['siteInformation.jobno']">
+      <label class="form-label" for="jobno">Job / Work Order No. <span class="req">*</span></label>
+      <input id="jobno" type="text" class="form-control" [(ngModel)]="siteInfo.jobno" (ngModelChange)="onFieldChange()"
+        [disabled]="isLocked" placeholder="e.g. LBN-0029 / JB-84729" />
+      <span class="field-error" *ngIf="validationErrors['siteInformation.jobno']">
+        {{ validationErrors['siteInformation.jobno'] }}
+      </span>
+    </div>
+
+    <!-- Client Job Number -->
+    <div class="form-group">
+      <label class="form-label" for="clientjobno">Client Ref / Ticket No.</label>
+      <input id="clientjobno" type="text" class="form-control" [(ngModel)]="siteInfo.clientjobno"
+        (ngModelChange)="onFieldChange()" [disabled]="isLocked" placeholder="e.g. TfL-83921" />
+    </div>
+
+    <!-- Site Location -->
+    <div class="form-group span-2" [class.has-error]="validationErrors['siteInformation.location']">
+      <label class="form-label" for="location">Site Location / Address <span class="req">*</span></label>
+      <input id="location" type="text" class="form-control" [(ngModel)]="siteInfo.location"
+        (ngModelChange)="onFieldChange()" [disabled]="isLocked" placeholder="e.g. Romford Road, Newham, London E15" />
+      <span class="field-error" *ngIf="validationErrors['siteInformation.location']">
+        {{ validationErrors['siteInformation.location'] }}
+      </span>
+    </div>
+
+    <!-- Contract Name -->
+    <div class="form-group" [class.has-error]="validationErrors['siteInformation.contractName']">
+      <label class="form-label" for="contractName">Contract / Framework <span class="req">*</span></label>
+      <input id="contractName" type="text" class="form-control" [(ngModel)]="siteInfo.contractName"
+        (ngModelChange)="onFieldChange()" [disabled]="isLocked" placeholder="e.g. Marlborough Highways - 140-Newham" />
+      <span class="field-error" *ngIf="validationErrors['siteInformation.contractName']">
+        {{ validationErrors['siteInformation.contractName'] }}
+      </span>
+    </div>
+
+    <!-- Depot -->
+    <div class="form-group">
+      <label class="form-label" for="depot">Operating Depot</label>
+      <input id="depot" type="text" class="form-control" [(ngModel)]="siteInfo.depot" (ngModelChange)="onFieldChange()"
+        [disabled]="isLocked" placeholder="e.g. Beckton Depot" />
+    </div>
+
+    <!-- Time on Site -->
+    <div class="form-group" [class.has-error]="validationErrors['siteInformation.timeonsite']">
+      <div class="label-with-action">
+        <label class="form-label" for="timeonsite">Time on Site <span class="req">*</span></label>
+        <button *ngIf="!readOnly" type="button" class="btn-time-now" (click)="setCurrentTime()">Set Now</button>
+      </div>
+      <input id="timeonsite" type="text" class="form-control" [(ngModel)]="siteInfo.timeonsite"
+        (ngModelChange)="onFieldChange()" [disabled]="isLocked" placeholder="HH:MM (e.g. 07:30)" />
+      <span class="field-error" *ngIf="validationErrors['siteInformation.timeonsite']">
+        {{ validationErrors['siteInformation.timeonsite'] }}
+      </span>
+    </div>
+
+    <!-- Weather Selector -->
+    <div class="form-group span-2" [class.has-error]="validationErrors['siteInformation.weather']">
+      <label class="form-label">Weather Condition <span class="req">*</span></label>
+      <div class="weather-pill-group">
+        <button *ngFor="let w of weatherOptions" type="button" class="weather-pill"
+          [class.active]="siteInfo.weather === w.value" [disabled]="isLocked" (click)="onWeatherSelect(w.value)">
+          <span class="weather-icon">{{ w.icon }}</span>
+          <span class="weather-label">{{ w.label }}</span>
+        </button>
+      </div>
+      <span class="field-error" *ngIf="validationErrors['siteInformation.weather']">
+        {{ validationErrors['siteInformation.weather'] }}
+      </span>
+    </div>
+
+    <!-- Work Description -->
+    <div class="form-group span-2" [class.has-error]="validationErrors['siteInformation.description']">
+      <label class="form-label" for="description">Detailed Description of Works <span class="req">*</span></label>
+      <textarea id="description" rows="3" class="form-control textarea" [(ngModel)]="siteInfo.description"
+        (ngModelChange)="onFieldChange()" [disabled]="isLocked"
+        placeholder="Describe intended tasks, excavation depths, plant to be operated, and site boundaries..."></textarea>
+      <span class="field-error" *ngIf="validationErrors['siteInformation.description']">
+        {{ validationErrors['siteInformation.description'] }}
+      </span>
+    </div>
+  </div>
+</div>

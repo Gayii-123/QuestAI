@@ -1,0 +1,25 @@
+<div class="ssra-type-grid">
+  <div *ngFor="let type of activeTypes" class="ssra-type-card" [class.selected]="selectedTypeKey === type.key"
+    [class.disabled]="disabled" (click)="onCardClick(type)" role="button" [attr.aria-pressed]="selectedTypeKey === type.key"
+    tabindex="0" (keydown.enter)="onCardClick(type)">
+    <div class="card-header-row">
+      <span class="dept-badge">{{ type.department }}</span>
+      <span *ngIf="selectedTypeKey === type.key" class="selected-pill">✓ Selected</span>
+    </div>
+
+    <div class="card-icon-title">
+      <div class="card-icon-circle">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="domain-svg">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+        </svg>
+      </div>
+      <h3 class="type-title">{{ type.title }}</h3>
+    </div>
+
+    <p class="type-desc">{{ type.description }}</p>
+
+    <div class="card-footer-action">
+      <span class="select-text">{{ selectedTypeKey === type.key ? 'Active Template' : 'Choose Domain →' }}</span>
+    </div>
+  </div>
+</div>

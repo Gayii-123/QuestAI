@@ -1,0 +1,244 @@
+<div class="ssra-form-container">
+  <!-- Top Navigation / Title -->
+  <div class="form-header">
+    <div class="header-titles">
+      <div class="breadcrumbs">
+        <a (click)="cancel()" class="crumb-link">Safety Risk Assessments</a>
+        <span class="sep">/</span>
+        <span class="current">{{ isClosingPhase() ? 'Shift Closing Report (Phase 2)' : 'New Risk Assessment (Phase 1)' }}</span>
+      </div>
+      <h1 class="page-title">
+        {{ isClosingPhase() ? 'Phase 2: Shift Closing & Site Handover' : 'Phase 1: Pre-Start Point of Work Assessment' }}
+      </h1>
+      <p class="page-subtitle">
+        {{ isClosingPhase() 
+          ? 'Confirm departure time, demobilization status, conditional handover comments, and post-work photos.'
+          : 'Conduct pre-work verification, assess domain hazards, capture minimum 2 pre-work photos, and brief site operatives.' 
+        }}
+      </p>
+    </div>
+
+    <!-- Top Action Bar -->
+    <div class="header-actions">
+      <button type="button" class="btn btn-outline" (click)="cancel()">Cancel</button>
+      <button 
+        *ngIf="!isClosingPhase()" 
+        type="button" 
+        class="btn btn-secondary" 
+        (click)="saveDraft()">
+        Save Local Draft
+      </button>
+      <button 
+        *ngIf="!isClosingPhase()" 
+        type="button" 
+        class="btn btn-primary" 
+        [disabled]="isSubmitting()"
+        (click)="submitPhase1()">
+        {{ isSubmitting() ? 'Submitting...' : 'Submit Pre-Start (Level 1)' }}
+      </button>
+      <button 
+        *ngIf="isClosingPhase()" 
+        type="button" 
+        class="btn btn-success" 
+        [disabled]="isSubmitting()"
+        (click)="submitPhase2()">
+        {{ isSubmitting() ? 'Submitting...' : 'Complete Shift Closing' }}
+      </button>
+    </div>
+  </div>
+
+  <!-- Save Notification -->
+  <div *ngIf="saveMessage()" class="save-toast">
+    <span>✓ {{ saveMessage() }}</span>
+  </div>
+
+  <!-- Validation Error Summary Banner -->
+  <div *ngIf="validationErrors().length > 0" class="error-banner">
+    <div class="error-header">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="8" x2="12" y2="12"></line>
+        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+      </svg>
+      <h4>Please complete all required fields before sign-off:</h4>
+    </div>
+    <ul class="error-list">
+      <li *ngFor="let err of validationErrors()">{{ err.message }}</li>
+    </ul>
+  </div>
+
+  <!-- Main Workflow Sections -->
+  <div class="form-body">
+    <!-- SECTION 1: DOMAIN TYPE SELECTION -->
+    <div class="workflow-section" id="section-domain">
+      <div class="section-title-bar">
+        <span class="step-num">1</span>
+        <div>
+          <h2 class="section-heading">Operational Domain Selection</h2>
+          <p class="section-subheading">Select one of the 14 active operational departments matching current site works.</p>
+        </div>
+      </div>
+
+      <app-ssra-type-selector
+        [selectedTypeKey]="domainType()"
+        [disabled]="isClosingPhase() || existingAssessment()?.lifecycleStatus === 'Level1'"
+        (typeSelected)="onDomainSelected($event)">
+      </app-ssra-type-selector>
+    </div>
+
+    <!-- SECTION 2: SITE INFORMATION -->
+    <div class="workflow-section" id="section-site-info">
+      <div class="section-title-bar">
+        <span class="step-num">2</span>
+        <div>
+          <h2 class="section-heading">Site Information & Weather</h2>
+          <p class="section-subheading">Specify job references, location, contract, and point-of-work environmental conditions.</p>
+        </div>
+      </div>
+
+      <app-ssra-site-information
+        [siteInfo]="siteInformation()"
+        [disabled]="isClosingPhase() || existingAssessment()?.lifecycleStatus === 'Level1'"
+        (siteInfoChange)="siteInformation.set($event)">
+      </app-ssra-site-information>
+    </div>
+
+    <!-- SECTION 3: PRE-WORK PHOTOS (MINIMUM 2 MANDATORY) -->
+    <div class="workflow-section" id="section-photos">
+      <div class="section-title-bar">
+        <span class="step-num">3</span>
+        <div>
+          <h2 class="section-heading">Pre-Work Photographic Records</h2>
+          <p class="section-subheading">Minimum 2 pre-work photos required demonstrating site conditions prior to work commencing.</p>
+        </div>
+      </div>
+
+      <app-ssra-photo-upload
+        [photos]="preWorkPhotos()"
+        [category]="'pre-work'"
+        [minPhotos]="2"
+        [maxPhotos]="20"
+        [disabled]="isClosingPhase() || existingAssessment()?.lifecycleStatus === 'Level1'"
+        (photosChange)="preWorkPhotos.set($event)">
+      </app-ssra-photo-upload>
+    </div>
+
+    <!-- SECTION 4: POINT-OF-WORK CHECKLIST -->
+    <div class="workflow-section" id="section-checklist">
+      <div class="section-title-bar">
+        <span class="step-num">4</span>
+        <div>
+          <h2 class="section-heading">Operational Safety Checklist</h2>
+          <p class="section-subheading">Answer all domain-specific risk controls with bilingual Romanian guidance.</p>
+        </div>
+      </div>
+
+      <app-ssra-checklist
+        [questions]="currentQuestions()"
+        [answers]="answers()"
+        [disabled]="isClosingPhase() || existingAssessment()?.lifecycleStatus === 'Level1'"
+        (answersChange)="answers.set($event)"
+        (hotWorksTriggered)="onHotWorksTriggered($event)">
+      </app-ssra-checklist>
+
+      <!-- Additional Site Comments -->
+      <div class="additional-comments-card">
+        <label class="comments-label">Additional Site-Specific Hazards & Comments</label>
+        <textarea 
+          class="form-control" 
+          rows="3" 
+          placeholder="Note any unexpected utility pipes, third-party interface hazards, overhead cables, or supervisor instructions..."
+          [disabled]="isClosingPhase() || existingAssessment()?.lifecycleStatus === 'Level1'"
+          [ngModel]="otherComments()"
+          (ngModelChange)="otherComments.set($event)">
+        </textarea>
+      </div>
+    </div>
+
+    <!-- SECTION 5: HOT WORKS VERIFICATION -->
+    <div class="workflow-section" id="section-hotworks">
+      <div class="section-title-bar">
+        <span class="step-num">5</span>
+        <div>
+          <h2 class="section-heading">Hot Works Pre-Work Verification</h2>
+          <p class="section-subheading">Required if flame, cutting, welding, bitumen boiling, or spark-producing operations occur.</p>
+        </div>
+      </div>
+
+      <app-ssra-hotworks
+        [hotWorks]="hotWorks()"
+        [disabled]="isClosingPhase() || existingAssessment()?.lifecycleStatus === 'Level1'"
+        (hotWorksChange)="hotWorks.set($event)">
+      </app-ssra-hotworks>
+    </div>
+
+    <!-- SECTION 6: OPERATIVES BRIEFING & SIGNATURES -->
+    <div class="workflow-section" id="section-operatives">
+      <div class="section-title-bar">
+        <span class="step-num">6</span>
+        <div>
+          <h2 class="section-heading">Operatives Briefing & Digital Sign-Off</h2>
+          <p class="section-subheading">Every operative on site must be recorded and capture digital touch/mouse signature.</p>
+        </div>
+      </div>
+
+      <app-ssra-operatives-signatures
+        [operatives]="operatives()"
+        [personsAffected]="personsAffected()"
+        [disabled]="isClosingPhase() || existingAssessment()?.lifecycleStatus === 'Level1'"
+        (operativesChange)="operatives.set($event)"
+        (personsAffectedChange)="personsAffected.set($event)">
+      </app-ssra-operatives-signatures>
+    </div>
+
+    <!-- SECTION 7: SHIFT CLOSING (PHASE 2 ONLY) -->
+    <div *ngIf="isClosingPhase()" class="workflow-section closing-section" id="section-closing">
+      <div class="section-title-bar">
+        <span class="step-num closing-step">7</span>
+        <div>
+          <h2 class="section-heading">Phase 2: Shift Closing Report</h2>
+          <p class="section-subheading">Handover confirmation, traffic management status, used materials, and post-work photos.</p>
+        </div>
+      </div>
+
+      <app-ssra-closing-report
+        [closingReport]="closingReport()"
+        [disabled]="false"
+        (closingReportChange)="closingReport.set($event)">
+      </app-ssra-closing-report>
+    </div>
+  </div>
+
+  <!-- Bottom Floating Action Bar -->
+  <div class="bottom-action-bar">
+    <div class="bar-content">
+      <button type="button" class="btn btn-outline" (click)="cancel()">Cancel</button>
+
+      <div class="right-actions">
+        <button 
+          *ngIf="!isClosingPhase()" 
+          type="button" 
+          class="btn btn-secondary" 
+          (click)="saveDraft()">
+          Save Local Draft
+        </button>
+        <button 
+          *ngIf="!isClosingPhase()" 
+          type="button" 
+          class="btn btn-primary" 
+          [disabled]="isSubmitting()"
+          (click)="submitPhase1()">
+          {{ isSubmitting() ? 'Submitting...' : 'Submit Pre-Start (Level 1)' }}
+        </button>
+        <button 
+          *ngIf="isClosingPhase()" 
+          type="button" 
+          class="btn btn-success" 
+          [disabled]="isSubmitting()"
+          (click)="submitPhase2()">
+          {{ isSubmitting() ? 'Submitting...' : 'Complete Shift Closing' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

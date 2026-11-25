@@ -1,0 +1,243 @@
+<div class="ssra-closing-report">
+  <div class="report-header">
+    <div class="header-icon">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+      </svg>
+    </div>
+    <div>
+      <h3 class="header-title">Phase 2 — Shift Closing & Site Handover</h3>
+      <p class="header-subtitle">Record departure conditions, site demobilization status, materials used, and final safety handover.</p>
+    </div>
+  </div>
+
+  <div class="form-sections">
+    <!-- Time off site & Job finished -->
+    <div class="section-card">
+      <h4 class="card-title">1. Site Departure & Job Completion</h4>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="timeoffsite" class="form-label">Time Off Site (HH:mm) *</label>
+          <input 
+            id="timeoffsite"
+            type="time" 
+            class="form-control" 
+            [disabled]="disabled"
+            [ngModel]="closingReport.timeoffsite" 
+            (ngModelChange)="updateField('timeoffsite', $event)" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Is the Job Finished?</label>
+          <div class="toggle-buttons">
+            <button 
+              type="button" 
+              class="btn-toggle" 
+              [class.active]="closingReport.jobfinish === 'YES'"
+              [disabled]="disabled"
+              (click)="updateField('jobfinish', 'YES')">
+              YES
+            </button>
+            <button 
+              type="button" 
+              class="btn-toggle" 
+              [class.active]="closingReport.jobfinish === 'NO'"
+              [disabled]="disabled"
+              (click)="updateField('jobfinish', 'NO')">
+              NO
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Conditional Handover Questions -->
+    <div class="section-card">
+      <h4 class="card-title">2. Site Status & Handover Conditions</h4>
+      <div class="conditions-list">
+        <!-- TM Left -->
+        <div class="condition-item" [class.highlighted]="closingReport.jobstatus.tmleft === 'YES'">
+          <div class="condition-header">
+            <div>
+              <span class="condition-title">Traffic Management (TM) Left on Site?</span>
+              <p class="condition-hint">Are cones, barriers, signals, or signs remaining at the location?</p>
+            </div>
+            <div class="toggle-buttons">
+              <button 
+                type="button" 
+                class="btn-toggle" 
+                [class.active]="closingReport.jobstatus.tmleft === 'YES'"
+                [disabled]="disabled"
+                (click)="updateJobStatus('tmleft', 'YES')">
+                YES
+              </button>
+              <button 
+                type="button" 
+                class="btn-toggle" 
+                [class.active]="closingReport.jobstatus.tmleft === 'NO'"
+                [disabled]="disabled"
+                (click)="updateJobStatus('tmleft', 'NO')">
+                NO
+              </button>
+            </div>
+          </div>
+          <div *ngIf="closingReport.jobstatus.tmleft === 'YES'" class="condition-input-row">
+            <label class="input-label">Specify TM configuration left and reason *</label>
+            <input 
+              type="text" 
+              class="form-control" 
+              placeholder="e.g. 40 barrier sections and 12 cones securing open excavation until morning shift" 
+              [disabled]="disabled"
+              [ngModel]="closingReport.jobstatus.tmcomment" 
+              (ngModelChange)="updateJobStatusComment('tmcomment', $event)" />
+          </div>
+        </div>
+
+        <!-- Another Visit Required -->
+        <div class="condition-item" [class.highlighted]="closingReport.jobstatus.visitagain === 'YES'">
+          <div class="condition-header">
+            <div>
+              <span class="condition-title">Another Visit Required?</span>
+              <p class="condition-hint">Does the gang or another department need to return to complete works?</p>
+            </div>
+            <div class="toggle-buttons">
+              <button 
+                type="button" 
+                class="btn-toggle" 
+                [class.active]="closingReport.jobstatus.visitagain === 'YES'"
+                [disabled]="disabled"
+                (click)="updateJobStatus('visitagain', 'YES')">
+                YES
+              </button>
+              <button 
+                type="button" 
+                class="btn-toggle" 
+                [class.active]="closingReport.jobstatus.visitagain === 'NO'"
+                [disabled]="disabled"
+                (click)="updateJobStatus('visitagain', 'NO')">
+                NO
+              </button>
+            </div>
+          </div>
+          <div *ngIf="closingReport.jobstatus.visitagain === 'YES'" class="condition-input-row">
+            <label class="input-label">Specify details of subsequent visit required *</label>
+            <input 
+              type="text" 
+              class="form-control" 
+              placeholder="e.g. Return tomorrow morning for hot rolled asphalt surface course laying" 
+              [disabled]="disabled"
+              [ngModel]="closingReport.jobstatus.visitagaincomment" 
+              (ngModelChange)="updateJobStatusComment('visitagaincomment', $event)" />
+          </div>
+        </div>
+
+        <!-- Follow-up Required -->
+        <div class="condition-item" [class.highlighted]="closingReport.jobstatus.followup === 'YES'">
+          <div class="condition-header">
+            <div>
+              <span class="condition-title">Follow-up Required by Supervisor / Client?</span>
+              <p class="condition-hint">Any defects, queries, third-party disputes, or supervisor inspections required?</p>
+            </div>
+            <div class="toggle-buttons">
+              <button 
+                type="button" 
+                class="btn-toggle" 
+                [class.active]="closingReport.jobstatus.followup === 'YES'"
+                [disabled]="disabled"
+                (click)="updateJobStatus('followup', 'YES')">
+                YES
+              </button>
+              <button 
+                type="button" 
+                class="btn-toggle" 
+                [class.active]="closingReport.jobstatus.followup === 'NO'"
+                [disabled]="disabled"
+                (click)="updateJobStatus('followup', 'NO')">
+                NO
+              </button>
+            </div>
+          </div>
+          <div *ngIf="closingReport.jobstatus.followup === 'YES'" class="condition-input-row">
+            <label class="input-label">Specify follow-up action required *</label>
+            <input 
+              type="text" 
+              class="form-control" 
+              placeholder="e.g. Contact client regarding unexpected statutory utility pipe crossing" 
+              [disabled]="disabled"
+              [ngModel]="closingReport.jobstatus.followupcomment" 
+              (ngModelChange)="updateJobStatusComment('followupcomment', $event)" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Materials Section -->
+    <div class="section-card">
+      <h4 class="card-title">3. Materials Reconciliation</h4>
+      <div class="materials-container">
+        <label class="form-label">Materials Used on Shift</label>
+        <div *ngIf="!disabled" class="add-material-row">
+          <input 
+            type="text" 
+            [(ngModel)]="materialInput" 
+            placeholder="e.g. 6t Type 1 MOT, 4 bags Postcrete, 15m cable..." 
+            class="form-control" 
+            (keyup.enter)="addMaterial()" />
+          <button type="button" class="btn-add-material" (click)="addMaterial()" [disabled]="!materialInput.trim()">
+            Add
+          </button>
+        </div>
+
+        <div class="materials-chips">
+          <span *ngFor="let m of closingReport.usedmaterials; let i = index" class="material-chip">
+            {{ m }}
+            <button *ngIf="!disabled" type="button" class="btn-remove-material" (click)="removeMaterial(i)">×</button>
+          </span>
+          <span *ngIf="!closingReport.usedmaterials || closingReport.usedmaterials.length === 0" class="no-materials-hint">
+            No specific materials recorded.
+          </span>
+        </div>
+
+        <div class="materials-notes">
+          <label class="form-label">Materials Description / Residuals Left on Site</label>
+          <textarea 
+            class="form-control" 
+            rows="2" 
+            placeholder="Details on leftover materials safely stockpiled or returned to depot..."
+            [disabled]="disabled"
+            [ngModel]="closingReport.materialsuseddescription" 
+            (ngModelChange)="updateField('materialsuseddescription', $event)">
+          </textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Closing Comments & Handover Notes -->
+    <div class="section-card">
+      <h4 class="card-title">4. Final Handover & Supervisor Notes</h4>
+      <textarea 
+        class="form-control" 
+        rows="3" 
+        placeholder="Provide shift handover summary, housekeeping verification, and final safe departure comments..."
+        [disabled]="disabled"
+        [ngModel]="closingReport.closingreport.comments" 
+        (ngModelChange)="updateClosingComments($event)">
+      </textarea>
+    </div>
+
+    <!-- Closing Photos -->
+    <div class="section-card">
+      <app-ssra-photo-upload
+        [photos]="closingReport.closingreport.moreimages"
+        [category]="'closing'"
+        [minPhotos]="0"
+        [maxPhotos]="10"
+        [disabled]="disabled"
+        [title]="'Post-Work / Closing Photographic Evidence'"
+        [subtitle]="'Capture site housekeeping, completed works, and left-in-place TM prior to departure.'"
+        (photosChange)="onClosingPhotosChange($event)">
+      </app-ssra-photo-upload>
+    </div>
+  </div>
+</div>

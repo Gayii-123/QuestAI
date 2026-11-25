@@ -1,0 +1,101 @@
+<div class="ssra-hotworks" [class.active]="hotWorks.applicable">
+  <div class="hw-header">
+    <div class="hw-title-row">
+      <div class="hw-icon-circle">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path>
+        </svg>
+      </div>
+      <div>
+        <h3 class="hw-title">Hot Works Pre-Work Verification</h3>
+        <p class="hw-subtitle">Mandatory fire safety controls before conducting gas cutting, welding, heating, bitumen boiling, or grinding.</p>
+      </div>
+    </div>
+
+    <!-- Applicable Toggle -->
+    <div class="toggle-group">
+      <span class="toggle-label">Hot Works Involved?</span>
+      <div class="toggle-buttons">
+        <button 
+          type="button" 
+          class="btn-toggle" 
+          [class.active]="hotWorks.applicable"
+          [disabled]="disabled"
+          (click)="toggleApplicable(true)">
+          YES
+        </button>
+        <button 
+          type="button" 
+          class="btn-toggle" 
+          [class.active]="!hotWorks.applicable"
+          [disabled]="disabled"
+          (click)="toggleApplicable(false)">
+          NO
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mandatory 4 Checks Container -->
+  <div *ngIf="hotWorks.applicable" class="hw-body">
+    <div class="notice-banner">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="8" x2="12" y2="12"></line>
+        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+      </svg>
+      <span>All 4 verified Hot Works pre-work checks must be marked <strong>Pass</strong> before commencing hot works.</span>
+    </div>
+
+    <div class="checks-grid">
+      <div *ngFor="let check of hotWorks.checks" class="check-card" [class.passed]="check.status === 'Pass'" [class.failed]="check.status === 'Fail'">
+        <div class="check-top">
+          <span class="check-id">{{ check.id }}</span>
+          <div class="check-info">
+            <h4 class="check-title">{{ check.title }}</h4>
+            <p class="check-desc">{{ check.description }}</p>
+          </div>
+        </div>
+
+        <div class="check-actions">
+          <div class="status-btn-group">
+            <button 
+              type="button" 
+              class="btn-status btn-pass" 
+              [class.selected]="check.status === 'Pass'"
+              [disabled]="disabled"
+              (click)="setCheckStatus(check.id, 'Pass')">
+              ✓ Pass
+            </button>
+            <button 
+              type="button" 
+              class="btn-status btn-fail" 
+              [class.selected]="check.status === 'Fail'"
+              [disabled]="disabled"
+              (click)="setCheckStatus(check.id, 'Fail')">
+              ✕ Fail
+            </button>
+            <button 
+              type="button" 
+              class="btn-status btn-na" 
+              [class.selected]="check.status === 'N/A'"
+              [disabled]="disabled"
+              (click)="setCheckStatus(check.id, 'N/A')">
+              N/A
+            </button>
+          </div>
+        </div>
+
+        <div class="check-notes-row">
+          <input 
+            type="text" 
+            class="check-note-input" 
+            placeholder="Equipment serial / Fire watch operative name / note..." 
+            [disabled]="disabled"
+            [ngModel]="check.notes" 
+            (ngModelChange)="updateCheckNotes(check.id, $event)" />
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

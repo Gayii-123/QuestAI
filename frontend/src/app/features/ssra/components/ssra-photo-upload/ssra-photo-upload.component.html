@@ -1,0 +1,102 @@
+<div class="photo-upload-container">
+  <div class="header-section">
+    <div class="titles">
+      <h3 class="title">{{ title }}</h3>
+      <p class="subtitle">{{ subtitle }}</p>
+    </div>
+    <div class="badge-count" [class.valid]="photos.length >= minPhotos">
+      <span>{{ photos.length }}</span> / {{ minPhotos > 0 ? minPhotos + ' required' : maxPhotos + ' max' }}
+    </div>
+  </div>
+
+  <div *ngIf="errorMessage" class="error-banner">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"></circle>
+      <line x1="12" y1="8" x2="12" y2="12"></line>
+      <line x1="12" y1="16" x2="12.01" y2="16"></line>
+    </svg>
+    <span>{{ errorMessage }}</span>
+  </div>
+
+  <!-- Photo Grid -->
+  <div class="photo-grid">
+    <!-- Existing Photos -->
+    <div 
+      *ngFor="let photo of photos; let i = index" 
+      class="photo-card" 
+      (click)="openLightbox(photo)"
+      tabindex="0"
+      role="button"
+      [attr.aria-label]="'View ' + photo.name">
+      <img [src]="photo.url" [alt]="photo.name" loading="lazy" />
+      <div class="photo-overlay">
+        <span class="photo-name">{{ photo.name }}</span>
+        <button 
+          *ngIf="!disabled" 
+          type="button" 
+          class="btn-delete" 
+          (click)="removePhoto(i, $event)" 
+          title="Remove photo"
+          aria-label="Remove photo">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+        </button>
+      </div>
+      <span class="photo-index">{{ i + 1 }}</span>
+    </div>
+
+    <!-- Upload Button Card -->
+    <div *ngIf="!disabled && photos.length < maxPhotos" class="upload-card" [class.loading]="isProcessing">
+      <input 
+        type="file" 
+        #fileInput 
+        accept="image/*" 
+        capture="environment"
+        multiple 
+        (change)="onFilesSelected($event)" 
+        [disabled]="isProcessing"
+        class="hidden-input"
+        id="ssra-photo-input-{{ category }}" />
+      <label [for]="'ssra-photo-input-' + category" class="upload-label">
+        <div *ngIf="!isProcessing" class="upload-content">
+          <div class="upload-icon-circle">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+              <circle cx="12" cy="13" r="4"></circle>
+            </svg>
+          </div>
+          <span class="upload-text">Take Photo or Browse</span>
+          <span class="upload-hint">JPEG, PNG up to 1080p</span>
+        </div>
+        <div *ngIf="isProcessing" class="upload-loading">
+          <div class="spinner"></div>
+          <span>Optimizing photos...</span>
+        </div>
+      </label>
+    </div>
+  </div>
+
+  <div *ngIf="minPhotos > 0 && photos.length < minPhotos" class="min-warning">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+      <line x1="12" y1="9" x2="12" y2="13"></line>
+      <line x1="12" y1="17" x2="12.01" y2="17"></line>
+    </svg>
+    <span>A minimum of {{ minPhotos }} photographic records required for Phase 1 sign-off. ({{ minPhotos - photos.length }} remaining)</span>
+  </div>
+
+  <!-- Lightbox Modal -->
+  <div *ngIf="selectedPhoto" class="lightbox-modal" (click)="closeLightbox()">
+    <div class="lightbox-content" (click)="$event.stopPropagation()">
+      <div class="lightbox-header">
+        <span class="lightbox-title">{{ selectedPhoto.name }}</span>
+        <button type="button" class="btn-close" (click)="closeLightbox()">✕</button>
+      </div>
+      <div class="lightbox-body">
+        <img [src]="selectedPhoto.url" [alt]="selectedPhoto.name" />
+      </div>
+    </div>
+  </div>
+</div>

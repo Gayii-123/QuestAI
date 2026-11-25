@@ -32,7 +32,7 @@ export class MainLayoutComponent {
   readonly mobileSidebarOpen = signal<boolean>(false);
   readonly desktopSidebarCollapsed = signal<boolean>(false);
   readonly sidebarActiveSection = signal<
-    'home' | 'recent-chats' | 'inspection-history' | 'my-reports' | 'internal-audit'
+    'home' | 'recent-chats' | 'inspection-history' | 'my-reports' | 'internal-audit' | 'ssra'
   >('home');
   readonly recentChatsExpanded = signal<boolean>(true);
 
@@ -83,6 +83,10 @@ export class MainLayoutComponent {
 
   readonly isReportsRoute = computed(() => {
     return this.currentUrl().includes('/reports');
+  });
+
+  readonly isSsraRoute = computed(() => {
+    return this.currentUrl().includes('/ssra');
   });
 
   constructor() {
@@ -159,6 +163,13 @@ export class MainLayoutComponent {
     this.closeConversationMenu();
     this.closeMobileSidebar();
     void this.router.navigate(['/internal-audit']);
+  }
+
+  navigateToSsra(): void {
+    this.sidebarActiveSection.set('ssra');
+    this.closeConversationMenu();
+    this.closeMobileSidebar();
+    void this.router.navigate(['/ssra']);
   }
 
   selectConversation(id: string): void {

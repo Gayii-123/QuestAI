@@ -1,0 +1,41 @@
+<div class="signature-modal-backdrop" (click)="cancelModal()">
+  <div class="signature-modal-card" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="title-group">
+        <h3 class="modal-title">{{ title }}</h3>
+        <p class="modal-subtitle">{{ subtitle }}</p>
+      </div>
+      <button type="button" class="btn-icon-close" (click)="cancelModal()" aria-label="Close modal">✕</button>
+    </div>
+
+    <div class="canvas-wrapper">
+      <canvas
+        #signatureCanvas
+        (mousedown)="startDrawing($event)"
+        (mousemove)="draw($event)"
+        (mouseup)="stopDrawing()"
+        (mouseleave)="stopDrawing()"
+        (touchstart)="startDrawing($event)"
+        (touchmove)="draw($event)"
+        (touchend)="stopDrawing()">
+      </canvas>
+      <div *ngIf="!hasDrawn" class="canvas-placeholder">
+        <span>Sign above the line</span>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline" (click)="clear()" [disabled]="!hasDrawn">
+        Clear
+      </button>
+      <div class="right-buttons">
+        <button type="button" class="btn btn-secondary" (click)="cancelModal()">
+          Cancel
+        </button>
+        <button type="button" class="btn btn-primary" (click)="saveSignature()" [disabled]="!hasDrawn">
+          Save Signature
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

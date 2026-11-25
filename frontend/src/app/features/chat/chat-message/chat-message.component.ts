@@ -7,6 +7,7 @@ import {
   computed,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ChatMessage } from '../../../core/models/chat.models';
@@ -18,6 +19,7 @@ import {
   SiteInspectionBankOption,
   SITE_INSPECTION_BANKS,
 } from '../../../core/models/site-inspection.schema';
+import { ACTIVE_SSRA_DOMAINS } from '../../ssra/config/ssra-types.config';
 import { ChatStateService } from '../../../core/services/chat-state.service';
 import { ReportService } from '../../../core/services/report.service';
 import { AuthService } from '../../../core/services/auth.service';
@@ -33,6 +35,7 @@ import { InspectionDraftSummaryComponent } from '../../inspection/draft-summary/
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     InspectionProgressComponent,
     InspectionSingleQuestionCardComponent,
     InspectionEvidenceMessageComponent,
@@ -279,6 +282,56 @@ export class ChatMessageComponent {
     if (!prompt || this.chatState.isGenerating()) return;
     this.chatState.composerText.set(prompt);
     this.chatState.sendMessage();
+  }
+
+  // --- SSRA Conversational Handlers ---
+  readonly activeSsraDomains = ACTIVE_SSRA_DOMAINS;
+  showNoteInput: Record<string, boolean> = {};
+  questionNotes: Record<string, string> = {};
+
+  toggleNoteInput(questionId: string): void {
+    this.showNoteInput[questionId] = !this.showNoteInput[questionId];
+  }
+
+  onSelectSsraDomain(domainKey: string): void {
+    this.chatState.onSelectSsraDomain(domainKey, this.msg.id);
+  }
+
+  onAnswerSsraQuestion(questionId: string, value: string): void {
+    const note = this.questionNotes[questionId];
+    this.chatState.onAnswerSsraQuestion(questionId, value, note);
+  }
+
+  onAnswerSsraHotWorks(checkId: string, status: 'Pass' | 'Fail' | 'N/A'): void {
+    this.chatState.onAnswerSsraHotWorksCheck(checkId, status);
+  }
+
+  onConfirmSsraOperatives(): void {
+    this.chatState.onConfirmSsraOperatives();
+  }
+
+  openSsraDetail(id?: string): void {
+    const targetId = id || this.msg.ssraId || this.msg.ssraResult?.id;
+    if (targetId) {
+      void this.router.navigate(['/ssra', targetId]);
+    } else {
+      void this.router.navigate(['/ssra']);
+    }
+  }
+
+  viewSsraInReports(): void {
+    void this.router.navigate(['/reports']);
+  }
+
+  downloadSsraPdf(assessment?: any): void {
+    const reportData = assessment || this.msg.ssraResult;
+    if (reportData) {
+      this.reportService.downloadReportPdf({
+        ...reportData,
+        isSsra: true,
+        referenceNumber: reportData.refno || reportData.id,
+      });
+    }
   }
 }
 

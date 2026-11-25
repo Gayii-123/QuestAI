@@ -583,3 +583,621 @@
   width: 14px;
   height: 14px;
 }
+
+/* ========================================================
+   SSRA Conversational Cards & Interactive Components
+   ======================================================== */
+
+/* 1. SSRA Domain Selector */
+.ssra-domain-selector-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--q-bg);
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-r-lg);
+  padding: 16px;
+  margin-top: 8px;
+  max-width: 100%;
+}
+
+.ssra-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--q-border);
+}
+
+.ssra-section-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--q-muted);
+  text-transform: uppercase;
+}
+
+.ssra-section-count {
+  font-size: 0.75rem;
+  color: var(--q-faint);
+  font-weight: 500;
+}
+
+.ssra-domain-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.ssra-domain-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--q-surface);
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-r-md);
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ssra-domain-card:hover {
+  background: var(--q-surface-2);
+  border-color: #0284c7;
+  transform: translateY(-1px);
+}
+
+.ssra-domain-card.selected {
+  background: #f0f9ff;
+  border-color: #0284c7;
+  box-shadow: 0 0 0 1px #0284c7;
+}
+
+.domain-card-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.domain-card-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.domain-card-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--q-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.domain-card-dept {
+  font-size: 0.72rem;
+  color: var(--q-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 2. SSRA Point-of-Work Question Card */
+.ssra-question-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--q-bg);
+  border: 1px solid var(--q-border);
+  border-left: 4px solid #0284c7;
+  border-radius: var(--q-r-lg);
+  padding: 16px;
+  margin-top: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.ssra-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ssra-header-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ssra-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.domain-pill {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+}
+
+.qnum-pill {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+
+.hw-trigger-pill {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.ssra-question-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ssra-question-text {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--q-text);
+  line-height: 1.45;
+}
+
+.ssra-ro-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  background: #f8fafc;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  color: #475569;
+  font-style: italic;
+}
+
+.ssra-cm-box {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 6px;
+  padding: 8px 12px;
+}
+
+.ssra-cm-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #166534;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 2px;
+}
+
+.cm-icon {
+  width: 14px;
+  height: 14px;
+  color: #16a34a;
+}
+
+.ssra-cm-text {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #15803d;
+  line-height: 1.4;
+}
+
+/* SSRA Actions Row */
+.ssra-action-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+}
+
+.btn-ssra-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  border-radius: 6px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+}
+
+.choice-yes, .choice-pass {
+  background: #16a34a;
+  color: #ffffff;
+}
+
+.choice-yes:hover, .choice-pass:hover {
+  background: #15803d;
+}
+
+.choice-no, .choice-fail {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.choice-no:hover, .choice-fail:hover {
+  background: #b91c1c;
+}
+
+.choice-na {
+  background: #f1f5f9;
+  color: #475569;
+  border-color: #cbd5e1;
+}
+
+.choice-na:hover {
+  background: #e2e8f0;
+}
+
+.btn-ssra-toggle-note {
+  background: transparent;
+  color: var(--q-muted);
+  border: 1px dashed var(--q-border);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-ssra-toggle-note:hover {
+  border-color: var(--q-border-hover);
+  color: var(--q-text);
+}
+
+.ssra-note-input-wrap {
+  margin-top: 4px;
+}
+
+.ssra-note-field {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--q-border);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  background: var(--q-surface);
+  color: var(--q-text);
+  outline: none;
+}
+
+.ssra-note-field:focus {
+  border-color: #0284c7;
+}
+
+.ssra-answered-badge {
+  font-size: 0.82rem;
+  color: #16a34a;
+  padding-top: 4px;
+}
+
+/* 3. Hot Works Pre-Work Check Card */
+.ssra-hw-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--q-bg);
+  border: 1px solid #fed7aa;
+  border-left: 4px solid #ea580c;
+  border-radius: var(--q-r-lg);
+  padding: 16px;
+  margin-top: 8px;
+}
+
+.ssra-hw-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ssra-hw-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hw-fire-pill {
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #ffedd5;
+}
+
+.hw-num-pill {
+  background: #ffedd5;
+  color: #9a3412;
+}
+
+.ssra-hw-code {
+  font-family: monospace;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #ea580c;
+}
+
+.ssra-hw-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ssra-hw-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--q-text);
+}
+
+.ssra-hw-desc {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--q-muted);
+  line-height: 1.4;
+}
+
+/* 4. Operative Briefing Confirmation Card */
+.ssra-operatives-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--q-bg);
+  border: 1px solid var(--q-border);
+  border-left: 4px solid #4f46e5;
+  border-radius: var(--q-r-lg);
+  padding: 16px;
+  margin-top: 8px;
+}
+
+.ssra-operatives-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.operatives-pill {
+  background: #eef2ff;
+  color: #4338ca;
+  border: 1px solid #e0e7ff;
+}
+
+.ssra-briefing-sub {
+  font-size: 0.75rem;
+  color: var(--q-muted);
+}
+
+.ssra-operatives-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ssra-op-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--q-surface);
+  border: 1px solid var(--q-border);
+  border-radius: 6px;
+}
+
+.op-avatar-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #1e293b;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.75rem;
+}
+
+.op-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.op-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--q-text);
+}
+
+.op-role {
+  font-size: 0.72rem;
+  color: var(--q-muted);
+}
+
+.op-status-pill {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #16a34a;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  padding: 2px 8px;
+  border-radius: 9999px;
+}
+
+.ssra-operatives-footer {
+  padding-top: 4px;
+}
+
+.btn-ssra-confirm-briefing {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #4f46e5;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 9px 18px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.btn-ssra-confirm-briefing:hover {
+  background: #4338ca;
+}
+
+/* 5. Finalized SSRA Result Card */
+.chat-ssra-result-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: var(--q-bg);
+  border: 1px solid #cbd5e1;
+  border-left: 5px solid #0f172a;
+  border-radius: var(--q-r-lg);
+  padding: 16px;
+  margin-top: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.chat-ssra-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--q-border);
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chat-ssra-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chat-ssra-badge {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #0f172a;
+}
+
+.chat-ssra-ref-badge {
+  font-family: monospace;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: #f1f5f9;
+  color: #334155;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid #cbd5e1;
+}
+
+.chat-ssra-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #166534;
+  background: #dcfce7;
+  border: 1px solid #bbf7d0;
+  padding: 3px 10px;
+  border-radius: 9999px;
+}
+
+.chat-ssra-status-pill .status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #16a34a;
+}
+
+.chat-ssra-details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.ssra-detail-box {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 10px;
+  background: var(--q-surface);
+  border: 1px solid var(--q-border);
+  border-radius: 6px;
+}
+
+.detail-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--q-muted);
+  letter-spacing: 0.04em;
+}
+
+.detail-value {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--q-text);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-ssra-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+}
+
+.btn-ssra-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+}
+
+.btn-ssra-action.primary {
+  background: #0f172a;
+  color: #ffffff;
+}
+
+.btn-ssra-action.primary:hover {
+  background: #1e293b;
+}
+
+.btn-ssra-action.secondary {
+  background: var(--q-surface);
+  color: var(--q-text);
+  border-color: var(--q-border);
+}
+
+.btn-ssra-action.secondary:hover {
+  background: var(--q-surface-2);
+  border-color: var(--q-border-hover);
+}

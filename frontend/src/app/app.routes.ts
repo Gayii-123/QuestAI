@@ -5,6 +5,9 @@ import { ChatComponent } from './features/chat/chat.component';
 import { SiteInspectionComponent } from './features/inspection/site-inspection.component';
 import { ReportsComponent } from './features/reports/reports.component';
 import { InternalAuditComponent } from './features/internal-audit/internal-audit.component';
+import { SsraDashboardComponent } from './features/ssra/pages/ssra-dashboard/ssra-dashboard.component';
+import { SsraFormComponent } from './features/ssra/pages/ssra-form/ssra-form.component';
+import { SsraDetailComponent } from './features/ssra/pages/ssra-detail/ssra-detail.component';
 import { authGuard, guestGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
@@ -42,6 +45,22 @@ export const routes: Routes = [
       {
         path: 'internal-audit',
         component: InternalAuditComponent,
+      },
+      {
+        path: 'ssra',
+        component: SsraDashboardComponent,
+      },
+      {
+        path: 'ssra/new',
+        component: SsraFormComponent,
+      },
+      {
+        path: 'ssra/:id/close',
+        component: SsraFormComponent,
+      },
+      {
+        path: 'ssra/:id',
+        component: SsraDetailComponent,
       },
     ],
   },

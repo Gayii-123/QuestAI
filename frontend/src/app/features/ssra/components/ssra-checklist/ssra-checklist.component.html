@@ -1,0 +1,129 @@
+<div class="ssra-checklist">
+  <div class="checklist-header">
+    <h3 class="checklist-title">Safety Operational Checklist</h3>
+    <span class="checklist-count">
+      {{ questions.length }} Point-of-Work Verifications
+    </span>
+  </div>
+
+  <div class="questions-list">
+    <div 
+      *ngFor="let q of questions; let i = index" 
+      class="question-card" 
+      [id]="'question-' + q.id"
+      [class.answered]="hasAnswer(q.id)"
+      [class.hot-works-trigger]="q.triggersHotWorks">
+
+      <!-- Question Top -->
+      <div class="q-top">
+        <span class="q-number">Q{{ q.qnum || q.questionNumber || (i + 1) }}</span>
+        <div class="q-text-group">
+          <p class="q-english">{{ q.text || q.questionText }}</p>
+          <div *ngIf="q.roText || q.romanianTranslation" class="q-ro-badge">
+            <span class="ro-flag">🇷🇴</span>
+            <span class="ro-text">{{ q.roText || q.romanianTranslation }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Control Measure Callout -->
+      <div *ngIf="q.cm || q.controlMeasure" class="q-cm-callout">
+        <div class="cm-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+          </svg>
+        </div>
+        <div class="cm-body">
+          <span class="cm-label">Control Measure:</span>
+          <span class="cm-text">{{ q.cm || q.controlMeasure }}</span>
+        </div>
+      </div>
+
+      <!-- Hot Works Notice if applicable -->
+      <div *ngIf="q.triggersHotWorks" class="hw-trigger-notice">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+        </svg>
+        <span>Answering 'Yes' activates mandatory Hot Works Pre-Work Verification.</span>
+      </div>
+
+      <!-- Actions / Answer Selection -->
+      <div class="q-actions">
+        <!-- Yes / No / NA Buttons -->
+        <div *ngIf="q.answerType === 'yes-no-na' || q.answerType === 'yes-no'" class="button-group">
+          <button 
+            type="button" 
+            class="btn-option btn-yes" 
+            [class.selected]="isAnswerValue(q.id, 'Yes')" 
+            [disabled]="disabled"
+            (click)="setAnswerValue(q, 'Yes')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            Yes
+          </button>
+          <button 
+            type="button" 
+            class="btn-option btn-no" 
+            [class.selected]="isAnswerValue(q.id, 'No')" 
+            [disabled]="disabled"
+            (click)="setAnswerValue(q, 'No')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+            No
+          </button>
+          <button 
+            *ngIf="q.answerType === 'yes-no-na'" 
+            type="button" 
+            class="btn-option btn-na" 
+            [class.selected]="isAnswerValue(q.id, 'N/A')" 
+            [disabled]="disabled"
+            (click)="setAnswerValue(q, 'N/A')">
+            N/A
+          </button>
+        </div>
+
+        <!-- Multi-select chips if options provided -->
+        <div *ngIf="q.options && q.options.length > 0" class="options-chips">
+          <button 
+            *ngFor="let opt of q.options" 
+            type="button" 
+            class="chip-option" 
+            [class.selected]="isOptionSelected(q.id, opt.id || opt)"
+            [disabled]="disabled"
+            (click)="toggleOption(q, opt.id || opt)">
+            <span>{{ opt.label || opt }}</span>
+            <span *ngIf="opt.triggersHotWorks" class="chip-flame" title="Hot Works trigger">🔥</span>
+          </button>
+        </div>
+
+        <!-- Note expand button -->
+        <button 
+          type="button" 
+          class="btn-add-note" 
+          [class.has-notes]="hasNotes(q.id)" 
+          (click)="toggleNoteField(q.id)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+          </svg>
+          <span>{{ hasNotes(q.id) ? 'Note Added' : 'Add Note' }}</span>
+        </button>
+      </div>
+
+      <!-- Expandable Note Field -->
+      <div *ngIf="expandedNotes[q.id] || hasNotes(q.id)" class="q-note-container">
+        <textarea 
+          class="q-note-input" 
+          placeholder="Specify operational control details, risk mitigations, or supervisor notes..." 
+          rows="2"
+          [disabled]="disabled"
+          [ngModel]="getNotes(q.id)" 
+          (ngModelChange)="updateNote(q.id, $event)">
+        </textarea>
+      </div>
+    </div>
+  </div>
+</div>

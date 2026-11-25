@@ -1,0 +1,156 @@
+<div class="ssra-operatives-signatures">
+  <!-- Section 1: Persons Affected -->
+  <div class="section-card">
+    <div class="card-header">
+      <h3 class="card-title">Persons Affected by Work Activity</h3>
+      <span class="card-count" [class.valid]="personsAffected.length > 0">
+        {{ personsAffected.length }} Selected
+      </span>
+    </div>
+    <p class="section-hint">Select all groups of people who may be put at risk or affected during the execution of this job.</p>
+
+    <!-- Chips -->
+    <div class="chips-container">
+      <button 
+        *ngFor="let p of presetPersons" 
+        type="button" 
+        class="chip-button" 
+        [class.active]="personsAffected.includes(p)"
+        [disabled]="disabled"
+        (click)="togglePresetPerson(p)">
+        <span class="chip-check" *ngIf="personsAffected.includes(p)">✓</span>
+        {{ p }}
+      </button>
+
+      <span 
+        *ngFor="let p of personsAffected" 
+        class="chip-custom" 
+        [hidden]="presetPersons.includes(p)">
+        {{ p }}
+        <button *ngIf="!disabled" type="button" class="btn-remove-chip" (click)="removePerson(p)">×</button>
+      </span>
+    </div>
+
+    <!-- Custom Person Input -->
+    <div *ngIf="!disabled" class="add-custom-row">
+      <input 
+        type="text" 
+        [(ngModel)]="customPersonInput" 
+        placeholder="Add another affected group (e.g. Residents, Cyclists)..." 
+        (keyup.enter)="addCustomPerson()" 
+        class="input-custom" />
+      <button type="button" class="btn-add-custom" (click)="addCustomPerson()" [disabled]="!customPersonInput.trim()">
+        Add
+      </button>
+    </div>
+  </div>
+
+  <!-- Section 2: Operatives Signatures -->
+  <div class="section-card">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title">Site Operatives Briefing & Sign-Off</h3>
+        <p class="section-hint">Every team member working on site must be briefed on the risks and digital signature captured prior to work.</p>
+      </div>
+      <span class="card-count" [class.valid]="operatives.length > 0">
+        {{ operatives.length }} Operatives
+      </span>
+    </div>
+
+    <!-- Add Operative Form -->
+    <div *ngIf="!disabled" class="add-operative-form">
+      <div class="input-grid">
+        <input 
+          type="text" 
+          [(ngModel)]="newOperativeName" 
+          placeholder="Operative Full Name *" 
+          class="form-input" />
+        <input 
+          type="text" 
+          [(ngModel)]="newOperativeRole" 
+          placeholder="Role / Trade (e.g. Lead Slinger, Roller Driver)" 
+          class="form-input" 
+          (keyup.enter)="addOperative()" />
+      </div>
+      <button type="button" class="btn-add-op" (click)="addOperative()" [disabled]="!newOperativeName.trim()">
+        + Add Operative
+      </button>
+    </div>
+
+    <!-- Operatives List -->
+    <div class="operatives-list">
+      <div *ngIf="operatives.length === 0" class="empty-state">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+          <circle cx="9" cy="7" r="4"></circle>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+        </svg>
+        <p>No operatives added yet. Add all personnel present at the point of work.</p>
+      </div>
+
+      <div *ngFor="let op of operatives; let i = index" class="operative-card" [class.signed]="!!op.signatureDataUrl">
+        <div class="op-info">
+          <div class="op-avatar">
+            {{ op.displayName.charAt(0).toUpperCase() }}
+          </div>
+          <div>
+            <h4 class="op-name">{{ op.displayName }}</h4>
+            <span class="op-role">{{ op.role || 'Site Operative' }}</span>
+            <div *ngIf="op.signedAt" class="op-timestamp">
+              Signed: {{ op.signedAt | date:'dd/MM/yyyy HH:mm' }}
+            </div>
+          </div>
+        </div>
+
+        <div class="op-actions">
+          <!-- Signature Preview or Button -->
+          <div *ngIf="op.signatureDataUrl" class="signature-preview-box">
+            <img [src]="op.signatureDataUrl" alt="Signature" class="signature-thumb" />
+            <button 
+              *ngIf="!disabled" 
+              type="button" 
+              class="btn-resign" 
+              (click)="openSignaturePad(op)" 
+              title="Re-sign">
+              Re-sign
+            </button>
+          </div>
+
+          <button 
+            *ngIf="!op.signatureDataUrl" 
+            type="button" 
+            class="btn-sign-now" 
+            [disabled]="disabled"
+            (click)="openSignaturePad(op)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 20h9"></path>
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+            </svg>
+            Capture Signature
+          </button>
+
+          <button 
+            *ngIf="!disabled" 
+            type="button" 
+            class="btn-remove-op" 
+            (click)="removeOperative(i)" 
+            title="Remove Operative"
+            aria-label="Remove Operative">
+            ✕
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Signature Pad Modal -->
+  <app-ssra-signature-pad
+    *ngIf="activeSigningOperative"
+    [title]="'Signature: ' + activeSigningOperative.displayName"
+    [subtitle]="'Role: ' + (activeSigningOperative.role || 'Site Operative')"
+    [initialDataUrl]="activeSigningOperative.signatureDataUrl"
+    (save)="onSignatureSaved($event)"
+    (cancel)="onSignatureCancelled()">
+  </app-ssra-signature-pad>
+</div>

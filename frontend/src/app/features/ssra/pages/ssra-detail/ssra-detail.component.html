@@ -1,0 +1,281 @@
+<div class="ssra-detail-container" *ngIf="!isLoading() && assessment() as a">
+  <!-- Top Navigation & Action Header -->
+  <div class="detail-header no-print">
+    <div class="header-left">
+      <div class="breadcrumbs">
+        <a (click)="backToDashboard()" class="crumb-link">Safety Risk Assessments</a>
+        <span class="sep">/</span>
+        <span class="current">{{ a.refno }}</span>
+      </div>
+      <div class="title-row">
+        <h1 class="page-title">{{ a.domainTitle }}</h1>
+        <span class="status-pill" [ngClass]="getStatusClass(a.lifecycleStatus)">
+          {{ getStatusLabel(a.lifecycleStatus) }}
+        </span>
+      </div>
+      <p class="meta-row">
+        <span>Ref: <strong>{{ a.refno }}</strong></span>
+        <span class="dot">•</span>
+        <span>Created: {{ a.createdAt | date:'dd MMM yyyy, HH:mm' }}</span>
+        <span *ngIf="a.userEmail" class="dot">•</span>
+        <span *ngIf="a.userEmail">Assessor: {{ a.userEmail }}</span>
+      </p>
+    </div>
+
+    <div class="header-actions">
+      <button type="button" class="btn btn-outline" (click)="backToDashboard()">
+        ← Back to List
+      </button>
+      <button 
+        *ngIf="a.lifecycleStatus === 'Level1'" 
+        type="button" 
+        class="btn btn-success" 
+        (click)="navigateToClose()">
+        Close Shift (Phase 2)
+      </button>
+      <button type="button" class="btn btn-primary" (click)="printReport()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="6 9 6 2 18 2 18 9"></polyline>
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+          <rect x="6" y="14" width="12" height="8"></rect>
+        </svg>
+        Print / PDF
+      </button>
+    </div>
+  </div>
+
+  <!-- Print Header Only -->
+  <div class="print-header only-print">
+    <div class="print-brand">
+      <h2>Quest Safety Operations — Site Specific Risk Assessment</h2>
+      <p>Reference: {{ a.refno }} | Domain: {{ a.domainTitle }} | Status: {{ a.lifecycleStatus }}</p>
+    </div>
+  </div>
+
+  <!-- Main Report Content -->
+  <div class="report-content">
+    <!-- SECTION 1: SITE & CONTRACT DETAILS -->
+    <div class="card-section">
+      <h3 class="section-title">1. Site & Contract Information</h3>
+      <div class="info-grid">
+        <div class="info-item">
+          <span class="info-label">Job Number</span>
+          <span class="info-value">{{ a.siteInformation.jobno || 'N/A' }}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Client Job Reference</span>
+          <span class="info-value">{{ a.siteInformation.clientjobno || 'N/A' }}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Location / Site Address</span>
+          <span class="info-value">{{ a.siteInformation.location || 'N/A' }}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Contract Name / Client</span>
+          <span class="info-value">{{ a.siteInformation.contractName || 'N/A' }}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Depot / Yard</span>
+          <span class="info-value">{{ a.siteInformation.depot || 'N/A' }}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Weather Conditions</span>
+          <span class="info-value weather-badge">{{ a.siteInformation.weather }}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Time On Site</span>
+          <span class="info-value">{{ a.siteInformation.timeonsite || 'N/A' }}</span>
+        </div>
+        <div class="info-item full-width" *ngIf="a.siteInformation.description">
+          <span class="info-label">Work Description / Scope</span>
+          <span class="info-value">{{ a.siteInformation.description }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 2: PERSONS AFFECTED -->
+    <div class="card-section">
+      <h3 class="section-title">2. Persons Affected by Works</h3>
+      <div class="chips-row">
+        <span *ngFor="let p of a.personsAffected" class="person-chip">
+          ✓ {{ p }}
+        </span>
+      </div>
+    </div>
+
+    <!-- SECTION 3: PRE-WORK PHOTOGRAPHIC EVIDENCE -->
+    <div class="card-section">
+      <h3 class="section-title">3. Pre-Work Photographic Evidence ({{ a.preWorkPhotos.length }} Photos)</h3>
+      <div class="photos-grid">
+        <div *ngFor="let photo of a.preWorkPhotos; let i = index" class="photo-thumbnail" (click)="openLightbox(photo)">
+          <img [src]="photo.url" [alt]="photo.name" />
+          <span class="photo-label">{{ photo.name }}</span>
+          <span class="photo-idx">{{ i + 1 }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 4: POINT-OF-WORK SAFETY CHECKLIST -->
+    <div class="card-section">
+      <h3 class="section-title">4. Operational Safety Checklist Responses</h3>
+      <div class="checklist-table-wrapper">
+        <table class="checklist-table">
+          <thead>
+            <tr>
+              <th style="width: 45px;">#</th>
+              <th>Safety Question & Control Measure</th>
+              <th style="width: 120px;">Response</th>
+              <th>Operational Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let ans of a.answers; let i = index">
+              <td class="td-idx">Q{{ getQuestionNumber(ans.questionId, i) }}</td>
+              <td>
+                <div class="q-cell">
+                  <span class="q-title">{{ getQuestionText(ans.questionId) }}</span>
+                  <span *ngIf="getQuestionControlMeasure(ans.questionId)" class="q-cm">
+                    CM: {{ getQuestionControlMeasure(ans.questionId) }}
+                  </span>
+                </div>
+              </td>
+              <td>
+                <span class="answer-badge" [ngClass]="'ans-' + (ans.value || '').toLowerCase()">
+                  {{ ans.value }}
+                </span>
+              </td>
+              <td class="td-notes">
+                {{ ans.notes || '—' }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div *ngIf="a.othercomments" class="extra-comments-box">
+        <strong>Additional Site Hazards & Observations:</strong>
+        <p>{{ a.othercomments }}</p>
+      </div>
+    </div>
+
+    <!-- SECTION 5: HOT WORKS VERIFICATION (IF APPLICABLE) -->
+    <div *ngIf="a.hotWorks?.applicable" class="card-section hw-section">
+      <h3 class="section-title hw-title">🔥 5. Hot Works Pre-Work Verification</h3>
+      <div class="hw-checks-list">
+        <div *ngFor="let c of a.hotWorks.checks" class="hw-check-item">
+          <div class="hw-check-top">
+            <span class="hw-id">{{ c.id }}</span>
+            <div class="hw-desc-group">
+              <strong>{{ c.title }}</strong>
+              <p>{{ c.description }}</p>
+            </div>
+            <span class="hw-status-badge" [ngClass]="'hw-' + (c.status || '').toLowerCase()">
+              {{ c.status }}
+            </span>
+          </div>
+          <div *ngIf="c.notes" class="hw-notes">
+            Note: {{ c.notes }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 6: SITE OPERATIVES BRIEFING & SIGN-OFF -->
+    <div class="card-section">
+      <h3 class="section-title">6. Site Operatives Briefing & Sign-Off ({{ a.operatives.length }} Operatives)</h3>
+      <div class="operatives-grid">
+        <div *ngFor="let op of a.operatives" class="operative-signature-card">
+          <div class="op-card-header">
+            <span class="op-avatar">{{ op.displayName.charAt(0).toUpperCase() }}</span>
+            <div>
+              <h4 class="op-card-name">{{ op.displayName }}</h4>
+              <span class="op-card-role">{{ op.role || 'Site Operative' }}</span>
+            </div>
+          </div>
+          <div class="signature-box">
+            <img *ngIf="op.signatureDataUrl" [src]="op.signatureDataUrl" alt="Operative Signature" class="sig-img" />
+            <span *ngIf="!op.signatureDataUrl" class="no-sig">Not Signed</span>
+          </div>
+          <div class="sig-timestamp" *ngIf="op.signedAt">
+            Signed: {{ op.signedAt | date:'dd/MM/yyyy HH:mm' }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 7: PHASE 2 SHIFT CLOSING REPORT (IF COMPLETED) -->
+    <div *ngIf="a.closingReport" class="card-section closing-card-section">
+      <h3 class="section-title closing-title">✓ 7. Phase 2 Shift Closing & Handover</h3>
+      <div class="info-grid">
+        <div class="info-item">
+          <span class="info-label">Time Off Site</span>
+          <span class="info-value">{{ a.closingReport.timeoffsite }}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Job Finished?</span>
+          <span class="info-value">{{ a.closingReport.jobfinish }}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Traffic Management (TM) Left on Site?</span>
+          <span class="info-value">{{ a.closingReport.jobstatus.tmleft }}</span>
+          <p *ngIf="a.closingReport.jobstatus.tmcomment" class="sub-comment">
+            Reason: {{ a.closingReport.jobstatus.tmcomment }}
+          </p>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Another Visit Required?</span>
+          <span class="info-value">{{ a.closingReport.jobstatus.visitagain }}</span>
+          <p *ngIf="a.closingReport.jobstatus.visitagaincomment" class="sub-comment">
+            Details: {{ a.closingReport.jobstatus.visitagaincomment }}
+          </p>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Follow-up Required?</span>
+          <span class="info-value">{{ a.closingReport.jobstatus.followup }}</span>
+          <p *ngIf="a.closingReport.jobstatus.followupcomment" class="sub-comment">
+            Action: {{ a.closingReport.jobstatus.followupcomment }}
+          </p>
+        </div>
+        <div class="info-item full-width" *ngIf="a.closingReport.usedmaterials?.length">
+          <span class="info-label">Materials Used on Shift</span>
+          <div class="chips-row">
+            <span *ngFor="let m of a.closingReport.usedmaterials" class="person-chip">{{ m }}</span>
+          </div>
+        </div>
+        <div class="info-item full-width" *ngIf="a.closingReport.materialsuseddescription">
+          <span class="info-label">Materials Left on Site</span>
+          <span class="info-value">{{ a.closingReport.materialsuseddescription }}</span>
+        </div>
+        <div class="info-item full-width" *ngIf="a.closingReport.closingreport.comments">
+          <span class="info-label">Final Closing Comments</span>
+          <span class="info-value">{{ a.closingReport.closingreport.comments }}</span>
+        </div>
+      </div>
+
+      <!-- Closing Photos -->
+      <div *ngIf="a.closingReport.closingreport.moreimages?.length" class="closing-photos-area">
+        <h4 class="sub-heading">Closing Photographic Records</h4>
+        <div class="photos-grid">
+          <div *ngFor="let p of a.closingReport.closingreport.moreimages; let i = index" class="photo-thumbnail" (click)="openLightbox(p)">
+            <img [src]="p.url" [alt]="p.name" />
+            <span class="photo-label">{{ p.name }}</span>
+            <span class="photo-idx">{{ i + 1 }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fullscreen Lightbox Modal -->
+  <div *ngIf="selectedPhoto()" class="lightbox-backdrop no-print" (click)="closeLightbox()">
+    <div class="lightbox-wrapper" (click)="$event.stopPropagation()">
+      <div class="lightbox-header">
+        <span>{{ selectedPhoto()?.name }}</span>
+        <button type="button" class="btn-close" (click)="closeLightbox()">✕</button>
+      </div>
+      <div class="lightbox-image-box">
+        <img [src]="selectedPhoto()?.url" [alt]="selectedPhoto()?.name" />
+      </div>
+    </div>
+  </div>
+</div>

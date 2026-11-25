@@ -1,0 +1,234 @@
+.ssra-hotworks {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.ssra-hotworks.active {
+  border-color: #f97316;
+  box-shadow: 0 4px 14px rgba(249, 115, 22, 0.08);
+}
+
+.hw-header {
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  background: #fafafa;
+}
+
+.hw-title-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex: 1;
+  min-width: 260px;
+}
+
+.hw-icon-circle {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: #ffedd5;
+  color: #ea580c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.hw-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.hw-subtitle {
+  margin: 0.25rem 0 0;
+  font-size: 0.825rem;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.toggle-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.toggle-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.toggle-buttons {
+  display: inline-flex;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+}
+
+.btn-toggle {
+  padding: 0.45rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  border: none;
+  background: #ffffff;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-toggle.active {
+  background: #ea580c;
+  color: #ffffff;
+}
+
+.btn-toggle:first-child {
+  border-right: 1px solid #cbd5e1;
+}
+
+.hw-body {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  background: #ffffff;
+  border-top: 1px solid #f1f5f9;
+}
+
+.notice-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #9a3412;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-size: 0.85rem;
+}
+
+.checks-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .checks-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.check-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  transition: border-color 0.15s ease;
+}
+
+.check-card.passed {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+
+.check-card.failed {
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
+.check-top {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.check-id {
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding: 0.2rem 0.45rem;
+  border-radius: 4px;
+  background: #ffedd5;
+  color: #c2410c;
+  height: fit-content;
+}
+
+.check-title {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.check-desc {
+  margin: 0.25rem 0 0;
+  font-size: 0.8rem;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+.status-btn-group {
+  display: inline-flex;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.btn-status {
+  flex: 1;
+  padding: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-pass.selected {
+  background: #10b981;
+  color: white;
+  border-color: #059669;
+}
+
+.btn-fail.selected {
+  background: #ef4444;
+  color: white;
+  border-color: #dc2626;
+}
+
+.btn-na.selected {
+  background: #64748b;
+  color: white;
+  border-color: #475569;
+}
+
+.check-notes-row {
+  margin-top: 0.25rem;
+}
+
+.check-note-input {
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.8rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #ffffff;
+  box-sizing: border-box;
+}
+
+.check-note-input:focus {
+  outline: none;
+  border-color: #ea580c;
+}

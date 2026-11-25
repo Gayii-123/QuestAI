@@ -598,6 +598,75 @@ export class ReportService {
     }
   }
 
+  saveSsraRecord(assessment: any): void {
+    try {
+      const authMeta = this.getAuthenticatedInspectorMeta();
+      const uid = assessment.userId || authMeta.userId || this.getCurrentUserId();
+      const email = assessment.userEmail || authMeta.userEmail;
+
+      const reportRecord: any = {
+        id: assessment.refno || assessment.id,
+        referenceNumber: assessment.refno,
+        type: 'ssra',
+        isSsra: true,
+        title: `SSRA: ${assessment.domainTitle || assessment.domainType}`,
+        location: assessment.siteInformation?.location || 'Site Location',
+        department: assessment.domainTitle || 'Site Specific Risk Assessment',
+        weather: assessment.siteInformation?.weather || 'DRY',
+        jobno: assessment.siteInformation?.jobno || '',
+        status: assessment.lifecycleStatus || 'Level1',
+        createdAt: assessment.createdAt || new Date().toISOString(),
+        updatedAt: assessment.updatedAt || new Date().toISOString(),
+        userId: uid || '',
+        userEmail: email || null,
+        createdByName: assessment.creatorName || authMeta.inspectorName,
+        operativesCount: assessment.operatives?.length || 0,
+        photos: assessment.preWorkPhotos || [],
+        rawAssessment: assessment,
+        stats: {
+          total: assessment.answers?.length || 0,
+          answered: assessment.answers?.length || 0,
+          passCount: assessment.answers?.length || 0,
+          carCount: 0,
+          naCount: 0,
+          obsCount: 0,
+        },
+        totalScore: 100,
+      };
+
+      const key = `questai_ssra_reports_${uid || 'guest'}`;
+      try {
+        const raw = localStorage.getItem(key);
+        const list = raw ? JSON.parse(raw) : [];
+        const idx = list.findIndex((item: any) => item.referenceNumber === reportRecord.referenceNumber);
+        if (idx >= 0) {
+          list[idx] = reportRecord;
+        } else {
+          list.unshift(reportRecord);
+        }
+        localStorage.setItem(key, JSON.stringify(list));
+      } catch { }
+
+      if (uid && reportRecord.referenceNumber) {
+        void this.persistReportWithPhotosToFirestore(uid, reportRecord, false);
+      }
+
+      this.inspectionHistoryList.update((list) => {
+        const idx = list.findIndex((item) => item.referenceNumber === reportRecord.referenceNumber);
+        if (idx >= 0) {
+          const next = [...list];
+          next[idx] = reportRecord;
+          return next;
+        }
+        return [reportRecord, ...list];
+      });
+
+      this.loadInspectionHistory();
+    } catch (e) {
+      console.error('Failed to save SSRA record in ReportService:', e);
+    }
+  }
+
   saveFinalizedSiteInspection(report: any): void {
     const authMeta = this.getAuthenticatedInspectorMeta();
     const uid = report.userId || authMeta.userId || this.getCurrentUserId();
