@@ -88,7 +88,28 @@ export class SsraService {
         // Fallback to local storage persistence for resilient offline operation
         this.isLoading.set(false);
         const local = this.draftService.getLocalSubmissions();
-        let filtered = [...local];
+        const map = new Map<string, SsraAssessment>();
+        for (const a of local) {
+          if (a.id) map.set(a.id, a);
+          if (a.refno) map.set(a.refno, a);
+        }
+
+        try {
+          const uid = this.authService.currentUser()?.uid || 'guest';
+          const raw = localStorage.getItem(`questai_ssra_reports_${uid}`);
+          if (raw) {
+            const list = JSON.parse(raw);
+            for (const item of list) {
+              if (item.rawAssessment) {
+                const a = item.rawAssessment;
+                if (a.id && !map.has(a.id)) map.set(a.id, a);
+                if (a.refno && !map.has(a.refno)) map.set(a.refno, a);
+              }
+            }
+          }
+        } catch { }
+
+        let filtered = Array.from(new Set(map.values()));
 
         if (query?.status && query.status !== 'ALL') {
           filtered = filtered.filter((a) => a.lifecycleStatus === query.status);
@@ -121,19 +142,79 @@ export class SsraService {
 
   // --- 2. GET /api/v1/ssra/:id (Detail view) ---
 
+  findLocalAssessment(id: string): SsraAssessment | null {
+    if (!id) return null;
+    const cleanId = id.trim();
+
+    // 1. Check local submissions via draft service
+    const local = this.draftService.getLocalSubmissionById(cleanId);
+    if (local) return local;
+
+    // 2. Check in-memory signal list
+    const inMem = this.assessments().find(
+      (a) => a.id === cleanId || a.refno === cleanId || a.clientReferenceId === cleanId
+    );
+    if (inMem) return inMem;
+
+    // 3. Check user localStorage questai_ssra_reports_...
+    try {
+      const uid = this.authService.currentUser()?.uid || 'guest';
+      const raw = localStorage.getItem(`questai_ssra_reports_${uid}`);
+      if (raw) {
+        const list = JSON.parse(raw);
+        const found = list.find(
+          (item: any) =>
+            item.referenceNumber === cleanId ||
+            item.id === cleanId ||
+            item.rawAssessment?.id === cleanId ||
+            item.rawAssessment?.refno === cleanId
+        );
+        if (found?.rawAssessment) {
+          this.draftService.saveLocalSubmission(found.rawAssessment);
+          return found.rawAssessment;
+        }
+      }
+    } catch { }
+
+    // 4. Check all local submissions regardless of active user
+    try {
+      const raw = localStorage.getItem('questai_ssra_local_submissions');
+      if (raw) {
+        const list = JSON.parse(raw);
+        const match = list.find(
+          (a: any) => a.id === cleanId || a.refno === cleanId || a.clientReferenceId === cleanId
+        );
+        if (match) return match;
+      }
+    } catch { }
+
+    return null;
+  }
+
   getAssessmentById(id: string): Observable<SsraAssessment | null> {
     this.isLoading.set(true);
 
+    // Fast-path: If found locally, return immediately without 15s network latency
+    const cached = this.findLocalAssessment(id);
+    if (cached) {
+      this.isLoading.set(false);
+      this.selectedAssessment.set(cached);
+      return of(cached);
+    }
+
     return this.http.get<SsraDetailResponse>(`${API_BASE}/${encodeURIComponent(id)}`).pipe(
-      timeout(REQUEST_TIMEOUT_MS),
+      timeout(3000),
       map((res) => res.assessment),
       tap((ass) => {
         this.isLoading.set(false);
         this.selectedAssessment.set(ass);
+        if (ass) {
+          this.draftService.saveLocalSubmission(ass);
+        }
       }),
       catchError(() => {
         this.isLoading.set(false);
-        const local = this.draftService.getLocalSubmissionById(id);
+        const local = this.findLocalAssessment(id);
         this.selectedAssessment.set(local);
         return of(local);
       })

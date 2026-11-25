@@ -399,6 +399,22 @@ export class ReportService {
         }
       }
 
+      // 4. Local SSRA assessments (merge offline ones)
+      try {
+        const ssraRaw = localStorage.getItem(`questai_ssra_reports_${uid}`);
+        if (ssraRaw) {
+          const ssraList = JSON.parse(ssraRaw);
+          if (Array.isArray(ssraList)) {
+            for (const item of ssraList) {
+              const key = item.referenceNumber || item.id;
+              if (key && !reportMap.has(key)) {
+                reportMap.set(key, { ...item, isSsra: true, type: 'ssra' });
+              }
+            }
+          }
+        }
+      } catch { }
+
       const combined = Array.from(reportMap.values());
       // Strict user boundary check
       const userOnly = combined.filter((item) => {
@@ -610,16 +626,25 @@ export class ReportService {
         type: 'ssra',
         isSsra: true,
         title: `SSRA: ${assessment.domainTitle || assessment.domainType}`,
+        bankName: assessment.domainTitle || 'Site Specific Risk Assessment',
+        domainTitle: assessment.domainTitle || 'Site Specific Risk Assessment',
         location: assessment.siteInformation?.location || 'Site Location',
+        siteLocation: assessment.siteInformation?.location || 'Site Location',
         department: assessment.domainTitle || 'Site Specific Risk Assessment',
         weather: assessment.siteInformation?.weather || 'DRY',
         jobno: assessment.siteInformation?.jobno || '',
+        jobNo: assessment.siteInformation?.jobno || '',
+        jobReference: assessment.siteInformation?.jobno || '',
         status: assessment.lifecycleStatus || 'Level1',
         createdAt: assessment.createdAt || new Date().toISOString(),
         updatedAt: assessment.updatedAt || new Date().toISOString(),
         userId: uid || '',
         userEmail: email || null,
         createdByName: assessment.creatorName || authMeta.inspectorName,
+        inspectorName: assessment.creatorName || authMeta.inspectorName,
+        operatives: Array.isArray(assessment.operatives)
+          ? assessment.operatives.map((o: any) => o.displayName || o.name || 'Operative').join(', ')
+          : String(assessment.operatives || ''),
         operativesCount: assessment.operatives?.length || 0,
         photos: assessment.preWorkPhotos || [],
         rawAssessment: assessment,
@@ -1084,7 +1109,8 @@ export class ReportService {
     record: any,
     isCreate: boolean
   ): Record<string, any> {
-    const isIa = !!record.isInternalAudit || record.type === 'internal_audit';
+    const isSsra = !!record.isSsra || record.type === 'ssra';
+    const isIa = !isSsra && (!!record.isInternalAudit || record.type === 'internal_audit');
     const sanitizedPhotos = Array.isArray(record.photos)
       ? record.photos.map((p: any) => ({
         id: String(p?.id || ''),
@@ -1100,31 +1126,43 @@ export class ReportService {
       }))
       : [];
 
+    const defaultJobNo = isSsra
+      ? (record.jobno || record.jobNo || record.siteInformation?.jobno || '')
+      : (record.jobNo || record.jobReference || 'LBN-0029');
+
+    const defaultLocation = isSsra
+      ? (record.location || record.siteLocation || record.siteInformation?.location || 'Site Location')
+      : (record.siteLocation || record.location || '');
+
     const payload: Record<string, any> = {
-      id: record.referenceNumber || record.sessionId,
+      id: record.referenceNumber || record.sessionId || record.id,
       referenceNumber: record.referenceNumber,
       userId: record.userId || this.getCurrentUserId() || '',
       userEmail: record.userEmail || null,
       inspectionId: record.inspectionId || record.sessionId || '',
       conversationId: record.conversationId || '',
-      jobNo: record.jobNo || record.jobReference || 'LBN-0029',
-      jobReference: record.jobReference || record.jobNo || 'LBN-0029',
-      bankId: record.bankId || (isIa ? 'internal_audit' : ''),
-      bankName: record.bankName || (isIa ? 'Internal Audit' : 'Site Inspection'),
-      department: record.department || (isIa ? 'HSEQ / Compliance' : 'Civil'),
-      status: record.status || 'completed',
+      jobNo: defaultJobNo,
+      jobno: defaultJobNo,
+      jobReference: record.jobReference || defaultJobNo,
+      bankId: record.bankId || (isSsra ? 'ssra' : isIa ? 'internal_audit' : ''),
+      bankName: record.bankName || (isSsra ? (record.domainTitle || 'Site Specific Risk Assessment') : isIa ? 'Internal Audit' : 'Site Inspection'),
+      domainTitle: record.domainTitle || record.bankName || '',
+      department: record.department || (isSsra ? 'Safety Risk Assessment' : isIa ? 'HSEQ / Compliance' : 'Civil'),
+      status: record.status || (isSsra ? 'Level1' : 'completed'),
       finalizedAt: record.finalizedAt || record.completedAt || new Date().toISOString(),
-      inspectorName: record.inspectorName || record.auditorName || record.auditedBy || 'Quest Inspector',
+      inspectorName: record.inspectorName || record.auditorName || record.createdByName || 'Quest Inspector',
       inspectorRole: record.inspectorRole || 'QHSE',
       contractor: record.contractor || 'Marlborough Highways',
       supervisorName: record.supervisorName || record.managerSupervisor || record.inspectorName || 'Quest Inspector',
       foremanName: record.foremanName || record.siteIncharge || '',
       contract: record.contract || '',
-      operatives: record.operatives || '',
+      operatives: typeof record.operatives === 'string' ? record.operatives : (Array.isArray(record.operatives) ? record.operatives.map((o: any) => o.displayName || o.name || 'Operative').join(', ') : ''),
+      operativesCount: record.operativesCount || (Array.isArray(record.operatives) ? record.operatives.length : (isSsra ? 1 : 0)),
       jobDescription: record.jobDescription || '',
-      siteLocation: record.siteLocation || record.location || '',
+      siteLocation: defaultLocation,
+      location: defaultLocation,
       depot: record.depot || 'N/A',
-      totalScore: typeof record.totalScore === 'number' ? record.totalScore : 0,
+      totalScore: typeof record.totalScore === 'number' ? record.totalScore : (isSsra ? 100 : 0),
       passRate:
         typeof record.passRate === 'number'
           ? record.passRate
@@ -1142,7 +1180,9 @@ export class ReportService {
       modelIdentifier: record.modelIdentifier || 'QuestAI Vision',
       isMock: !!record.isMock,
       isInternalAudit: isIa,
-      type: isIa ? 'internal_audit' : 'site_inspection',
+      isSsra,
+      type: isSsra ? 'ssra' : isIa ? 'internal_audit' : 'site_inspection',
+      rawAssessment: record.rawAssessment || null,
       auditorName: record.auditorName || record.auditedBy || '',
       auditedBy: record.auditedBy || record.auditorName || '',
       siteIncharge: record.siteIncharge || record.foreman || '',
@@ -1194,7 +1234,13 @@ export class ReportService {
       resolveTimestampIso(data?.createdAt) ||
       new Date().toISOString();
     const updatedAt = resolveTimestampIso(data?.updatedAt) || finalizedAt;
-    const isInternalAudit = !!data?.isInternalAudit || data?.type === 'internal_audit';
+    const isSsra =
+      !!data?.isSsra ||
+      data?.type === 'ssra' ||
+      String(data?.referenceNumber || '').startsWith('SSRA-') ||
+      String(docId || '').startsWith('SSRA-') ||
+      String(data?.id || '').startsWith('ssra_');
+    const isInternalAudit = !isSsra && (!!data?.isInternalAudit || data?.type === 'internal_audit');
 
     const dateObj = new Date(finalizedAt);
     const reportDateFormatted = dateObj.toLocaleDateString('en-GB', {
@@ -1232,6 +1278,26 @@ export class ReportService {
       };
     });
 
+    const defaultBankName = isSsra
+      ? String(data?.domainTitle || data?.bankName || 'Site Specific Risk Assessment')
+      : isInternalAudit
+      ? 'Internal Audit'
+      : String(data?.bankName || 'Site Inspection');
+
+    const defaultJobNo = isSsra
+      ? String(data?.jobno || data?.jobNo || data?.siteInformation?.jobno || '')
+      : String(data?.jobNo || data?.jobReference || 'LBN-0029');
+
+    const defaultLocation = isSsra
+      ? String(data?.location || data?.siteLocation || data?.siteInformation?.location || 'Site Location')
+      : String(data?.siteLocation || data?.location || '');
+
+    const operativesStr = Array.isArray(data?.operatives)
+      ? data.operatives.map((o: any) => o.displayName || o.name || 'Operative').join(', ')
+      : String(data?.operatives || '');
+
+    const rawAssessment = data?.rawAssessment || (isSsra ? data : null);
+
     return {
       id: String(data?.id || docId),
       referenceNumber: String(data?.referenceNumber || docId),
@@ -1239,35 +1305,37 @@ export class ReportService {
       userEmail: data?.userEmail || null,
       inspectionId: String(data?.inspectionId || ''),
       conversationId: String(data?.conversationId || ''),
-      jobNo: String(data?.jobNo || 'LBN-0029'),
-      jobReference: String(data?.jobReference || data?.jobNo || 'LBN-0029'),
-      bankId: String(data?.bankId || (isInternalAudit ? 'internal_audit' : '')),
-      bankName: String(data?.bankName || (isInternalAudit ? 'Internal Audit' : 'Site Inspection')),
-      department: String(data?.department || (isInternalAudit ? 'HSEQ / Compliance' : 'Civil')),
-      status: String(data?.status || 'completed'),
+      jobNo: defaultJobNo,
+      jobReference: String(data?.jobReference || defaultJobNo),
+      bankId: String(data?.bankId || (isSsra ? 'ssra' : isInternalAudit ? 'internal_audit' : '')),
+      bankName: defaultBankName,
+      domainTitle: String(data?.domainTitle || defaultBankName),
+      department: String(data?.department || (isSsra ? defaultBankName : isInternalAudit ? 'HSEQ / Compliance' : 'Civil')),
+      status: String(data?.status || (isSsra ? 'Level1' : 'completed')),
       finalizedAt,
       updatedAt,
       reportDateFormatted,
       auditedDateFormatted,
-      inspectorName: String(data?.inspectorName || data?.auditorName || 'Inspector'),
+      inspectorName: String(data?.inspectorName || data?.auditorName || data?.createdByName || 'Inspector'),
       inspectorRole: String(data?.inspectorRole || 'QHSE'),
       contractor: String(data?.contractor || 'Marlborough Highways'),
       supervisorName: String(data?.supervisorName || data?.managerSupervisor || data?.inspectorName || 'Supervisor'),
       foremanName: String(data?.foremanName || data?.siteIncharge || ''),
       contract: String(data?.contract || ''),
-      operatives: String(data?.operatives || ''),
+      operatives: operativesStr,
+      operativesCount: Array.isArray(data?.operatives) ? data.operatives.length : (data?.operativesCount || (isSsra ? 1 : 0)),
       jobDescription: String(data?.jobDescription || ''),
-      siteLocation: String(data?.siteLocation || data?.location || ''),
-      location: String(data?.location || data?.siteLocation || ''),
+      siteLocation: defaultLocation,
+      location: defaultLocation,
       depot: String(data?.depot || 'N/A'),
-      totalScore: typeof data?.totalScore === 'number' ? data.totalScore : 0,
-      passRate: typeof data?.passRate === 'number' ? data.passRate : 0,
+      totalScore: typeof data?.totalScore === 'number' ? data.totalScore : (isSsra ? 100 : 0),
+      passRate: typeof data?.passRate === 'number' ? data.passRate : (isSsra ? 100 : 0),
       editCount: typeof data?.editCount === 'number' ? data.editCount : 0,
       lastEditedBy: data?.lastEditedBy || null,
       stats: data?.stats || {
-        total: 0,
-        answered: 0,
-        passCount: 0,
+        total: isSsra ? (data?.answers?.length || 10) : 0,
+        answered: isSsra ? (data?.answers?.length || 10) : 0,
+        passCount: isSsra ? (data?.answers?.length || 10) : 0,
         carCount: 0,
         naCount: 0,
         needsReviewCount: 0,
@@ -1282,7 +1350,9 @@ export class ReportService {
       modelIdentifier: String(data?.modelIdentifier || 'QuestAI Vision'),
       isMock: !!data?.isMock,
       isInternalAudit,
-      type: isInternalAudit ? 'internal_audit' : 'site_inspection',
+      isSsra,
+      type: isSsra ? 'ssra' : isInternalAudit ? 'internal_audit' : 'site_inspection',
+      rawAssessment,
       auditorName: String(data?.auditorName || data?.auditedBy || data?.inspectorName || 'Auditor'),
       auditedBy: String(data?.auditedBy || data?.auditorName || data?.inspectorName || 'Auditor'),
       siteIncharge: String(data?.siteIncharge || data?.foremanName || ''),

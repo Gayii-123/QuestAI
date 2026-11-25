@@ -20,8 +20,8 @@ export class ReportsComponent implements OnInit {
   readonly reportService = inject(ReportService);
   private readonly router = inject(Router);
 
-  // Tab Filtering: All | Site Inspections | Internal Audits
-  readonly activeTab = signal<'all' | 'site_inspection' | 'internal_audit'>('all');
+  // Tab Filtering: All | Risk Assessments (SSRA) | Site Inspections | Internal Audits
+  readonly activeTab = signal<'all' | 'ssra' | 'site_inspection' | 'internal_audit'>('all');
 
   // Internal Audit Edit Mode state
   readonly isEditingInternalAudit = signal<boolean>(false);
@@ -51,8 +51,12 @@ export class ReportsComponent implements OnInit {
     return this.reports.length;
   }
 
+  get ssraCount(): number {
+    return this.reports.filter((r) => r.isSsra).length;
+  }
+
   get siteCount(): number {
-    return this.reports.filter((r) => !r.isInternalAudit).length;
+    return this.reports.filter((r) => !r.isInternalAudit && !r.isSsra).length;
   }
 
   get iaCount(): number {
@@ -61,8 +65,11 @@ export class ReportsComponent implements OnInit {
 
   get filteredReports(): any[] {
     const tab = this.activeTab();
+    if (tab === 'ssra') {
+      return this.reports.filter((r) => r.isSsra);
+    }
     if (tab === 'site_inspection') {
-      return this.reports.filter((r) => !r.isInternalAudit);
+      return this.reports.filter((r) => !r.isInternalAudit && !r.isSsra);
     }
     if (tab === 'internal_audit') {
       return this.reports.filter((r) => r.isInternalAudit);
@@ -74,11 +81,20 @@ export class ReportsComponent implements OnInit {
     return this.reportService.selectedHistoryRecord();
   }
 
-  setFilterTab(tab: 'all' | 'site_inspection' | 'internal_audit'): void {
+  setFilterTab(tab: 'all' | 'ssra' | 'site_inspection' | 'internal_audit'): void {
     this.activeTab.set(tab);
   }
 
   openRecord(record: any): void {
+    if (record.isSsra) {
+      const ssraId =
+        record.rawAssessment?.id ||
+        record.rawAssessment?.refno ||
+        record.referenceNumber ||
+        record.id;
+      this.router.navigate(['/ssra', ssraId]);
+      return;
+    }
     this.cancelEditingInternalAudit();
     this.reportService.openHistoryRecord(record);
   }
@@ -251,6 +267,15 @@ export class ReportsComponent implements OnInit {
   // =========================================================================
 
   downloadPdf(record: any): void {
+    if (record.isSsra) {
+      const ssraId =
+        record.rawAssessment?.id ||
+        record.rawAssessment?.refno ||
+        record.referenceNumber ||
+        record.id;
+      this.router.navigate(['/ssra', ssraId]);
+      return;
+    }
     this.reportService.downloadReportPdf(record);
   }
 
@@ -259,6 +284,10 @@ export class ReportsComponent implements OnInit {
     if (confirm('Are you sure you want to delete this report from history?')) {
       this.reportService.deleteHistoryRecord(refNumber);
     }
+  }
+
+  startNewSsra(): void {
+    this.router.navigate(['/ssra/new']);
   }
 
   startNewInspection(): void {

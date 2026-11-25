@@ -1,3 +1,26 @@
+<!-- Loading State -->
+<div class="ssra-loading-state no-print" *ngIf="isLoading()">
+  <div class="ssra-spinner"></div>
+  <p class="loading-text">Loading Risk Assessment...</p>
+</div>
+
+<!-- Not Found / Fallback State -->
+<div class="ssra-empty-state no-print" *ngIf="!isLoading() && !assessment()">
+  <div class="empty-icon-circle">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="empty-svg">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+      <line x1="12" y1="8" x2="12" y2="12"></line>
+      <line x1="12" y1="16" x2="12.01" y2="16"></line>
+    </svg>
+  </div>
+  <h2 class="empty-title">Risk Assessment Not Found</h2>
+  <p class="empty-desc">The requested assessment could not be retrieved from local storage or the database. Please verify the reference number or navigate back to your assessments.</p>
+  <div class="empty-actions">
+    <button type="button" class="btn btn-primary" (click)="backToDashboard()">Return to SSRA Dashboard</button>
+    <button type="button" class="btn btn-outline" (click)="goToReports()">View All Reports</button>
+  </div>
+</div>
+
 <div class="ssra-detail-container" *ngIf="!isLoading() && assessment() as a">
   <!-- Top Navigation & Action Header -->
   <div class="detail-header no-print">

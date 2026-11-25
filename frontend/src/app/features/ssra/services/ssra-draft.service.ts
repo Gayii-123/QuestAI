@@ -157,7 +157,11 @@ export class SsraDraftService {
   }
 
   getLocalSubmissionById(id: string): SsraAssessment | null {
-    return this.getAllSubmissions().find((a) => a.id === id || a.refno === id) || null;
+    return (
+      this.getAllSubmissions().find(
+        (a) => a.id === id || a.refno === id || a.clientReferenceId === id
+      ) || null
+    );
   }
 
   deleteLocalSubmission(id: string): void {

@@ -4,9 +4,15 @@
     <div class="reports-header-left">
       <div class="reports-header-pill">MY REPORTS</div>
       <h1 class="reports-title">Reports & Compliance</h1>
-      <p class="reports-subtitle">Access, review, edit, and export finalized Site Inspections and Internal Audits.</p>
+      <p class="reports-subtitle">Access, review, edit, and export finalized Risk Assessments, Site Inspections, and Internal Audits.</p>
     </div>
     <div class="reports-header-actions">
+      <button type="button" class="btn-new-ssra" (click)="startNewSsra()" title="Start New Risk Assessment (SSRA)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+        </svg>
+        <span>New Risk Assessment (SSRA)</span>
+      </button>
       <button type="button" class="btn-new-ia" (click)="startNewInternalAudit()" title="Start New Internal Audit">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -32,6 +38,10 @@
       <span>All Reports</span>
       <span class="tab-count-pill">{{ totalCount }}</span>
     </button>
+    <button type="button" class="report-tab-btn" [class.active]="activeTab() === 'ssra'" (click)="setFilterTab('ssra')">
+      <span>Risk Assessments (SSRA)</span>
+      <span class="tab-count-pill ssra-pill">{{ ssraCount }}</span>
+    </button>
     <button type="button" class="report-tab-btn" [class.active]="activeTab() === 'internal_audit'"
       (click)="setFilterTab('internal_audit')">
       <span>Internal Audits</span>
@@ -54,43 +64,74 @@
 
   <!-- Reports Grid Area -->
   <div class="reports-grid" *ngIf="filteredReports.length > 0">
-    <div *ngFor="let rec of filteredReports" class="report-card" [class.ia-card-border]="rec.isInternalAudit"
+    <div *ngFor="let rec of filteredReports" class="report-card" 
+      [class.ia-card-border]="rec.isInternalAudit"
+      [class.ssra-card-border]="rec.isSsra"
       (click)="openRecord(rec)">
       <div class="report-card-top">
         <div class="report-bank-info">
-          <div class="report-type-badge" [class.badge-ia]="rec.isInternalAudit" [class.badge-si]="!rec.isInternalAudit">
-            {{ rec.isInternalAudit ? 'INTERNAL AUDIT' : 'SITE INSPECTION' }}
+          <div class="report-type-badge" 
+            [class.badge-ia]="rec.isInternalAudit" 
+            [class.badge-si]="!rec.isInternalAudit && !rec.isSsra"
+            [class.badge-ssra]="rec.isSsra">
+            {{ rec.isSsra ? 'RISK ASSESSMENT (SSRA)' : (rec.isInternalAudit ? 'INTERNAL AUDIT' : 'SITE INSPECTION') }}
           </div>
-          <h3 class="report-bank-name">{{ rec.bankName || (rec.isInternalAudit ? 'Internal Audit' : 'Site Inspection')
-            }}</h3>
-          <span class="report-ref-pill" [class.ref-ia]="rec.isInternalAudit">{{ rec.referenceNumber }}</span>
+          <h3 class="report-bank-name">{{ rec.bankName || rec.domainTitle || (rec.isSsra ? 'Risk Assessment' : (rec.isInternalAudit ? 'Internal Audit' : 'Site Inspection')) }}</h3>
+          <span class="report-ref-pill" [class.ref-ia]="rec.isInternalAudit" [class.ref-ssra]="rec.isSsra">{{ rec.referenceNumber }}</span>
         </div>
-        <div class="report-risk-badge" [class]="reportService.getRecordRiskClass(rec)">
-          {{ reportService.getRecordPassRate(rec) }}% {{ rec.isInternalAudit ? 'Compliance' : 'Pass' }}
+        <div class="report-risk-badge" 
+          [class.badge-status-ssra]="rec.isSsra"
+          [class]="!rec.isSsra ? reportService.getRecordRiskClass(rec) : ''">
+          <ng-container *ngIf="rec.isSsra">
+            {{ rec.lifecycleStatus === 'Complete' ? 'Shift Closed' : 'Level 1 · Validated' }}
+          </ng-container>
+          <ng-container *ngIf="!rec.isSsra">
+            {{ reportService.getRecordPassRate(rec) }}% {{ rec.isInternalAudit ? 'Compliance' : 'Pass' }}
+          </ng-container>
         </div>
       </div>
 
       <div class="report-card-meta">
         <div class="meta-item">
           <span class="meta-label">Job No:</span>
-          <span class="meta-val">{{ rec.jobNo || rec.jobReference || 'LBH/01/200' }}</span>
+          <span class="meta-val">{{ rec.jobNo || rec.jobReference || (rec.isSsra ? 'Point of Work' : 'LBH/01/200') }}</span>
         </div>
         <div class="meta-item">
           <span class="meta-label">Location:</span>
           <span class="meta-val">{{ rec.siteLocation || rec.location || 'Buckingham Road' }}</span>
         </div>
         <div class="meta-item">
-          <span class="meta-label">Auditor/Inspector:</span>
+          <span class="meta-label">{{ rec.isSsra ? 'Assessor:' : 'Auditor/Inspector:' }}</span>
           <span class="meta-val">{{ rec.auditedBy || rec.inspectorName || rec.createdByName || 'Inspector' }}</span>
         </div>
         <div class="meta-item">
           <span class="meta-label">Date:</span>
-          <span class="meta-val">{{ rec.reportDateFormatted || reportService.formatHistoryDate(rec.finalizedAt)
-            }}</span>
+          <span class="meta-val">{{ rec.reportDateFormatted || reportService.formatHistoryDate(rec.finalizedAt) }}</span>
         </div>
       </div>
 
-      <div class="report-card-stats">
+      <!-- SSRA Specific Stats -->
+      <div class="report-card-stats" *ngIf="rec.isSsra">
+        <div class="stat-box ssra-checks">
+          <span class="stat-count">{{ rec.stats?.passCount || rec.rawAssessment?.answers?.length || rec.rawAssessment?.checklistAnswers?.length || 0 }}</span>
+          <span class="stat-name">Verified Checks</span>
+        </div>
+        <div class="stat-box ssra-operatives">
+          <span class="stat-count">{{ rec.rawAssessment?.operatives?.length || 1 }}</span>
+          <span class="stat-name">Operatives</span>
+        </div>
+        <div class="stat-box ssra-hw" [class.active-hw]="rec.rawAssessment?.hotWorks?.applicable || rec.rawAssessment?.hasHotWorks">
+          <span class="stat-count">{{ (rec.rawAssessment?.hotWorks?.applicable || rec.rawAssessment?.hasHotWorks) ? '🔥 Active' : 'N/A' }}</span>
+          <span class="stat-name">Hot Works</span>
+        </div>
+        <div class="stat-box photos" *ngIf="(rec.photos?.length || rec.rawAssessment?.preWorkPhotos?.length || 0) > 0">
+          <span class="stat-count">{{ rec.photos?.length || rec.rawAssessment?.preWorkPhotos?.length || 0 }}</span>
+          <span class="stat-name">Photos</span>
+        </div>
+      </div>
+
+      <!-- Standard Inspection / Internal Audit Stats -->
+      <div class="report-card-stats" *ngIf="!rec.isSsra">
         <div class="stat-box pass">
           <span class="stat-count">{{ rec.stats?.passCount || rec.totalScore || 0 }}</span>
           <span class="stat-name">{{ rec.isInternalAudit ? 'Compliant' : 'Pass' }}</span>
@@ -114,12 +155,15 @@
       </div>
 
       <div class="report-card-actions" (click)="$event.stopPropagation()">
-        <button type="button" class="btn-card-view" [class.btn-view-ia]="rec.isInternalAudit" (click)="openRecord(rec)">
+        <button type="button" class="btn-card-view" 
+          [class.btn-view-ia]="rec.isInternalAudit" 
+          [class.btn-view-ssra]="rec.isSsra"
+          (click)="openRecord(rec)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="action-icon">
             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
             <circle cx="12" cy="12" r="3"></circle>
           </svg>
-          <span>View Report</span>
+          <span>{{ rec.isSsra ? 'View Assessment' : 'View Report' }}</span>
         </button>
         <button type="button" class="btn-card-pdf" (click)="downloadPdf(rec)" title="Print / Download PDF">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="action-icon">
@@ -151,9 +195,11 @@
       </svg>
     </div>
     <h3 class="empty-title">No reports found in this category</h3>
-    <p class="empty-desc">Completed audits and inspections will appear here. You can start a new internal audit or site
-      inspection anytime.</p>
+    <p class="empty-desc">Completed risk assessments, audits, and site inspections will appear here. You can start a new assessment anytime.</p>
     <div class="empty-actions-row">
+      <button type="button" class="btn-start-inspection-empty ssra-empty-btn" (click)="startNewSsra()">
+        Start Risk Assessment (SSRA)
+      </button>
       <button type="button" class="btn-start-inspection-empty ia-empty-btn" (click)="startNewInternalAudit()">
         Start Internal Audit
       </button>

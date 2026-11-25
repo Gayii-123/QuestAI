@@ -2,6 +2,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { SsraService } from '../../services/ssra.service';
+import { SsraDraftService } from '../../services/ssra-draft.service';
 import { SsraAssessment, SsraEvidencePhoto, SsraLifecycleStatus } from '../../models/ssra.models';
 import { getQuestionsForDomain, SsraQuestion } from '../../config/ssra-question-catalogue.config';
 
@@ -16,6 +17,7 @@ export class SsraDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private ssraService = inject(SsraService);
+  private draftService = inject(SsraDraftService);
 
   assessment = signal<SsraAssessment | null>(null);
   domainQuestions = signal<SsraQuestion[]>([]);
@@ -31,14 +33,23 @@ export class SsraDetailComponent implements OnInit {
 
     this.ssraService.getAssessmentById(id).subscribe({
       next: (data) => {
-        this.assessment.set(data);
-        if (data) {
-          this.domainQuestions.set(getQuestionsForDomain(data.domainType));
+        let finalData = data;
+        if (!finalData) {
+          finalData = this.draftService.getLocalSubmissionById(id);
+        }
+        this.assessment.set(finalData);
+        if (finalData) {
+          this.domainQuestions.set(getQuestionsForDomain(finalData.domainType));
         }
         this.isLoading.set(false);
       },
       error: (err) => {
         console.error('Failed to load assessment:', err);
+        const fallback = this.draftService.getLocalSubmissionById(id);
+        this.assessment.set(fallback);
+        if (fallback) {
+          this.domainQuestions.set(getQuestionsForDomain(fallback.domainType));
+        }
         this.isLoading.set(false);
       }
     });
@@ -67,6 +78,10 @@ export class SsraDetailComponent implements OnInit {
 
   backToDashboard(): void {
     this.router.navigate(['/ssra']);
+  }
+
+  goToReports(): void {
+    this.router.navigate(['/reports']);
   }
 
   printReport(): void {

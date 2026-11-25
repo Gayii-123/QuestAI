@@ -1019,6 +1019,27 @@
   gap: 10px;
 }
 
+.btn-new-ssra {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #047857;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(4, 120, 87, 0.25);
+  transition: all 0.15s ease;
+}
+
+.btn-new-ssra:hover {
+  background-color: #065f46;
+  transform: translateY(-1px);
+}
+
 .btn-new-ia {
   display: inline-flex;
   align-items: center;
@@ -1101,6 +1122,16 @@
   color: #ffffff;
 }
 
+.tab-count-pill.ssra-pill {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.report-tab-btn.active .tab-count-pill.ssra-pill {
+  background: #047857;
+  color: #ffffff;
+}
+
 /* Toast Notification Banner */
 .save-toast-banner {
   display: flex;
@@ -1166,10 +1197,85 @@
   color: #0369a1;
 }
 
+.report-type-badge.badge-ssra {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.report-card.ssra-card-border {
+  border-left: 4px solid #047857;
+}
+
+.report-card.ssra-card-border:hover {
+  border-color: #047857;
+}
+
 .report-ref-pill.ref-ia {
   background: #fdf2f4;
   color: #88132B;
   border: 1px solid #f9d2d8;
+}
+
+.report-ref-pill.ref-ssra {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.badge-status-ssra {
+  background-color: #ecfdf5 !important;
+  color: #065f46 !important;
+  border: 1px solid #a7f3d0;
+  font-weight: 700;
+}
+
+.btn-card-view.btn-view-ssra {
+  background-color: #047857;
+}
+
+.btn-card-view.btn-view-ssra:hover {
+  background-color: #065f46;
+}
+
+.stat-box.ssra-checks {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.stat-box.ssra-checks .stat-count {
+  color: #047857;
+}
+
+.stat-box.ssra-operatives {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+.stat-box.ssra-operatives .stat-count {
+  color: #334155;
+}
+
+.stat-box.ssra-hw {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+.stat-box.ssra-hw.active-hw {
+  background: #fff7ed;
+  border-color: #ffedd5;
+}
+
+.stat-box.ssra-hw.active-hw .stat-count {
+  color: #c2410c;
+  font-size: 0.85rem;
+}
+
+.ssra-empty-btn {
+  background: #047857 !important;
+}
+
+.ssra-empty-btn:hover {
+  background: #065f46 !important;
 }
 
 .btn-card-view.btn-view-ia:hover {

@@ -39,6 +39,7 @@ import {
 } from '../../features/ssra/models/ssra.models';
 import { ChatMessage } from '../models/chat.models';
 import { SsraService } from '../../features/ssra/services/ssra.service';
+import { SsraDraftService } from '../../features/ssra/services/ssra-draft.service';
 import { AuthService } from './auth.service';
 import { ReportService } from './report.service';
 
@@ -76,6 +77,7 @@ export interface SsraChatSession {
 })
 export class ConversationalSsraService {
   private readonly ssraService = inject(SsraService);
+  private readonly draftService = inject(SsraDraftService);
   private readonly authService = inject(AuthService);
   private readonly reportService = inject(ReportService);
 
@@ -586,7 +588,16 @@ export class ConversationalSsraService {
     session.stage = 'completed';
     session.finalAssessment = finalAss;
 
-    // Persist into unified ReportService for instant My Reports synchronization
+    // Persist into both local submissions and unified ReportService for instant access
+    try {
+      this.draftService.saveLocalSubmission(finalAss);
+      if (session.ssraId && session.ssraId !== finalAss.id) {
+        this.draftService.saveLocalSubmission({ ...finalAss, id: session.ssraId });
+      }
+    } catch (e) {
+      console.warn('[ConversationalSsra] Failed to save local submission:', e);
+    }
+
     try {
       this.reportService.saveSsraRecord(finalAss);
     } catch (e) {
